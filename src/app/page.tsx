@@ -1,106 +1,109 @@
-const inputSources = [
+const sourceCards = [
   {
-    title: "GitHub Release Evidence",
-    body: "Import tagged releases, merged pull requests, and linked issues to define what actually shipped.",
-    output: "Release anchor plus evidence links",
+    title: "GitHub Release Record",
+    body: "Sync release tags, merged pull requests, and issue context so the draft starts from shipped work.",
+    signal: "A factual release anchor",
   },
   {
-    title: "Slack Team Context",
-    body: "Pull decisions, risk notes, and support language from the release channel before they disappear in chat.",
-    output: "Reviewable coordination context",
+    title: "Team Deliberation",
+    body: "Pull the wording decisions hidden in Slack threads before they vanish into scattered chat history.",
+    signal: "Shared context before approval",
   },
   {
-    title: "Attached Release Files",
-    body: "Bring rollout docs, QA notes, migration plans, and draft changelogs into the same release workspace.",
-    output: "One evidence bundle per release",
+    title: "Rollout Artifacts",
+    body: "Attach QA notes, enablement docs, migration plans, and launch checklists to the same release workspace.",
+    signal: "One release context, not five tabs",
   },
 ];
 
-const workflow = [
+const operatingFlow = [
   {
     step: "01",
     title: "Collect",
-    body: "Assemble GitHub, Slack, and file evidence into one release context.",
+    body: "Gather release evidence, chat decisions, and rollout files into one operating context.",
   },
   {
     step: "02",
-    title: "Draft",
-    body: "Generate audience-specific communication starters from the release anchor.",
+    title: "Anchor",
+    body: "Lock every important claim to the release event and the evidence behind it.",
   },
   {
     step: "03",
-    title: "Check",
-    body: "Flag unsupported claims, internal-only wording, and risky language before review.",
+    title: "Draft",
+    body: "Generate audience-specific communication without rewriting the same facts by hand.",
   },
   {
     step: "04",
-    title: "Approve",
-    body: "Capture redlines, rationale, and explicit sign-off across teams.",
+    title: "Check",
+    body: "Flag risky language, unsupported certainty, and internal-only phrasing before approval.",
   },
   {
     step: "05",
+    title: "Approve",
+    body: "Keep redlines, reviewer decisions, and rationale in one visible trail.",
+  },
+  {
+    step: "06",
     title: "Export",
-    body: "Deliver a publish pack with final copy, evidence links, and revision history.",
+    body: "Hand off publish-ready notes, briefs, and supporting evidence as a release pack.",
   },
 ];
 
-const audiencePacks = [
+const outputCards = [
   {
-    audience: "External",
-    title: "Release note draft",
-    body: "Customer-facing release communication anchored to what shipped, not to vague product storytelling.",
-    output: "Changelog, release note, customer update",
+    label: "Customer",
+    title: "Release notes that can survive product and legal scrutiny",
+    body: "Ship customer-facing updates without copying facts out of GitHub, Slack, and rollout docs by hand.",
+    formats: "Release note, changelog, customer update",
   },
   {
-    audience: "Internal",
-    title: "Deployment brief",
-    body: "Give support, success, and internal teams the rollout context they need before public publish.",
-    output: "Launch brief, support handoff, rollout note",
+    label: "Internal",
+    title: "Launch briefs for teams who need to answer questions on day one",
+    body: "Give support, success, and operations a single release brief before the public message goes live.",
+    formats: "Deployment brief, support handoff, rollout summary",
   },
   {
-    audience: "Stakeholder",
-    title: "Release-derived update",
-    body: "Create a concise investor or board update starter grounded in release evidence rather than generic narrative.",
-    output: "Stakeholder update snippet, leadership brief",
+    label: "Stakeholder",
+    title: "Leadership updates derived from the same release source of truth",
+    body: "Prepare executive or investor summaries without drifting into generic, unsupported storytelling.",
+    formats: "Leadership update, board snippet, investor recap",
   },
 ];
 
-const guardrails = [
-  "Require evidence-linked support for major product claims",
-  "Flag roadmap promises or absolute statements without backing",
-  "Catch internal codenames before public publication",
-  "Highlight security and compliance-sensitive language",
-  "Preserve actor and timestamp for every approval decision",
+const reviewRules = [
+  "Important claims should point back to release evidence before they leave the draft.",
+  "Roadmap phrasing, certainty words, and internal codenames should be stopped before external publish.",
+  "Approval history should stay attached to the release instead of disappearing across docs and DMs.",
+  "Customer notes, internal briefs, and stakeholder updates should all derive from the same release anchor.",
 ];
 
-const principles = [
+const productPrinciples = [
   {
     title: "Truth Over Polish",
-    body: "Important claims should stay traceable to source evidence.",
+    body: "Anchra optimizes for accurate release communication before it optimizes for elegant phrasing.",
   },
   {
-    title: "Release-Anchored Output",
-    body: "Every document begins with a release event, not an empty generic editor.",
+    title: "Review Trail Over Chat Archaeology",
+    body: "The product keeps edits, evidence, and approvals in one place so teams do not reconstruct decisions later.",
   },
   {
-    title: "Human Accountability",
-    body: "Final publication decisions stay with people, with review history preserved.",
+    title: "One Release, Multiple Outputs",
+    body: "External notes, internal briefs, and leadership updates should be variants of the same release context.",
   },
 ];
 
-const inScope = [
-  "Release intake from GitHub, Slack notes, and attached files",
-  "Audience-specific draft generation for release communication",
-  "Claim and language guardrails before send",
-  "Review and approval workflow with decision history",
-  "Publish pack export with evidence links",
+const scopeIn = [
+  "Release intake from GitHub, Slack notes, and rollout files",
+  "Audience-specific drafting for release communication",
+  "Safety checks for claims, wording risk, and review readiness",
+  "Approval trace and publish pack export",
 ];
 
-const outOfScope = [
-  "Generic writing assistant for unrelated content",
-  "Broad creator studio or social scheduler",
-  "Standalone investor relations suite disconnected from releases",
-  "Feature additions with no release communication value",
+const scopeOut = [
+  "Generic AI writing for unrelated marketing or content work",
+  "A broad creator suite, scheduler, or editorial calendar",
+  "Investor relations software detached from shipped releases",
+  "Free-form generation without a release anchor",
 ];
 
 export default function Home() {
@@ -109,150 +112,156 @@ export default function Home() {
       <header className="pn-header reveal">
         <a className="pn-brand" href="#top">
           <span className="pn-brand-mark" aria-hidden>
-            PN
+            AN
           </span>
           <span className="pn-brand-copy">
-            <strong>Pulsenote</strong>
-            <small>Release communication system</small>
+            <strong>Anchra</strong>
+            <small>Anchored release communication</small>
           </span>
         </a>
 
         <nav className="pn-nav" aria-label="Primary">
-          <a href="#inputs">Inputs</a>
-          <a href="#workflow">Workflow</a>
+          <a href="#sources">Sources</a>
+          <a href="#flow">Flow</a>
           <a href="#outputs">Outputs</a>
-          <a href="#scope">Scope</a>
+          <a href="#principles">Principles</a>
         </nav>
 
-        <a className="pn-link-pill" href="#beta">
-          Request private beta
+        <a className="pn-link-pill" href="#pilot">
+          Request pilot
         </a>
       </header>
 
       <section id="top" className="pn-hero reveal">
         <div className="pn-hero-copy">
-          <p className="pn-kicker">Release communication system</p>
-          <h1>Turn release context into review-ready communication packs.</h1>
+          <p className="pn-kicker">Anchored release communication</p>
+          <h1>Anchor every customer-facing release note to the work behind it.</h1>
           <p>
-            Pulsenote collects GitHub releases, Slack decisions, and release
-            files, then prepares audience-specific drafts for external notes,
-            internal rollout briefs, and release-derived stakeholder updates.
+            Anchra turns release evidence, Slack decisions, and rollout files
+            into one review-ready release communication workflow. Collect the
+            context once, then draft, check, approve, and export the versions
+            each audience actually needs.
           </p>
 
           <div className="pn-actions">
-            <a className="pn-button pn-button-primary" href="#beta">
-              Join private beta
+            <a className="pn-button pn-button-primary" href="#pilot">
+              Start with a pilot release
             </a>
-            <a className="pn-button pn-button-secondary" href="#workflow">
-              See the flow
+            <a className="pn-button pn-button-secondary" href="#flow">
+              See the operating flow
             </a>
           </div>
 
-          <ul className="pn-stat-grid" aria-label="Product summary">
+          <ul className="pn-stat-grid" aria-label="Anchra summary">
             <li>
-              <p className="pn-stat-label">Inputs</p>
-              <p className="pn-stat-value">GitHub, Slack, and attached release files</p>
+              <p className="pn-stat-label">Anchor</p>
+              <p className="pn-stat-value">
+                GitHub release data plus the context teams need to explain it
+              </p>
             </li>
             <li>
               <p className="pn-stat-label">Outputs</p>
-              <p className="pn-stat-value">External note, internal brief, stakeholder update</p>
+              <p className="pn-stat-value">
+                Customer notes, internal briefs, leadership updates
+              </p>
             </li>
             <li>
               <p className="pn-stat-label">Control</p>
-              <p className="pn-stat-value">Evidence links, safety checks, approval history</p>
+              <p className="pn-stat-value">
+                Claim checks, approval history, publish-ready evidence links
+              </p>
             </li>
           </ul>
         </div>
 
-        <aside className="pn-console" aria-label="Sample release pack">
-          <p className="pn-console-title">Sample Release Pack / Demo Data</p>
+        <aside className="pn-console" aria-label="Anchra sample release run">
+          <p className="pn-console-title">Sample Release Run / Demo Data</p>
           <ul>
             <li>
-              <span>IN</span>
-              <p>GitHub release `v1.4.0` with 12 merged pull requests and linked issues.</p>
+              <span>SRC</span>
+              <p>Release tag, merged pull requests, and linked issue history imported from GitHub.</p>
             </li>
             <li>
-              <span>IN</span>
-              <p>Slack notes from product, support, and engineering on billing migration wording.</p>
+              <span>SRC</span>
+              <p>Slack review notes collected from product, support, and engineering.</p>
             </li>
             <li>
-              <span>IN</span>
-              <p>Attached rollout checklist, QA notes, and draft changelog from the release folder.</p>
-            </li>
-            <li>
-              <span>OUT</span>
-              <p>Customer-facing release note draft with evidence-linked claims.</p>
+              <span>SRC</span>
+              <p>QA notes, rollout checklists, and support enablement files attached to the release.</p>
             </li>
             <li>
               <span>OUT</span>
-              <p>Internal deployment brief for support, success, and launch coordination.</p>
+              <p>External release note draft with source-aware claims and review flags.</p>
             </li>
             <li>
               <span>OUT</span>
-              <p>Release-derived stakeholder update starter for leadership or investors.</p>
+              <p>Internal launch brief for support, success, and operations.</p>
+            </li>
+            <li>
+              <span>OUT</span>
+              <p>Leadership update assembled from the same release anchor.</p>
             </li>
           </ul>
           <div className="pn-console-foot">
-            <p>Status</p>
-            <strong>3 review-ready outputs assembled from one release anchor</strong>
+            <p>Result</p>
+            <strong>One anchored release context, multiple approval-ready outputs</strong>
           </div>
         </aside>
       </section>
 
-      <section className="pn-strip reveal" aria-label="Who this is for">
-        <p>Built for B2B teams shipping product changes weekly or faster</p>
+      <section className="pn-strip reveal" aria-label="Who Anchra is for">
+        <p>Built for teams that ship weekly and cannot afford communication drift after release day</p>
         <ul>
           <li>Product marketing</li>
           <li>Engineering leads</li>
           <li>Support and success</li>
-          <li>Founders and product operators</li>
+          <li>Founders and operators</li>
         </ul>
       </section>
 
-      <section id="inputs" className="pn-section pn-pillar-section reveal">
+      <section id="sources" className="pn-section pn-pillar-section reveal">
         <div className="pn-section-head">
-          <p className="pn-kicker">Inputs</p>
-          <h2>One release context, assembled from the tools where teams already work.</h2>
+          <p className="pn-kicker">Source of truth</p>
+          <h2>Anchra begins with a release anchor, not a blank canvas.</h2>
           <p className="pn-section-lead">
-            Pulsenote starts from evidence, not from a blank writing surface.
-            The release anchor stays visible from first draft through final
-            publish pack.
+            Teams do not need another generic writer. They need a system that
+            can explain where a release statement came from, why it is safe to
+            publish, and who signed off on it.
           </p>
         </div>
 
         <div className="pn-input-grid">
-          {inputSources.map((item) => (
+          {sourceCards.map((item) => (
             <article className="pn-pillar" key={item.title}>
               <h3>{item.title}</h3>
               <p>{item.body}</p>
-              <p className="pn-pillar-metric">{item.output}</p>
+              <p className="pn-pillar-metric">{item.signal}</p>
             </article>
           ))}
         </div>
 
         <article className="pn-platform-note">
           <p className="pn-kicker">Boundary</p>
-          <h3>Not a generic writer</h3>
+          <h3>Anchra is not a generic writer</h3>
           <p>
-            Pulsenote is designed to turn release evidence into reviewable
-            communication. If content is not anchored to a release, it is out of
-            scope for the core workflow.
+            If a message is not anchored to a release event and the evidence
+            around it, it does not belong in Anchra&apos;s core workflow.
           </p>
         </article>
       </section>
 
-      <section id="workflow" className="pn-section pn-workflow reveal">
+      <section id="flow" className="pn-section pn-workflow reveal">
         <div className="pn-section-head">
-          <p className="pn-kicker">Workflow</p>
-          <h2>Collect, draft, check, approve, export.</h2>
+          <p className="pn-kicker">Operating flow</p>
+          <h2>Collect, anchor, draft, check, approve, export.</h2>
           <p className="pn-section-lead">
-            The path is intentionally narrow so teams can move faster without
-            losing traceability or review control.
+            The workflow stays intentionally narrow so teams can move faster
+            without losing traceability, confidence, or approval discipline.
           </p>
         </div>
 
         <ol>
-          {workflow.map((item) => (
+          {operatingFlow.map((item) => (
             <li key={item.step}>
               <p className="pn-workflow-step">{item.step}</p>
               <h3>{item.title}</h3>
@@ -265,20 +274,21 @@ export default function Home() {
       <section id="outputs" className="pn-section pn-team-section reveal">
         <div className="pn-section-head">
           <p className="pn-kicker">Outputs</p>
-          <h2>Different audiences, one release anchor.</h2>
+          <h2>One release anchor can power every audience that needs an answer.</h2>
           <p className="pn-section-lead">
-            The output changes by audience, but every version stays tied to the
-            same release event and evidence bundle.
+            Anchra treats customer notes, internal rollout briefs, and
+            leadership summaries as variants of the same release communication
+            problem.
           </p>
         </div>
 
         <div className="pn-output-grid">
-          {audiencePacks.map((item) => (
+          {outputCards.map((item) => (
             <article className="pn-team-card" key={item.title}>
-              <p className="pn-scope-eyebrow">{item.audience}</p>
+              <p className="pn-scope-eyebrow">{item.label}</p>
               <h3>{item.title}</h3>
               <p>{item.body}</p>
-              <p className="pn-team-outcome">{item.output}</p>
+              <p className="pn-team-outcome">{item.formats}</p>
             </article>
           ))}
         </div>
@@ -286,60 +296,60 @@ export default function Home() {
 
       <section className="pn-section pn-safety reveal">
         <article className="pn-safety-main">
-          <p className="pn-kicker">Guardrails</p>
-          <h2>Safety and evidence checks happen before anything customer-facing leaves the team.</h2>
+          <p className="pn-kicker">Review rules</p>
+          <h2>Communication should survive scrutiny before it reaches a customer or executive inbox.</h2>
           <ul>
-            {guardrails.map((rule) => (
+            {reviewRules.map((rule) => (
               <li key={rule}>{rule}</li>
             ))}
           </ul>
         </article>
 
-        <aside className="pn-safety-note" aria-label="Sample guardrail finding">
-          <p className="pn-safety-note-title">Sample Finding</p>
+        <aside className="pn-safety-note" aria-label="Sample Anchra review outcome">
+          <p className="pn-safety-note-title">Sample Review Outcome</p>
           <div>
-            <span>Severity</span>
-            <strong>High</strong>
+            <span>Flag</span>
+            <strong>Unsupported certainty</strong>
           </div>
           <div>
-            <span>Rule</span>
-            <strong>Unsupported rollout claim</strong>
+            <span>Source gap</span>
+            <strong>No release evidence attached to the rollout claim</strong>
           </div>
           <div>
-            <span>Action</span>
-            <strong>Link the shipped evidence or rewrite before sending the external note.</strong>
+            <span>Next step</span>
+            <strong>Rewrite the statement or attach the release source before approval</strong>
           </div>
         </aside>
       </section>
 
-      <section className="pn-section pn-team-section reveal">
+      <section id="principles" className="pn-section pn-team-section reveal">
         <div className="pn-section-head">
-          <p className="pn-kicker">Principles</p>
-          <h2>Pulsenote favors trust, reviewability, and practical simplicity over breadth.</h2>
+          <p className="pn-kicker">Brand principles</p>
+          <h2>Anchra favors trust, reviewability, and operational clarity over broad AI promises.</h2>
         </div>
 
         <div className="pn-output-grid">
-          {principles.map((item, index) => (
+          {productPrinciples.map((item, index) => (
             <article className="pn-team-card" key={item.title}>
               <h3>{item.title}</h3>
               <p>{item.body}</p>
-              <p className="pn-team-outcome">Rule {String(index + 1).padStart(2, "0")}</p>
+              <p className="pn-team-outcome">Principle {String(index + 1).padStart(2, "0")}</p>
             </article>
           ))}
         </div>
       </section>
 
-      <section id="scope" className="pn-section pn-scope-section reveal">
+      <section className="pn-section pn-scope-section reveal">
         <div className="pn-section-head">
-          <p className="pn-kicker">V1 Boundaries</p>
-          <h2>What belongs in the first version, and what does not.</h2>
+          <p className="pn-kicker">Scope</p>
+          <h2>Anchra stays narrow on purpose.</h2>
         </div>
 
         <div className="pn-scope">
           <article className="pn-pillar">
             <p className="pn-scope-eyebrow">In scope</p>
             <ul className="pn-scope-list">
-              {inScope.map((item) => (
+              {scopeIn.map((item) => (
                 <li key={item}>{item}</li>
               ))}
             </ul>
@@ -348,7 +358,7 @@ export default function Home() {
           <article className="pn-pillar">
             <p className="pn-scope-eyebrow">Out of scope</p>
             <ul className="pn-scope-list">
-              {outOfScope.map((item) => (
+              {scopeOut.map((item) => (
                 <li key={item}>{item}</li>
               ))}
             </ul>
@@ -356,16 +366,16 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="beta" className="pn-final reveal">
-        <p className="pn-kicker">Private beta</p>
-        <h2>We are working first with teams that already feel release communication pain.</h2>
+      <section id="pilot" className="pn-final reveal">
+        <p className="pn-kicker">Pilot release</p>
+        <h2>Anchra is for teams that already feel the release communication bottleneck.</h2>
         <p>
-          If your team ships often and needs one release context to drive safer,
-          faster, more reviewable communication, Pulsenote is built for that
-          workflow.
+          If your team ships fast but still rewrites customer notes, support
+          briefs, and stakeholder updates by hand, Anchra is the layer that
+          keeps every version anchored to the same shipped release.
         </p>
-        <a className="pn-button pn-button-primary" href="mailto:founder@pulsenote.ai">
-          Request private beta access
+        <a className="pn-button pn-button-primary" href="#top">
+          Start from the release anchor
         </a>
       </section>
     </main>

@@ -3,16 +3,16 @@ import type { Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://pulsenote.ai"),
   title: {
-    default: "Pulsenote",
-    template: "%s | Pulsenote",
+    default: "Anchra",
+    template: "%s | Anchra",
   },
   description:
-    "Turn GitHub releases, Slack notes, and release files into review-ready release notes, internal briefs, and stakeholder updates with evidence, safety checks, and approval history.",
-  applicationName: "Pulsenote",
+    "Anchra keeps release communication anchored to what actually shipped by collecting GitHub evidence, Slack review context, and rollout files into one review-ready system.",
+  applicationName: "Anchra",
   keywords: [
     "release notes",
+    "anchored communication",
     "release communication",
     "approval workflow",
     "github releases",
@@ -21,18 +21,18 @@ export const metadata: Metadata = {
     "audit trail",
   ],
   openGraph: {
-    title: "Pulsenote",
+    title: "Anchra",
     description:
-      "Collect release context from GitHub, Slack, and files, then draft, check, approve, and export audience-specific communication packs.",
-    siteName: "Pulsenote",
+      "Anchra collects release context, drafts audience-ready communication, and keeps every message anchored to shipped evidence.",
+    siteName: "Anchra",
     type: "website",
     locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Pulsenote",
+    title: "Anchra",
     description:
-      "Release communication system for review-ready notes, briefs, and stakeholder updates.",
+      "Anchored release communication for notes, briefs, approvals, and publish packs.",
   },
 };
 

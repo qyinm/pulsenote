@@ -1,6 +1,6 @@
-# Pulsenote Landing
+# Anchra Landing
 
-Marketing site for Pulsenote, a release communication system that turns GitHub releases, Slack decisions, and release files into review-ready communication packs.
+Marketing site for Anchra, an anchored release communication system that turns GitHub releases, Slack decisions, and release files into review-ready communication packs.
 
 ## Product Frame
 
@@ -8,7 +8,7 @@ Marketing site for Pulsenote, a release communication system that turns GitHub r
 - Flow: collect, draft, check, approve, export
 - Output: external release notes, internal deployment briefs, release-derived stakeholder updates
 
-The landing page should keep that release-anchored story clear. It should not drift into a generic AI writer or broad content studio pitch.
+The landing page should keep that anchored release story clear. It should not drift into a generic AI writer or broad content studio pitch.
 
 ## Stack
 
