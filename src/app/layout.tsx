@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     template: "%s | Anchra",
   },
   description:
-    "Anchra keeps release communication anchored to what actually shipped by collecting GitHub evidence, Slack review context, and rollout files into one review-ready system.",
+    "Anchra turns release evidence, Slack decisions, and rollout files into review-ready release notes, internal briefs, and stakeholder updates.",
   applicationName: "Anchra",
   keywords: [
     "release notes",
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Anchra",
     description:
-      "Anchra collects release context, drafts audience-ready communication, and keeps every message anchored to shipped evidence.",
+      "Anchra collects release context, checks risky wording, and exports approval-ready communication from one release anchor.",
     siteName: "Anchra",
     type: "website",
     locale: "en_US",

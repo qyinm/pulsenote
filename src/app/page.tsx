@@ -128,7 +128,7 @@ export default function Home() {
         </nav>
 
         <a className="pn-link-pill" href="#pilot">
-          Request pilot
+          Request design partner pilot
         </a>
       </header>
 
@@ -140,7 +140,8 @@ export default function Home() {
             Anchra turns release evidence, Slack decisions, and rollout files
             into one review-ready release communication workflow. Collect the
             context once, then draft, check, approve, and export the versions
-            each audience actually needs.
+            each audience actually needs without drifting away from shipped
+            reality.
           </p>
 
           <div className="pn-actions">
@@ -375,7 +376,7 @@ export default function Home() {
           keeps every version anchored to the same shipped release.
         </p>
         <a className="pn-button pn-button-primary" href="#top">
-          Start from the release anchor
+          Review the anchored workflow
         </a>
       </section>
     </main>
