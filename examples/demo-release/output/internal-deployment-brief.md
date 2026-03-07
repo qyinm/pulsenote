@@ -1,18 +1,18 @@
-# Pulsenote Deployment Brief Draft
+# Anchra Deployment Brief Draft
 
 ## Release Anchor
-- Repository: `acme/pulsenote`
-- Release: [March Reliability Release (v1.4.0)](https://github.com/acme/pulsenote/releases/tag/v1.4.0)
+- Repository: `acme/anchra`
+- Release: [March Reliability Release (v1.4.0)](https://github.com/acme/anchra/releases/tag/v1.4.0)
 - Context collected at: `2026-03-07T09:00:00Z`
-- Draft generated at: `2026-03-06T16:27:10Z`
+- Draft generated at: `2026-03-07T05:17:48Z`
 
 ## Suggested Framing
 Use this brief to align support, success, and engineering around rollout wording, publish pack reliability, and any internal cautions that should be resolved before customer-facing send.
 
 ## Deployment Scope
-- PR #14: Add publish pack diff export ([source](https://github.com/acme/pulsenote/pull/14))
-- PR #22: Tighten billing migration claim checks ([source](https://github.com/acme/pulsenote/pull/22))
-- PR #31: Retry failed publish pack exports ([source](https://github.com/acme/pulsenote/pull/31))
+- PR #14: Add publish pack diff export ([source](https://github.com/acme/anchra/pull/14))
+- PR #22: Tighten billing migration claim checks ([source](https://github.com/acme/anchra/pull/22))
+- PR #31: Retry failed publish pack exports ([source](https://github.com/acme/anchra/pull/31))
 
 ## Coordination Context
 - Linear: ENG-104: Track approval audit trail coverage ([source](https://linear.app/acme/issue/ENG-104))

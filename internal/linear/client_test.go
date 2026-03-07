@@ -88,8 +88,8 @@ func TestNewClientDefaultsEndpoint(t *testing.T) {
 }
 
 func TestNewClientFromEnvUsesOverrideEndpoint(t *testing.T) {
-	t.Setenv("PULSENOTE_LINEAR_API_KEY", "test-key")
-	t.Setenv("PULSENOTE_LINEAR_API_URL", "https://example.com/graphql")
+	t.Setenv("ANCHRA_LINEAR_API_KEY", "test-key")
+	t.Setenv("ANCHRA_LINEAR_API_URL", "https://example.com/graphql")
 
 	client := NewClientFromEnv()
 
@@ -103,8 +103,8 @@ func TestNewClientFromEnvUsesOverrideEndpoint(t *testing.T) {
 }
 
 func TestNewClientFromEnvDefaultEndpoint(t *testing.T) {
-	t.Setenv("PULSENOTE_LINEAR_API_KEY", "test-key")
-	t.Setenv("PULSENOTE_LINEAR_API_URL", "")
+	t.Setenv("ANCHRA_LINEAR_API_KEY", "test-key")
+	t.Setenv("ANCHRA_LINEAR_API_URL", "")
 
 	client := NewClientFromEnv()
 	if client.endpoint != DefaultGraphQLEndpoint {

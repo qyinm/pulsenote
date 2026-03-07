@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
+
+	"anchra-cli/internal/envvars"
 )
 
 type Release struct {
@@ -47,8 +48,8 @@ func NewReleaseClient(runner Runner, httpClient HTTPClient, token string, baseUR
 }
 
 func NewReleaseClientFromEnv() *ReleaseClient {
-	token := strings.TrimSpace(os.Getenv("PULSENOTE_GITHUB_TOKEN"))
-	baseURL := strings.TrimSpace(os.Getenv("PULSENOTE_GITHUB_API_URL"))
+	token := envvars.Get("ANCHRA_GITHUB_TOKEN", "PULSENOTE_GITHUB_TOKEN")
+	baseURL := envvars.Get("ANCHRA_GITHUB_API_URL", "PULSENOTE_GITHUB_API_URL")
 	return NewReleaseClient(NewExecRunner(), nil, token, baseURL)
 }
 

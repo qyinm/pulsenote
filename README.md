@@ -1,6 +1,6 @@
-# Pulsenote CLI
+# Anchra CLI
 
-Pulsenote CLI is the smallest executable slice of the product. It assembles release context and turns that evidence bundle into audience-specific communication drafts.
+Anchra CLI is the smallest executable slice of the product. It assembles release context and turns that evidence bundle into audience-specific communication drafts.
 
 ## Scope
 
@@ -14,23 +14,23 @@ Pulsenote CLI is the smallest executable slice of the product. It assembles rele
 ### Integration checks
 
 ```bash
-go run ./cmd/pulsenote doctor
-go run ./cmd/pulsenote github status
-go run ./cmd/pulsenote linear status
-go run ./cmd/pulsenote slack test --dry-run
+go run ./cmd/anchra doctor
+go run ./cmd/anchra github status
+go run ./cmd/anchra linear status
+go run ./cmd/anchra slack test --dry-run
 ```
 
 ### Collect a release bundle
 
 ```bash
-go run ./cmd/pulsenote collect \
-  --repo acme/pulsenote \
+go run ./cmd/anchra collect \
+  --repo acme/anchra \
   --release-tag v1.4.0 \
   --linear-team ENG \
   --slack-note "Do not promise rollout timing in public copy." \
   --slack-file ./examples/demo-release/source/slack-product.txt \
   --file ./examples/demo-release/source \
-  --out ./pulsenote-out/demo
+  --out ./anchra-out/demo
 ```
 
 This writes:
@@ -42,17 +42,17 @@ This writes:
 ### Draft from a collected bundle
 
 ```bash
-go run ./cmd/pulsenote draft \
+go run ./cmd/anchra draft \
   --context ./examples/demo-release/context.json \
   --audience external \
   --out ./examples/demo-release/output
 
-go run ./cmd/pulsenote draft \
+go run ./cmd/anchra draft \
   --context ./examples/demo-release/context.json \
   --audience internal \
   --out ./examples/demo-release/output
 
-go run ./cmd/pulsenote draft \
+go run ./cmd/anchra draft \
   --context ./examples/demo-release/context.json \
   --audience investor \
   --out ./examples/demo-release/output
@@ -78,11 +78,13 @@ Use it to evaluate output tone and section structure without needing live GitHub
 
 ## Environment Variables
 
-- `PULSENOTE_GITHUB_TOKEN`
-- `PULSENOTE_GITHUB_API_URL`
-- `PULSENOTE_LINEAR_API_KEY`
-- `PULSENOTE_LINEAR_API_URL`
-- `PULSENOTE_SLACK_WEBHOOK_URL`
+- `ANCHRA_GITHUB_TOKEN`
+- `ANCHRA_GITHUB_API_URL`
+- `ANCHRA_LINEAR_API_KEY`
+- `ANCHRA_LINEAR_API_URL`
+- `ANCHRA_SLACK_WEBHOOK_URL`
+
+Legacy `PULSENOTE_*` variables are still accepted as fallbacks during the rename.
 
 GitHub can also work through an authenticated `gh` CLI session.
 

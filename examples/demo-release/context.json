@@ -2,27 +2,27 @@
   "version": "v1",
   "collectedAt": "2026-03-07T09:00:00Z",
   "github": {
-    "repo": "acme/pulsenote",
+    "repo": "acme/anchra",
     "release": {
       "title": "March Reliability Release",
       "tag": "v1.4.0",
-      "url": "https://github.com/acme/pulsenote/releases/tag/v1.4.0"
+      "url": "https://github.com/acme/anchra/releases/tag/v1.4.0"
     },
     "pullRequests": [
       {
         "number": 14,
         "title": "Add publish pack diff export",
-        "url": "https://github.com/acme/pulsenote/pull/14"
+        "url": "https://github.com/acme/anchra/pull/14"
       },
       {
         "number": 22,
         "title": "Tighten billing migration claim checks",
-        "url": "https://github.com/acme/pulsenote/pull/22"
+        "url": "https://github.com/acme/anchra/pull/22"
       },
       {
         "number": 31,
         "title": "Retry failed publish pack exports",
-        "url": "https://github.com/acme/pulsenote/pull/31"
+        "url": "https://github.com/acme/anchra/pull/31"
       }
     ]
   },

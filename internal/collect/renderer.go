@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"strings"
 
-	"pulsenote-cli/internal/releasecontext"
+	"anchra-cli/internal/releasecontext"
 )
 
 func RenderMarkdown(bundle releasecontext.Bundle) string {
 	var b strings.Builder
 
-	b.WriteString("# Pulsenote Context Summary\n\n")
+	b.WriteString("# Anchra Context Summary\n\n")
 	b.WriteString("## Release Anchor\n")
 	b.WriteString(fmt.Sprintf("- Repository: `%s`\n", bundle.GitHub.Repo))
 	b.WriteString("- Release: ")

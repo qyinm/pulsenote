@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"pulsenote-cli/internal/releasecontext"
+	"anchra-cli/internal/releasecontext"
 )
 
 const statusOK = "ok"

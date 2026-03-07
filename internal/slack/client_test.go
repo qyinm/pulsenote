@@ -10,7 +10,7 @@ import (
 
 func TestClientTestDryRunWithoutWebhookReturnsOK(t *testing.T) {
 	client := NewClient(nil, "")
-	result := client.Test(context.Background(), true, false, "hello from pulsenote")
+	result := client.Test(context.Background(), true, false, "hello from anchra")
 
 	if result.Status != StatusOK {
 		t.Fatalf("status = %q, want %q", result.Status, StatusOK)
@@ -31,7 +31,7 @@ func TestClientTestDryRunWithoutWebhookReturnsOK(t *testing.T) {
 
 func TestClientTestPostWithoutWebhookReturnsDegraded(t *testing.T) {
 	client := NewClient(nil, "")
-	result := client.Test(context.Background(), false, true, "hello from pulsenote")
+	result := client.Test(context.Background(), false, true, "hello from anchra")
 
 	if result.Status != StatusDegraded {
 		t.Fatalf("status = %q, want %q", result.Status, StatusDegraded)
@@ -58,8 +58,8 @@ func TestClientTestPostSendsWebhookJSON(t *testing.T) {
 		}
 
 		text, _ := payload["text"].(string)
-		if text != "hello from pulsenote" {
-			t.Fatalf("payload text = %q, want hello from pulsenote", text)
+		if text != "hello from anchra" {
+			t.Fatalf("payload text = %q, want hello from anchra", text)
 		}
 
 		w.WriteHeader(http.StatusOK)
@@ -67,7 +67,7 @@ func TestClientTestPostSendsWebhookJSON(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.Client(), server.URL)
-	result := client.Test(context.Background(), false, true, "hello from pulsenote")
+	result := client.Test(context.Background(), false, true, "hello from anchra")
 
 	if result.Status != StatusOK {
 		t.Fatalf("status = %q, want %q", result.Status, StatusOK)

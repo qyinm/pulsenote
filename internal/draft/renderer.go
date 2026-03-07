@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"pulsenote-cli/internal/releasecontext"
+	"anchra-cli/internal/releasecontext"
 )
 
 type RenderInput struct {
@@ -65,13 +65,13 @@ func RenderMarkdown(input RenderInput) string {
 func titleFor(audience Audience, format string) string {
 	switch audience {
 	case AudienceExternal:
-		return "# Pulsenote Release Note Draft"
+		return "# Anchra Release Note Draft"
 	case AudienceInternal:
-		return "# Pulsenote Deployment Brief Draft"
+		return "# Anchra Deployment Brief Draft"
 	case AudienceInvestor:
-		return "# Pulsenote Stakeholder Update Draft"
+		return "# Anchra Stakeholder Update Draft"
 	default:
-		return "# Pulsenote Draft (" + format + ")"
+		return "# Anchra Draft (" + format + ")"
 	}
 }
 

@@ -1,4 +1,4 @@
-module pulsenote-cli
+module anchra-cli
 
 go 1.25.5
 

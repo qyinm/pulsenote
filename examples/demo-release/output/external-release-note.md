@@ -1,18 +1,18 @@
-# Pulsenote Release Note Draft
+# Anchra Release Note Draft
 
 ## Release Anchor
-- Repository: `acme/pulsenote`
-- Release: [March Reliability Release (v1.4.0)](https://github.com/acme/pulsenote/releases/tag/v1.4.0)
+- Repository: `acme/anchra`
+- Release: [March Reliability Release (v1.4.0)](https://github.com/acme/anchra/releases/tag/v1.4.0)
 - Context collected at: `2026-03-07T09:00:00Z`
-- Draft generated at: `2026-03-06T16:26:46Z`
+- Draft generated at: `2026-03-07T05:17:48Z`
 
 ## Suggested Framing
 This release centers on safer publish workflows, stronger review coverage, and clearer customer-ready release communication. Keep the final summary tied to the shipped evidence below.
 
 ## What Shipped
-- PR #14: Add publish pack diff export ([source](https://github.com/acme/pulsenote/pull/14))
-- PR #22: Tighten billing migration claim checks ([source](https://github.com/acme/pulsenote/pull/22))
-- PR #31: Retry failed publish pack exports ([source](https://github.com/acme/pulsenote/pull/31))
+- PR #14: Add publish pack diff export ([source](https://github.com/acme/anchra/pull/14))
+- PR #22: Tighten billing migration claim checks ([source](https://github.com/acme/anchra/pull/22))
+- PR #31: Retry failed publish pack exports ([source](https://github.com/acme/anchra/pull/31))
 
 ## Supporting Evidence To Weave Into Copy
 - Linear: ENG-104: Track approval audit trail coverage ([source](https://linear.app/acme/issue/ENG-104))
@@ -23,7 +23,7 @@ This release centers on safer publish workflows, stronger review coverage, and c
 - File `examples/demo-release/source/release-plan.md`: Publish customer-facing notes after support and product approve the billing migration wording. Include exporter retry and approval audit trail updates in the external draft. Send the deployment brief to support, success, and engineering leads before release day close.
 
 ## Publish Pack Notes
-- Release anchor: [March Reliability Release (v1.4.0)](https://github.com/acme/pulsenote/releases/tag/v1.4.0)
+- Release anchor: [March Reliability Release (v1.4.0)](https://github.com/acme/anchra/releases/tag/v1.4.0)
 - Include direct source links for customer-visible claims.
 - Call out follow-up work separately if it is not already shipped.
 

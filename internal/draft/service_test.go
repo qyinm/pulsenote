@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"pulsenote-cli/internal/releasecontext"
+	"anchra-cli/internal/releasecontext"
 )
 
 func TestGenerateWritesAudienceDraftAndReceipt(t *testing.T) {
@@ -20,7 +20,7 @@ func TestGenerateWritesAudienceDraftAndReceipt(t *testing.T) {
 		Version:     releasecontext.CurrentVersion,
 		CollectedAt: "2026-03-07T09:00:00Z",
 		GitHub: releasecontext.GitHubContext{
-			Repo: "acme/pulsenote",
+			Repo: "acme/anchra",
 			Release: releasecontext.Release{
 				Title: "March Release",
 				Tag:   "v1.2.0",

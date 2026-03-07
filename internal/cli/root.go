@@ -10,13 +10,14 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"pulsenote-cli/internal/collect"
-	"pulsenote-cli/internal/draft"
-	githubadapter "pulsenote-cli/internal/github"
-	linearadapter "pulsenote-cli/internal/linear"
-	"pulsenote-cli/internal/output"
-	"pulsenote-cli/internal/releasecontext"
-	slackadapter "pulsenote-cli/internal/slack"
+	"anchra-cli/internal/collect"
+	"anchra-cli/internal/draft"
+	"anchra-cli/internal/envvars"
+	githubadapter "anchra-cli/internal/github"
+	linearadapter "anchra-cli/internal/linear"
+	"anchra-cli/internal/output"
+	"anchra-cli/internal/releasecontext"
+	slackadapter "anchra-cli/internal/slack"
 )
 
 const (
@@ -35,8 +36,8 @@ func NewRootCmd() *cobra.Command {
 	opts := &options{}
 
 	rootCmd := &cobra.Command{
-		Use:           "pulsenote",
-		Short:         "Pulsenote release communication CLI",
+		Use:           "anchra",
+		Short:         "Anchra release communication CLI",
 		SilenceErrors: true,
 		SilenceUsage:  true,
 	}
@@ -288,7 +289,7 @@ func newDraftCmd(opts *options) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&contextPath, "context", "", "Path to a context.json bundle from `pulsenote collect`")
+	cmd.Flags().StringVar(&contextPath, "context", "", "Path to a context.json bundle from `anchra collect`")
 	cmd.Flags().StringVar(&audience, "audience", "", "Draft audience: external, internal, or investor")
 	cmd.Flags().StringVar(&format, "format", "", "Optional format override: release-note, deployment-brief, stakeholder-update")
 	_ = cmd.MarkFlagRequired("context")
@@ -350,7 +351,7 @@ func (f linearCollectFetcher) FetchIssuesUpdatedSince(ctx context.Context, param
 func newTUICmd(opts *options) *cobra.Command {
 	return &cobra.Command{
 		Use:   "tui",
-		Short: "Run interactive Pulsenote wizard",
+		Short: "Run interactive Anchra wizard",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			resp := output.StatusResponse{
 				Status: statusError,
@@ -384,7 +385,7 @@ func resolveDraftOutDir(cmd *cobra.Command, defaultOutDir string, contextPath st
 
 func defaultOutDir() string {
 	sessionID := time.Now().UTC().Format("20060102T150405Z")
-	return filepath.Join(".", "pulsenote-out", sessionID)
+	return filepath.Join(".", "anchra-out", sessionID)
 }
 
 func printStatus(opts *options, resp output.StatusResponse) error {
@@ -427,7 +428,7 @@ func githubCheck() output.Check {
 	}
 
 	if result.Code == "missing_github_auth" {
-		errDetail.Message = "set PULSENOTE_GITHUB_TOKEN or authenticate with gh"
+		errDetail.Message = "set ANCHRA_GITHUB_TOKEN (or legacy PULSENOTE_GITHUB_TOKEN) or authenticate with gh"
 	} else {
 		errDetail.Message = "failed to verify GitHub connectivity using gh or token"
 	}
@@ -450,7 +451,7 @@ func linearCheck() output.Check {
 
 	errDetail := &output.ErrorDetail{Code: result.Code}
 	if result.Code == "missing_linear_api_key" {
-		errDetail.Message = "set PULSENOTE_LINEAR_API_KEY"
+		errDetail.Message = "set ANCHRA_LINEAR_API_KEY (or legacy PULSENOTE_LINEAR_API_KEY)"
 	} else {
 		errDetail.Message = "failed to verify Linear GraphQL connectivity"
 	}
@@ -463,13 +464,13 @@ func linearCheck() output.Check {
 }
 
 func slackCredCheck() output.Check {
-	if strings.TrimSpace(os.Getenv("PULSENOTE_SLACK_WEBHOOK_URL")) == "" {
+	if envvars.Get("ANCHRA_SLACK_WEBHOOK_URL", "PULSENOTE_SLACK_WEBHOOK_URL") == "" {
 		return output.Check{
 			Name:   "slack",
 			Status: statusDegraded,
 			Error: &output.ErrorDetail{
 				Code:    "missing_slack_webhook",
-				Message: "set PULSENOTE_SLACK_WEBHOOK_URL",
+				Message: "set ANCHRA_SLACK_WEBHOOK_URL (or legacy PULSENOTE_SLACK_WEBHOOK_URL)",
 			},
 		}
 	}
@@ -508,7 +509,7 @@ func slackCheck(dryRun bool, post bool, text string) output.Check {
 
 	errDetail := &output.ErrorDetail{Code: result.Code}
 	if result.Code == slackadapter.CodeMissingSlackWebhook {
-		errDetail.Message = "set PULSENOTE_SLACK_WEBHOOK_URL"
+		errDetail.Message = "set ANCHRA_SLACK_WEBHOOK_URL (or legacy PULSENOTE_SLACK_WEBHOOK_URL)"
 	} else {
 		errDetail.Message = "failed to post to Slack incoming webhook"
 	}

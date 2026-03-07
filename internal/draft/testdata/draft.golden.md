@@ -1,8 +1,8 @@
-# Pulsenote Release Note Draft
+# Anchra Release Note Draft
 
 ## Release Anchor
-- Repository: `acme/pulsenote`
-- Release: [March Release (v1.2.0)](https://github.com/acme/pulsenote/releases/tag/v1.2.0)
+- Repository: `acme/anchra`
+- Release: [March Release (v1.2.0)](https://github.com/acme/anchra/releases/tag/v1.2.0)
 - Context collected at: `2026-03-07T09:00:00Z`
 - Draft generated at: `2026-03-07T10:30:00Z`
 
@@ -10,8 +10,8 @@
 This release centers on safer publish workflows, stronger review coverage, and clearer customer-ready release communication. Keep the final summary tied to the shipped evidence below.
 
 ## What Shipped
-- PR #7: Add deterministic draft renderer ([source](https://github.com/acme/pulsenote/pull/7))
-- PR #22: Fix race in exporter ([source](https://github.com/acme/pulsenote/pull/22))
+- PR #7: Add deterministic draft renderer ([source](https://github.com/acme/anchra/pull/7))
+- PR #22: Fix race in exporter ([source](https://github.com/acme/anchra/pull/22))
 
 ## Supporting Evidence To Weave Into Copy
 - Linear: ENG-20: Track release receipts ([source](https://linear.app/acme/issue/ENG-20))
@@ -20,7 +20,7 @@ This release centers on safer publish workflows, stronger review coverage, and c
 - File `/tmp/release-plan.md`: Coordinate rollout with support and attach publish pack evidence.
 
 ## Publish Pack Notes
-- Release anchor: [March Release (v1.2.0)](https://github.com/acme/pulsenote/releases/tag/v1.2.0)
+- Release anchor: [March Release (v1.2.0)](https://github.com/acme/anchra/releases/tag/v1.2.0)
 - Include direct source links for customer-visible claims.
 - Call out follow-up work separately if it is not already shipped.
 

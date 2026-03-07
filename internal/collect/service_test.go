@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"pulsenote-cli/internal/releasecontext"
+	"anchra-cli/internal/releasecontext"
 )
 
 type githubFetcherStub struct {
@@ -55,7 +55,7 @@ func TestCollectWritesContextAndReceipt(t *testing.T) {
 	result, err := Collect(
 		context.Background(),
 		Options{
-			Repo:            "acme/pulsenote",
+			Repo:            "acme/anchra",
 			UseLatest:       true,
 			LinearTeam:      "ENG",
 			LinearSinceDays: 7,
@@ -98,7 +98,7 @@ func TestCollectWritesContextAndReceipt(t *testing.T) {
 		t.Fatalf("unmarshal bundle: %v", err)
 	}
 
-	if bundle.GitHub.Repo != "acme/pulsenote" {
+	if bundle.GitHub.Repo != "acme/anchra" {
 		t.Fatalf("repo = %q", bundle.GitHub.Repo)
 	}
 	if bundle.SourceCounts.SlackNotes != 2 {

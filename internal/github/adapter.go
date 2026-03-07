@@ -3,8 +3,9 @@ package github
 import (
 	"context"
 	"errors"
-	"os"
 	"strings"
+
+	"anchra-cli/internal/envvars"
 )
 
 const (
@@ -38,7 +39,7 @@ func NewAdapter(gh UserChecker, pat UserChecker, token string) *Adapter {
 }
 
 func NewAdapterFromEnv() *Adapter {
-	token := strings.TrimSpace(os.Getenv("PULSENOTE_GITHUB_TOKEN"))
+	token := envvars.Get("ANCHRA_GITHUB_TOKEN", "PULSENOTE_GITHUB_TOKEN")
 	return NewAdapter(NewCLIClient(NewExecRunner()), NewPATClient(nil, token, ""), token)
 }
 

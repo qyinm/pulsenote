@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"pulsenote-cli/internal/cli"
+	"anchra-cli/internal/cli"
 )
 
 func main() {

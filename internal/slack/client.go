@@ -7,8 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
+
+	"anchra-cli/internal/envvars"
 )
 
 const (
@@ -21,7 +22,7 @@ const (
 	CodeSlackConnectivityError = "slack_connectivity_failed"
 )
 
-const DefaultTestMessage = "Pulsenote Slack test message"
+const DefaultTestMessage = "Anchra Slack test message"
 
 var ErrMissingWebhook = errors.New("missing slack webhook")
 
@@ -60,7 +61,7 @@ func NewClient(client HTTPClient, webhookURL string) *Client {
 }
 
 func NewClientFromEnv() *Client {
-	return NewClient(http.DefaultClient, os.Getenv("PULSENOTE_SLACK_WEBHOOK_URL"))
+	return NewClient(http.DefaultClient, envvars.Get("ANCHRA_SLACK_WEBHOOK_URL", "PULSENOTE_SLACK_WEBHOOK_URL"))
 }
 
 func (c *Client) Test(ctx context.Context, dryRun bool, post bool, text string) Result {

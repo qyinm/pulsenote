@@ -7,9 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 	"time"
+
+	"anchra-cli/internal/envvars"
 )
 
 const (
@@ -66,8 +67,8 @@ func NewClient(client HTTPClient, apiKey string, endpoint string) *Client {
 }
 
 func NewClientFromEnv() *Client {
-	endpoint := strings.TrimSpace(os.Getenv("PULSENOTE_LINEAR_API_URL"))
-	return NewClient(http.DefaultClient, os.Getenv("PULSENOTE_LINEAR_API_KEY"), endpoint)
+	endpoint := envvars.Get("ANCHRA_LINEAR_API_URL", "PULSENOTE_LINEAR_API_URL")
+	return NewClient(http.DefaultClient, envvars.Get("ANCHRA_LINEAR_API_KEY", "PULSENOTE_LINEAR_API_KEY"), endpoint)
 }
 
 func (c *Client) CheckStatus(ctx context.Context) Result {

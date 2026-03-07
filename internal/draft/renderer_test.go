@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"pulsenote-cli/internal/releasecontext"
+	"anchra-cli/internal/releasecontext"
 )
 
 func TestRenderMarkdownGolden(t *testing.T) {
@@ -20,15 +20,15 @@ func TestRenderMarkdownGolden(t *testing.T) {
 			Version:     releasecontext.CurrentVersion,
 			CollectedAt: "2026-03-07T09:00:00Z",
 			GitHub: releasecontext.GitHubContext{
-				Repo: "acme/pulsenote",
+				Repo: "acme/anchra",
 				Release: releasecontext.Release{
 					Title: "March Release",
 					Tag:   "v1.2.0",
-					URL:   "https://github.com/acme/pulsenote/releases/tag/v1.2.0",
+					URL:   "https://github.com/acme/anchra/releases/tag/v1.2.0",
 				},
 				PullRequests: []releasecontext.PullRequest{
-					{Number: 22, Title: "Fix race in exporter", URL: "https://github.com/acme/pulsenote/pull/22"},
-					{Number: 7, Title: "Add deterministic draft renderer", URL: "https://github.com/acme/pulsenote/pull/7"},
+					{Number: 22, Title: "Fix race in exporter", URL: "https://github.com/acme/anchra/pull/22"},
+					{Number: 7, Title: "Add deterministic draft renderer", URL: "https://github.com/acme/anchra/pull/7"},
 				},
 			},
 			Linear: releasecontext.LinearContext{
