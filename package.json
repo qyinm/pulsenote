@@ -9,9 +9,6 @@
     "build:site": "pnpm --dir apps/site build",
     "lint": "pnpm --dir apps/site lint",
     "lint:site": "pnpm --dir apps/site lint",
-    "typecheck:site": "pnpm --dir apps/site exec tsc --noEmit",
-    "cli": "go run ./apps/cli/cmd/anchra",
-    "test:cli": "go test ./apps/cli/..."
+    "typecheck:site": "pnpm --dir apps/site exec tsc --noEmit"
   }
 }
-

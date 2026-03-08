@@ -1,5 +1,0 @@
-Support release channel notes
-
-- Billing migration copy needs a caution line for existing enterprise customers.
-- The export retry fix reduced support escalations during QA.
-- Internal teams need rollback wording before public publish.

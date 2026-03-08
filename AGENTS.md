@@ -33,9 +33,6 @@ Every meaningful feature should reinforce this operating flow:
   - Public product site.
   - Owns the landing page, download entry points, and links into the web product.
   - Treat this as a deployable site, not as passive docs content.
-- `apps/cli/`
-  - Go CLI for release intake and draft generation.
-  - Keep commands narrow and release-derived.
 - `SOUL.md`
   - Product mission, scope, and non-negotiables.
 - `README.md`
@@ -47,12 +44,6 @@ Every meaningful feature should reinforce this operating flow:
 - Do not market Anchra as a generic AI assistant.
 - If the site mentions web app entry or GUI download, keep those paths concrete and non-hyped.
 - Label mock product states clearly as sample or demo.
-
-## CLI expectations
-- Keep commands tied to release communication jobs.
-- Prefer deterministic output structures over open-ended creative behavior.
-- Preserve reviewability in outputs, receipts, and context bundles.
-- Do not introduce broad content-generation features unrelated to shipped releases.
 
 ## Naming rules
 - Name features by user outcome, not model internals.
@@ -68,7 +59,6 @@ Before considering a task done:
 
 Recommended checks:
 - Site: `pnpm lint`, `pnpm build`
-- CLI: `go test ./apps/cli/...`
 
 ## What to avoid
 - Turning Anchra into a generic writer, scheduler, or creator platform
