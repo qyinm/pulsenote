@@ -1,6 +1,6 @@
-# Anchra Landing
+# Anchra Site
 
-Marketing site for Anchra, an anchored release communication system that turns GitHub releases, Slack decisions, and release files into review-ready communication packs.
+Public site for Anchra, the anchored release communication system that turns GitHub releases, Slack decisions, and release files into review-ready communication packs.
 
 ## Product Frame
 
@@ -19,14 +19,31 @@ The landing page should keep that anchored release story clear. It should not dr
 
 ## Local Development
 
+From the repo root:
+
 ```bash
 pnpm install
+pnpm dev
+```
+
+From this package directly:
+
+```bash
 pnpm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
 
 ## Validation
+
+From the repo root:
+
+```bash
+pnpm lint
+pnpm build
+```
+
+From this package directly:
 
 ```bash
 pnpm lint
@@ -36,12 +53,12 @@ pnpm build
 In restricted sandbox environments, `pnpm build` can fail because Turbopack tries to bind an internal port. In that case, use:
 
 ```bash
-pnpm exec next build --webpack
+./node_modules/.bin/next build --webpack
 ```
 
 ## Important Files
 
-- `src/app/page.tsx`: landing page message architecture and sections
+- `src/app/page.tsx`: site message architecture and sections
 - `src/app/globals.css`: visual system and layout styling
 - `src/app/layout.tsx`: metadata and root layout
 
