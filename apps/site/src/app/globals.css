@@ -464,18 +464,18 @@ a {
 }
 
 .pn-mini-card-dark {
-  background: #141414;
-  border-color: #141414;
-  color: #faf6ee;
+  background: rgba(255, 248, 237, 0.92);
+  border-color: var(--line);
+  color: var(--ink);
 }
 
 .pn-mini-card-dark .pn-mini-label,
 .pn-mini-card-dark p {
-  color: rgba(250, 246, 238, 0.78);
+  color: var(--ink-soft);
 }
 
 .pn-mini-card-dark h3 {
-  color: #faf6ee;
+  color: var(--ink);
 }
 
 .pn-strip {
@@ -818,15 +818,15 @@ a {
 
   .pn-bento-card:nth-child(4) {
     grid-column: span 3;
-    background: #151515;
-    border-color: #151515;
-    color: #faf6ee;
+    background: rgba(255, 248, 237, 0.92);
+    border-color: var(--line);
+    color: var(--ink);
   }
 
   .pn-bento-card:nth-child(4) p,
   .pn-bento-card:nth-child(4) span {
-    color: rgba(250, 246, 238, 0.76);
-    border-color: rgba(250, 246, 238, 0.12);
+    color: var(--ink-soft);
+    border-color: var(--line);
   }
 
   .pn-bento-card:nth-child(5) {
@@ -856,16 +856,16 @@ a {
 
   .pn-output-card:nth-child(3) {
     grid-column: span 3;
-    background: #141414;
-    border-color: #141414;
-    color: #faf6ee;
+    background: rgba(255, 248, 237, 0.92);
+    border-color: var(--line);
+    color: var(--ink);
   }
 
   .pn-output-card:nth-child(3) p,
   .pn-output-card:nth-child(3) span,
   .pn-output-card:nth-child(3) .pn-card-label {
-    color: rgba(250, 246, 238, 0.76);
-    border-color: rgba(250, 246, 238, 0.12);
+    color: var(--ink-soft);
+    border-color: var(--line);
   }
 
   .pn-review-band {

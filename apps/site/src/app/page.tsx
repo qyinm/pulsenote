@@ -255,7 +255,7 @@ export default function Home() {
               <p>Edits, sign-off, and rationale stay attached to the release instead of vanishing into DMs.</p>
             </article>
 
-            <article className="pn-mini-card pn-mini-card-dark">
+            <article className="pn-mini-card">
               <p className="pn-mini-label">Boundary</p>
               <h3>Anchra is not a generic writer.</h3>
               <p>If a message is not anchored to a shipped release, it does not belong in the core workflow.</p>
