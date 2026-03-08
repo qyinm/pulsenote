@@ -1,7 +1,5 @@
 .DS_Store
 .agents/
 .sisyphus/
-.git-backups/
-.history-merge-staging/
 node_modules/
 pnpm-debug.log*
