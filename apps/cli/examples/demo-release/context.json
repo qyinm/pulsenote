@@ -1,0 +1,75 @@
+{
+  "version": "v1",
+  "collectedAt": "2026-03-07T09:00:00Z",
+  "github": {
+    "repo": "acme/anchra",
+    "release": {
+      "title": "March Reliability Release",
+      "tag": "v1.4.0",
+      "url": "https://github.com/acme/anchra/releases/tag/v1.4.0"
+    },
+    "pullRequests": [
+      {
+        "number": 14,
+        "title": "Add publish pack diff export",
+        "url": "https://github.com/acme/anchra/pull/14"
+      },
+      {
+        "number": 22,
+        "title": "Tighten billing migration claim checks",
+        "url": "https://github.com/acme/anchra/pull/22"
+      },
+      {
+        "number": 31,
+        "title": "Retry failed publish pack exports",
+        "url": "https://github.com/acme/anchra/pull/31"
+      }
+    ]
+  },
+  "linear": {
+    "teamKey": "ENG",
+    "sinceDays": 14,
+    "issues": [
+      {
+        "identifier": "ENG-104",
+        "title": "Track approval audit trail coverage",
+        "url": "https://linear.app/acme/issue/ENG-104"
+      },
+      {
+        "identifier": "ENG-118",
+        "title": "Clarify billing migration release wording",
+        "url": "https://linear.app/acme/issue/ENG-118"
+      }
+    ]
+  },
+  "slack": {
+    "snippets": [
+      {
+        "source": "examples/demo-release/source/slack-product.txt",
+        "text": "Keep customer-facing language focused on shipped workflow improvements. Do not imply universal rollout completion. Use \"publish pack\" consistently instead of \"campaign kit\"."
+      },
+      {
+        "source": "examples/demo-release/source/slack-support.txt",
+        "text": "Billing migration copy needs a caution line for existing enterprise customers. The export retry fix reduced support escalations during QA. Internal teams need rollback wording before public publish."
+      }
+    ]
+  },
+  "files": [
+    {
+      "path": "examples/demo-release/source/qa-notes.md",
+      "title": "QA notes",
+      "excerpt": "Verified retry behavior for publish pack export on repeated network failures. Checked approval audit trail rendering for product and support reviewers. Flagged one unsupported rollout claim in an earlier release note draft."
+    },
+    {
+      "path": "examples/demo-release/source/release-plan.md",
+      "title": "March reliability release plan",
+      "excerpt": "Publish customer-facing notes after support and product approve the billing migration wording. Include exporter retry and approval audit trail updates in the external draft. Send the deployment brief to support, success, and engineering leads before release day close."
+    }
+  ],
+  "sourceCounts": {
+    "pullRequests": 3,
+    "issues": 2,
+    "slackNotes": 2,
+    "files": 2
+  }
+}

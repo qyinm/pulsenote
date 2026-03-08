@@ -1,0 +1,5 @@
+Product review notes
+
+- Keep customer-facing language focused on shipped workflow improvements.
+- Do not imply universal rollout completion.
+- Use "publish pack" consistently instead of "campaign kit".
