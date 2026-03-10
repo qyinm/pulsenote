@@ -139,6 +139,20 @@ const faqs = [
   },
 ];
 
+const Terminal = ({ children }: { children: React.ReactNode }) => (
+  <div className="pn-workspace reveal mt-12 w-full max-w-2xl mx-auto overflow-hidden border-0 shadow-strong bg-[#141414]">
+    <div className="pn-workspace-top border-b border-white/10 px-4 py-3">
+      <div className="pn-window-dots">
+        <span className="bg-white/20" /> <span className="bg-white/20" /> <span className="bg-white/20" />
+      </div>
+      <p className="text-white/40 text-[10px] uppercase tracking-widest font-mono">anchra-cli — v2.4.0</p>
+    </div>
+    <div className="p-6 font-mono text-sm leading-relaxed text-[#faf6ee]">
+      {children}
+    </div>
+  </div>
+);
+
 export default function Home() {
   return (
     <main className="pn-site">
@@ -167,99 +181,35 @@ export default function Home() {
 
       <section id="top" className="pn-hero reveal">
         <div className="pn-hero-copy">
-          <p className="pn-kicker">Anchored release communication</p>
-          <h1>Release communication should not be written from memory.</h1>
-          <p className="pn-hero-lead">
+          <p className="pn-kicker">Release Communication System</p>
+          <h1 className="leading-[0.9] tracking-[-0.06em]">Release notes—No blank prompts.</h1>
+          <p className="pn-hero-lead mx-auto">
             Anchra gathers release evidence, Slack decisions, and rollout files
-            into one release anchor, then turns that anchor into drafts,
-            checks, approvals, and export-ready communication for every
-            audience that needs an answer.
+            into one release anchor. No generic writing. No unverified claims.
           </p>
 
           <div className="pn-actions">
-            <a className="pn-button pn-button-primary" href="#pilot">
-              Start with a pilot release
+            <a className="pn-button pn-button-primary px-8" href="#download">
+              Download CLI
             </a>
-            <a className="pn-button pn-button-secondary" href="#faq">
-              Why not just use AI chat?
+            <a className="pn-button pn-button-secondary px-8" href="https://github.com" target="_blank" rel="noopener noreferrer">
+              View on GitHub
             </a>
           </div>
 
-          <div className="pn-chip-row" aria-label="Anchra summary">
+          <Terminal>
+            <p className="text-[#c5a676]">$ anchra collect --release v2.4.0</p>
+            <p className="opacity-50 mt-2">→ Ingesting GitHub PRs... [DONE]</p>
+            <p className="opacity-50">→ Checking Slack context... [FOUND 12 DECISIONS]</p>
+            <p className="opacity-50">→ Analyzing rollout files... [MIGRATION NOTES FOUND]</p>
+            <p className="mt-4 text-[#c5a676]">$ anchra pack --target external</p>
+            <p className="opacity-100 mt-2">✔ Release pack generated: <u className="decoration-[#c5a676]/40">./packs/v2.4.0-public.md</u></p>
+          </Terminal>
+
+          <div className="pn-chip-row mt-12" aria-label="Anchra summary">
             {heroChips.map((item) => (
-              <span key={item}>{item}</span>
+              <span key={item} className="bg-white/50 backdrop-blur-sm border-line-strong/10">{item}</span>
             ))}
-          </div>
-
-          <div className="pn-stat-grid">
-            <article>
-              <p className="pn-stat-label">Anchor</p>
-              <p className="pn-stat-value">
-                GitHub release data plus the context teams need to explain it
-              </p>
-            </article>
-            <article>
-              <p className="pn-stat-label">Outputs</p>
-              <p className="pn-stat-value">
-                Customer notes, internal briefs, leadership updates
-              </p>
-            </article>
-            <article>
-              <p className="pn-stat-label">Control</p>
-              <p className="pn-stat-value">
-                Claim checks, approval history, publish-ready evidence links
-              </p>
-            </article>
-          </div>
-        </div>
-
-        <div className="pn-hero-stack" aria-label="Anchra release canvas">
-          <article className="pn-workspace">
-            <div className="pn-workspace-top">
-              <div className="pn-window-dots" aria-hidden>
-                <span />
-                <span />
-                <span />
-              </div>
-              <p>Anchra release canvas / Demo data</p>
-            </div>
-
-            <div className="pn-workspace-body">
-              <div className="pn-workspace-column">
-                <span>Collect</span>
-                <h3>Release context bundle</h3>
-                <p>GitHub release, PRs, Slack review notes, QA files, rollout plans</p>
-              </div>
-              <div className="pn-workspace-column">
-                <span>Draft</span>
-                <h3>Audience-specific versions</h3>
-                <p>Customer note, support brief, leadership summary from the same anchor</p>
-              </div>
-              <div className="pn-workspace-column">
-                <span>Check</span>
-                <h3>Claims and wording review</h3>
-                <p>Unsupported certainty, roadmap language, internal-only phrasing, missing evidence</p>
-              </div>
-            </div>
-
-            <div className="pn-workspace-footer">
-              <p>Result</p>
-              <strong>One anchored release context, multiple approval-ready outputs</strong>
-            </div>
-          </article>
-
-          <div className="pn-mini-grid">
-            <article className="pn-mini-card">
-              <p className="pn-mini-label">Review trail</p>
-              <h3>Approvals stop living in Slack.</h3>
-              <p>Edits, sign-off, and rationale stay attached to the release instead of vanishing into DMs.</p>
-            </article>
-
-            <article className="pn-mini-card">
-              <p className="pn-mini-label">Boundary</p>
-              <h3>Anchra is not a generic writer.</h3>
-              <p>If a message is not anchored to a shipped release, it does not belong in the core workflow.</p>
-            </article>
           </div>
         </div>
       </section>
@@ -277,22 +227,27 @@ export default function Home() {
       <section id="system" className="pn-section reveal">
         <div className="pn-section-intro">
           <p className="pn-kicker">System</p>
-          <h2>Anchra begins with a release anchor, not a blank canvas.</h2>
-          <p>
-            Teams do not need another generic writer. They need a system that
+          <h2 className="text-5xl md:text-7xl">Anchored in shipping data.</h2>
+          <p className="text-lg opacity-80">
+            Teams do not need another generic AI writer. They need a system that
             can explain where a release statement came from, why it is safe to
             publish, and who signed off on it.
           </p>
         </div>
 
-        <div className="pn-bento-grid">
-          {systemCards.map((item) => (
-            <article className="pn-bento-card" key={item.title}>
-              <h3>{item.title}</h3>
-              <p>{item.body}</p>
-              <span>{item.meta}</span>
+        <div className="pn-bento-grid mt-12">
+          {systemCards.map((item, idx) => (
+            <article className={`pn-bento-card ${idx === 0 ? "md:col-span-7" : idx === 1 ? "md:col-span-5" : "md:col-span-4"}`} key={item.title}>
+              <p className="pn-card-label">{item.meta}</p>
+              <h3 className="text-2xl mt-4">{item.title}</h3>
+              <p className="mt-2 opacity-70 leading-relaxed">{item.body}</p>
             </article>
           ))}
+          <article className="pn-bento-card md:col-span-12 bg-[#111111] text-[#f7f2e8] border-0">
+            <p className="pn-card-label text-[#c5a676]">Active Protection</p>
+            <h3 className="text-3xl md:text-5xl mt-4 font-serif italic">Detect risky wording before they see it.</h3>
+            <p className="mt-4 opacity-70 text-lg max-w-2xl">Flag unsupported certainty, internal-only language, and unapproved claims automatically before any human review.</p>
+          </article>
         </div>
       </section>
 
