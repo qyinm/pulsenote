@@ -8,7 +8,7 @@ export default function HomePage() {
         <Card className="w-full border-[var(--border)] bg-white">
           <CardContent className="space-y-8">
             <div className="space-y-3">
-              <p className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--accent)]">
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
                 Authenticated surface
               </p>
               <h1 className="text-5xl font-semibold leading-[0.92] tracking-[-0.07em] text-[var(--foreground)]">

@@ -2,14 +2,14 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #181512;
+  --foreground: #111111;
   --canvas: #ffffff;
-  --muted: #f5f5f5;
-  --muted-foreground: #6f685d;
-  --border: rgba(24, 21, 18, 0.1);
-  --ring: rgba(106, 76, 255, 0.42);
-  --accent: #7c5cff;
-  --brand: #6c4cff;
+  --muted: #f4f4f4;
+  --muted-foreground: #666666;
+  --border: rgba(17, 17, 17, 0.1);
+  --ring: rgba(17, 17, 17, 0.18);
+  --accent: #111111;
+  --brand: #111111;
 }
 
 @theme inline {
@@ -41,10 +41,10 @@ a {
   display: grid;
   gap: 1.2rem;
   padding: 2rem;
-  border: 1px solid rgba(23, 23, 23, 0.08);
+  border: 1px solid rgba(17, 17, 17, 0.08);
   border-radius: 32px;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 24px 80px rgba(23, 23, 23, 0.06);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 20px 60px rgba(17, 17, 17, 0.05);
 }
 
 .dashboard-card h1 {
@@ -56,7 +56,7 @@ a {
 
 .dashboard-card p {
   margin: 0;
-  color: #5f5a52;
+  color: #666666;
   line-height: 1.7;
 }
 
@@ -69,16 +69,16 @@ a {
   display: grid;
   gap: 0.5rem;
   padding: 1rem;
-  border: 1px solid rgba(23, 23, 23, 0.08);
+  border: 1px solid rgba(17, 17, 17, 0.08);
   border-radius: 20px;
-  background: rgba(250, 247, 241, 0.8);
+  background: #fafafa;
 }
 
 .dashboard-grid span {
   font-size: 0.76rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #8a7b68;
+  color: #7a7a7a;
 }
 
 .dashboard-grid strong {

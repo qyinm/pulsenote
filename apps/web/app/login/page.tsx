@@ -23,7 +23,7 @@ export default function LoginPage() {
           <Card className="w-full max-w-md border-[var(--border)] bg-white">
             <CardContent className="space-y-6">
               <div className="space-y-2">
-                <p className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--accent)]">
+                <p className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
                   Welcome back
                 </p>
                 <h2 className="text-4xl font-semibold leading-none tracking-[-0.06em] text-[var(--foreground)]">

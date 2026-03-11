@@ -3,3 +3,7 @@
 .sisyphus/
 node_modules/
 pnpm-debug.log*
+
+# Rust / ratatui
+target/
+**/*.rs.bk
