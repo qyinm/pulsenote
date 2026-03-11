@@ -1,6 +1,6 @@
-# Anchra
+# PulseNote
 
-Anchra is a release communication system. It turns release evidence into reviewable, approval-ready communication without drifting away from shipped facts.
+PulseNote is a release communication system. It turns release evidence into reviewable, approval-ready communication without drifting away from shipped facts.
 
 ## Workspace
 

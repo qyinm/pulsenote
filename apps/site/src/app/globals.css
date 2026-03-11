@@ -163,8 +163,8 @@ a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 2.55rem;
-  padding: 0 0.92rem;
+  min-height: 2.3rem;
+  padding: 0 0.84rem;
   border-radius: 999px;
   border: 1px solid #171412;
   background: #171412;
@@ -176,6 +176,14 @@ a {
 
 .pn-link-pill:hover {
   background: #28221d;
+}
+
+.pn-link-pill-muted {
+  border-color: var(--line);
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--ink-muted);
+  cursor: default;
+  pointer-events: none;
 }
 
 .pn-hero {
@@ -245,8 +253,8 @@ a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 3rem;
-  padding: 0 1.15rem;
+  min-height: 2.7rem;
+  padding: 0 1rem;
   border-radius: 999px;
   border: 1px solid transparent;
   text-decoration: none;
@@ -283,6 +291,14 @@ a {
 
 .pn-button-secondary:hover {
   background: rgba(17, 17, 17, 0.04);
+}
+
+.pn-button-muted {
+  background: rgba(255, 255, 255, 0.56);
+  border-color: var(--line);
+  color: var(--ink-muted);
+  cursor: default;
+  pointer-events: none;
 }
 
 .pn-chip-row {
@@ -932,6 +948,52 @@ a {
   justify-content: center;
 }
 
+.pn-access-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.pn-access-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  padding: 1.6rem;
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.pn-access-card-muted {
+  background: rgba(248, 246, 242, 0.82);
+}
+
+.pn-coming-soon {
+  min-height: calc(100dvh - 8rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 4rem 1rem 6rem;
+}
+
+.pn-coming-soon h1 {
+  margin: 0.9rem 0 0;
+  max-width: 10ch;
+  font-family: var(--font-playfair-display), serif;
+  font-size: clamp(3rem, 8vw, 5.4rem);
+  line-height: 0.94;
+  letter-spacing: -0.05em;
+}
+
+.pn-coming-soon p:not(.pn-kicker) {
+  max-width: 42rem;
+  margin: 1.2rem auto 0;
+  color: var(--ink-soft);
+  line-height: 1.8;
+}
+
 .reveal {
   opacity: 0;
   transform: translateY(14px);
@@ -1047,6 +1109,10 @@ a {
 
   .pn-output-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .pn-access-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .pn-review-band {

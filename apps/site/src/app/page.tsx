@@ -277,8 +277,8 @@ export default function Home() {
           <a href="#faq">FAQ</a>
         </nav>
 
-        <a className="pn-link-pill" href="#download">
-          Download CLI
+        <a className="pn-link-pill" href="/coming-soon">
+          Start Free
         </a>
       </header>
 
@@ -291,11 +291,11 @@ export default function Home() {
           </p>
 
           <div className="pn-actions !mt-10">
-            <a className="pn-button pn-button-primary px-10" href="#download">
-              Install CLI
+            <a className="pn-button pn-button-primary px-10" href="/coming-soon">
+              Start Free
             </a>
-            <a className="pn-button pn-button-secondary px-10" href="#flow">
-              See workflow
+            <a className="pn-button pn-button-secondary px-10" href="/coming-soon">
+              Download
             </a>
           </div>
 
@@ -394,11 +394,36 @@ export default function Home() {
         <p className="pn-kicker !text-[#c5a676]">Start Now</p>
         <h2 className="text-6xl md:text-8xl !max-w-none italic">Your releases. <br/> Your evidence.</h2>
         <p className="text-xl opacity-60 mt-8 max-w-2xl mx-auto">
-          Download the PulseNote CLI to guide your release communication workflows. Keep the interface anchored to collect, draft, check, approve, and export.
+          PulseNote access is still being prepared. Both the hosted web app and the CLI entry point will open from the same release communication system.
         </p>
+        <div className="pn-access-grid mt-12">
+          <article className="pn-access-card">
+            <p className="pn-card-label !text-[#c5a676]">Coming soon</p>
+            <h3 className="text-2xl font-serif mt-4">Install the CLI</h3>
+            <p className="mt-4 opacity-70 text-sm leading-relaxed">
+              The terminal workflow is being packaged now. CLI setup, release collection, and pack generation will open soon.
+            </p>
+            <a className="pn-button pn-button-primary mt-8" href="/coming-soon">
+              Download CLI
+            </a>
+          </article>
+          <article className="pn-access-card pn-access-card-muted">
+            <p className="pn-card-label !text-[#c5a676]">Coming soon</p>
+            <h3 className="text-2xl font-serif mt-4">Open the web app</h3>
+            <p className="mt-4 opacity-70 text-sm leading-relaxed">
+              Review drafts, approvals, and release records in the browser once the hosted surface is ready.
+            </p>
+            <a className="pn-button pn-button-secondary mt-8" href="/coming-soon">
+              Start Free
+            </a>
+          </article>
+        </div>
         <div className="pn-final-actions !mt-12">
-          <a className="pn-button pn-button-primary px-12" href="#top">
-            Install CLI
+          <a className="pn-button pn-button-primary px-12" href="/coming-soon">
+            Start Free
+          </a>
+          <a className="pn-button pn-button-secondary px-12" href="/coming-soon">
+            Download CLI
           </a>
         </div>
       </section>
