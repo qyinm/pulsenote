@@ -1,36 +1,76 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PulseNote Web App
 
-## Getting Started
+Browser application for PulseNote.
 
-First, run the development server:
+This app is intended for the authenticated product surface: release records, review flows, approvals, and browser-based workflow management. It is separate from `apps/site`, which remains the public marketing and access-state surface.
+
+## Purpose
+
+- Own logged-in product flows
+- Show release records and workflow state in the browser
+- Support draft review, claim checks, approvals, and export handoff
+- Evolve into the main hosted product surface behind `Start Free`
+
+## Relationship To Other Apps
+
+- `apps/site`
+  Public landing page, branding, and coming-soon/access messaging
+- `apps/web`
+  Authenticated web product
+- `apps/api`
+  Backend API surface
+
+## Stack
+
+- Next.js 16 App Router
+- React 19
+- TypeScript
+- Tailwind CSS v4
+
+## Local Development
+
+From the repo root:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
+pnpm --dir apps/web dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+From this package directly:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+pnpm dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Open [http://localhost:3000](http://localhost:3000).
 
-## Learn More
+## Validation
 
-To learn more about Next.js, take a look at the following resources:
+From the repo root:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+pnpm --dir apps/web lint
+pnpm --dir apps/web build
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+From this package directly:
 
-## Deploy on Vercel
+```bash
+pnpm lint
+pnpm build
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Important Files
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `app/page.tsx`
+  Current app entry page
+- `app/layout.tsx`
+  Root layout and metadata
+- `app/globals.css`
+  Web app styling baseline
+
+## Editing Guidance
+
+- Keep this app product-first, not marketing-first.
+- Move user-facing access and placeholder messaging into `apps/site`.
+- Use this surface for real workflow state once authentication and backend integration are ready.
