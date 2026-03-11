@@ -2,7 +2,14 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #181512;
+  --canvas: #ffffff;
+  --muted: #f5f5f5;
+  --muted-foreground: #6f685d;
+  --border: rgba(24, 21, 18, 0.1);
+  --ring: rgba(106, 76, 255, 0.42);
+  --accent: #7c5cff;
+  --brand: #6c4cff;
 }
 
 @theme inline {
@@ -12,15 +19,75 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
 }
 
+html,
 body {
+  margin: 0;
+  padding: 0;
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+a {
+  color: inherit;
+}
+
+.dashboard-card {
+  width: min(100%, 42rem);
+  display: grid;
+  gap: 1.2rem;
+  padding: 2rem;
+  border: 1px solid rgba(23, 23, 23, 0.08);
+  border-radius: 32px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 24px 80px rgba(23, 23, 23, 0.06);
+}
+
+.dashboard-card h1 {
+  margin: 0;
+  font-size: clamp(2.5rem, 6vw, 4rem);
+  line-height: 0.95;
+  letter-spacing: -0.05em;
+}
+
+.dashboard-card p {
+  margin: 0;
+  color: #5f5a52;
+  line-height: 1.7;
+}
+
+.dashboard-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.dashboard-grid article {
+  display: grid;
+  gap: 0.5rem;
+  padding: 1rem;
+  border: 1px solid rgba(23, 23, 23, 0.08);
+  border-radius: 20px;
+  background: rgba(250, 247, 241, 0.8);
+}
+
+.dashboard-grid span {
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8a7b68;
+}
+
+.dashboard-grid strong {
+  font-size: 1.05rem;
+  color: #171412;
+}
+
+@media (min-width: 760px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
