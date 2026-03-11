@@ -8,7 +8,7 @@ This app owns the marketing landing page, brand presentation, access-state messa
 
 - Explains PulseNote as a release communication system, not a generic AI writer
 - Shows the release workflow: collect, draft, check, approve, export
-- Presents current access paths such as `Start Free`, `Download CLI`, and `Coming Soon` states
+- Presents current access paths such as `Start Free` and `Coming Soon` states
 - Links users into future hosted product surfaces without overstating what is already available
 
 ## Product Frame

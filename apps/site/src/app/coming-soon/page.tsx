@@ -7,8 +7,8 @@ export default function ComingSoonPage() {
         <p className="pn-kicker !text-[#c5a676]">Coming Soon</p>
         <h1>PulseNote access is coming soon.</h1>
         <p>
-          The hosted web app and CLI entry point are still being prepared. The release workflow, browser review
-          surface, and terminal access will open here once they are ready.
+          The hosted web app is still being prepared. Release review, approval, and publish-pack export will open
+          here once the first surface is ready.
         </p>
 
         <div className="pn-final-actions">

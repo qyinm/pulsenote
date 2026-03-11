@@ -178,7 +178,7 @@ const FlowVisualizer = () => (
   </div>
 );
 
-const Terminal = () => (
+const ReviewSurface = () => (
   <div className="pn-workspace pn-workspace-hero reveal w-full">
     <div className="pn-workspace-top">
       <div className="pn-window-dots">
@@ -186,29 +186,61 @@ const Terminal = () => (
         <span />
         <span />
       </div>
-      <p>pulsenote session / release v2.4.0</p>
+      <p>release review / v2.4.0</p>
     </div>
 
-    <div className="rounded-[22px] bg-[#111111] px-5 py-4 font-mono text-[13px] leading-6 text-[#f8f5ee] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-      <p className="text-[#c5a676]">$ pulsenote collect --release v2.4.0</p>
-      <p className="mt-1.5 text-white/55">→ ingesting github evidence... [14 prs found]</p>
-      <p className="text-white/55">→ sourcing slack context... [8 decisions found]</p>
-      <p className="mt-3 text-[#c5a676]">$ pulsenote check --audience external</p>
-      <p className="text-white/55">→ flagged unsupported certainty... [2 items]</p>
-      <p className="mt-3 text-[#c5a676]">$ pulsenote pack --target external</p>
-      <p className="text-white/80">✓ pack generated ./packs/v2.4-external.md</p>
+    <div className="rounded-[22px] border border-[color:var(--line)] bg-white/88 px-5 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]">
+      <div className="flex items-center justify-between gap-3 border-b border-[color:var(--line)] pb-3">
+        <div>
+          <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-[color:var(--ink-muted)]">
+            External release note
+          </p>
+          <p className="mt-1 text-sm font-medium text-[color:var(--ink)]">
+            Ready for approval after claim check
+          </p>
+        </div>
+        <span className="rounded-full border border-[#c5a676]/30 bg-[#f6efe3] px-3 py-1 font-mono text-[11px] uppercase tracking-[0.12em] text-[#8c6b35]">
+          2 flags cleared
+        </span>
+      </div>
+
+      <div className="mt-4 space-y-3 text-sm leading-6 text-[color:var(--ink-soft)]">
+        <div className="rounded-[18px] bg-[#faf7f1] px-4 py-3">
+          <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-[color:var(--ink-muted)]">
+            Draft
+          </p>
+          <p className="mt-1 text-[color:var(--ink)]">
+            Customers can now export a reviewed publish pack with linked release evidence and rollout notes.
+          </p>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="rounded-[18px] border border-[color:var(--line)] bg-white/90 px-4 py-3">
+            <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-[color:var(--ink-muted)]">
+              Evidence
+            </p>
+            <p className="mt-1">14 merged PRs, 3 Linear issues, and 1 rollout checklist attached.</p>
+          </div>
+          <div className="rounded-[18px] border border-[color:var(--line)] bg-white/90 px-4 py-3">
+            <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-[color:var(--ink-muted)]">
+              Approval
+            </p>
+            <p className="mt-1">Marketing edits logged, engineering sign-off recorded, export pack queued.</p>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div className="pn-workspace-body pn-workspace-body-duo">
       <article className="pn-workspace-column">
-        <span>Working set</span>
-        <h3>Release evidence in one review surface.</h3>
-        <p>PRs, Slack decisions, and rollout files stay attached before drafting starts.</p>
+        <span>Review surface</span>
+        <h3>Release evidence stays visible while reviewers edit the draft.</h3>
+        <p>Source links, claims, and rollout context remain attached to the same release record.</p>
       </article>
       <article className="pn-workspace-column">
         <span>Current status</span>
-        <h3>Claim check completed before approval.</h3>
-        <p>Reviewers see flagged risk and the final audience pack in one pass.</p>
+        <h3>Claim check closes before anyone exports the pack.</h3>
+        <p>Approvers see the language risk, the final note, and the handoff pack in one browser workflow.</p>
       </article>
     </div>
   </div>
@@ -294,8 +326,8 @@ export default function Home() {
             <a className="pn-button pn-button-primary px-10" href="/coming-soon">
               Start Free
             </a>
-            <a className="pn-button pn-button-secondary px-10" href="/coming-soon">
-              Download
+            <a className="pn-button pn-button-secondary px-10" href="#system">
+              View System
             </a>
           </div>
 
@@ -310,7 +342,7 @@ export default function Home() {
         </div>
 
         <div className="pn-hero-stack">
-          <Terminal />
+          <ReviewSurface />
         </div>
       </section>
 
@@ -394,26 +426,17 @@ export default function Home() {
         <p className="pn-kicker !text-[#c5a676]">Start Now</p>
         <h2 className="text-6xl md:text-8xl !max-w-none italic">Your releases. <br/> Your evidence.</h2>
         <p className="text-xl opacity-60 mt-8 max-w-2xl mx-auto">
-          PulseNote access is still being prepared. Both the hosted web app and the CLI entry point will open from the same release communication system.
+          PulseNote access is still being prepared. The first surface will be the hosted web app for release review,
+          approvals, and publish-pack export.
         </p>
         <div className="pn-access-grid mt-12">
           <article className="pn-access-card">
-            <p className="pn-card-label !text-[#c5a676]">Coming soon</p>
-            <h3 className="text-2xl font-serif mt-4">Install the CLI</h3>
-            <p className="mt-4 opacity-70 text-sm leading-relaxed">
-              The terminal workflow is being packaged now. CLI setup, release collection, and pack generation will open soon.
-            </p>
-            <a className="pn-button pn-button-primary mt-8" href="/coming-soon">
-              Download CLI
-            </a>
-          </article>
-          <article className="pn-access-card pn-access-card-muted">
             <p className="pn-card-label !text-[#c5a676]">Coming soon</p>
             <h3 className="text-2xl font-serif mt-4">Open the web app</h3>
             <p className="mt-4 opacity-70 text-sm leading-relaxed">
               Review drafts, approvals, and release records in the browser once the hosted surface is ready.
             </p>
-            <a className="pn-button pn-button-secondary mt-8" href="/coming-soon">
+            <a className="pn-button pn-button-primary mt-8" href="/coming-soon">
               Start Free
             </a>
           </article>
@@ -422,8 +445,8 @@ export default function Home() {
           <a className="pn-button pn-button-primary px-12" href="/coming-soon">
             Start Free
           </a>
-          <a className="pn-button pn-button-secondary px-12" href="/coming-soon">
-            Download CLI
+          <a className="pn-button pn-button-secondary px-12" href="#flow">
+            View Flow
           </a>
         </div>
       </section>
