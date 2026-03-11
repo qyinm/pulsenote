@@ -1,7 +1,7 @@
-# Anchra SOUL
+# PulseNote SOUL
 
 ## One line
-Anchra helps product teams turn release activity into public safe, approval ready communication.
+PulseNote helps product teams turn release activity into public safe, approval ready communication.
 
 ## Mission
 Ship clearer release communication faster, without sacrificing truth, context, or accountability.
@@ -19,7 +19,7 @@ The gap creates risk: overpromising, inconsistent messaging, and slow approvals.
 Release information is fragmented across pull requests, issues, docs, and chat. Teams manually rewrite everything and lose evidence, consistency, and approval trace.
 
 ## Product promise
-From one release event, Anchra produces:
+From one release event, PulseNote produces:
 1) clear draft communication,
 2) risk checks for public language,
 3) structured review and approval,

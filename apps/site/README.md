@@ -1,6 +1,6 @@
-# Anchra Site
+# PulseNote Site
 
-Public site for Anchra, the anchored release communication system that turns GitHub releases, Slack decisions, and release files into review-ready communication packs.
+Public site for PulseNote, the release communication system that turns GitHub releases, Slack decisions, and release files into review-ready communication packs.
 
 ## Product Frame
 

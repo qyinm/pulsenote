@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This file defines how human and AI contributors should work in the Anchra workspace.
+This file defines how human and AI contributors should work in the PulseNote workspace.
 Scope: this repository
 
 ## Source of truth
@@ -8,7 +8,7 @@ Read `SOUL.md` first.
 If a requested change conflicts with the product soul, reshape the change toward the soul instead of blindly implementing it.
 
 ## Product identity
-Anchra is a release communication system.
+PulseNote is a release communication system.
 It is not a generic writing app, content studio, scheduler, or creator suite.
 
 Every meaningful feature should reinforce this operating flow:
@@ -41,7 +41,7 @@ Every meaningful feature should reinforce this operating flow:
 ## Site expectations
 - Keep messaging precise, calm, and operational.
 - Anchor every promise to release communication outcomes.
-- Do not market Anchra as a generic AI assistant.
+- Do not market PulseNote as a generic AI assistant.
 - If the site mentions web app entry or GUI download, keep those paths concrete and non-hyped.
 - Label mock product states clearly as sample or demo.
 
@@ -61,7 +61,7 @@ Recommended checks:
 - Site: `pnpm lint`, `pnpm build`
 
 ## What to avoid
-- Turning Anchra into a generic writer, scheduler, or creator platform
+- Turning PulseNote into a generic writer, scheduler, or creator platform
 - Marketing language that implies unverified outcomes
 - UX that hides evidence, risks, or approval responsibility
 - Feature additions that do not strengthen the release communication workflow
