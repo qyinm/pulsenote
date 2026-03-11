@@ -4,12 +4,12 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Anchra",
-    template: "%s | Anchra",
+    default: "PulseNote",
+    template: "%s | PulseNote",
   },
   description:
-    "Anchra turns release evidence, Slack decisions, and rollout files into review-ready release notes, internal briefs, and stakeholder updates.",
-  applicationName: "Anchra",
+    "PulseNote turns release evidence, Slack decisions, and rollout files into review-ready release notes, internal briefs, and stakeholder updates.",
+  applicationName: "PulseNote",
   keywords: [
     "release notes",
     "anchored communication",
@@ -21,18 +21,23 @@ export const metadata: Metadata = {
     "audit trail",
   ],
   openGraph: {
-    title: "Anchra",
+    title: "PulseNote",
     description:
-      "Anchra collects release context, checks risky wording, and exports approval-ready communication from one release anchor.",
-    siteName: "Anchra",
+      "PulseNote collects release context, checks risky wording, and exports approval-ready communication from one release anchor.",
+    siteName: "PulseNote",
     type: "website",
     locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Anchra",
+    title: "PulseNote",
     description:
       "Anchored release communication for notes, briefs, approvals, and publish packs.",
+  },
+  icons: {
+    icon: "/brand-mark.svg",
+    shortcut: "/brand-mark.svg",
+    apple: "/brand-mark.svg",
   },
 };
 

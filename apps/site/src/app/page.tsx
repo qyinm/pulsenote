@@ -1,3 +1,4 @@
+import Image from "next/image";
 import React, { type SVGProps } from "react";
 
 const operatingFlow = [
@@ -70,22 +71,22 @@ const faqs = [
   {
     question: "Why not just use ChatGPT or Claude?",
     answer:
-      "You can, but your team still has to gather release context, police unsupported claims, and reconstruct approvals across chat and docs. Anchra starts with the release anchor and keeps that evidence trail attached to the draft.",
+      "You can, but your team still has to gather release context, police unsupported claims, and reconstruct approvals across chat and docs. PulseNote starts with the release anchor and keeps that evidence trail attached to the draft.",
   },
   {
-    question: "What does Anchra actually ingest?",
+    question: "What does PulseNote actually ingest?",
     answer:
       "GitHub release data, merged pull requests, linked issues, Slack notes or transcripts, and rollout files like QA notes, migration plans, and launch checklists.",
   },
   {
-    question: "Does Anchra publish automatically?",
+    question: "Does PulseNote publish automatically?",
     answer:
-      "No. Anchra is designed to collect, draft, check, approve, and export. Final publication still belongs to the humans responsible for the release.",
+      "No. PulseNote is designed to collect, draft, check, approve, and export. Final publication still belongs to the humans responsible for the release.",
   },
   {
     question: "Is this a generic writer or investor-relations tool?",
     answer:
-      "No. Anchra is for release-derived communication. Stakeholder updates are in scope only when they stay tied to what actually shipped.",
+      "No. PulseNote is for release-derived communication. Stakeholder updates are in scope only when they stay tied to what actually shipped.",
   },
 ];
 
@@ -134,37 +135,44 @@ function LogosSlackIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+const BrandMark = ({ className = "", alt = "PulseNote mark" }: { className?: string; alt?: string }) => (
+  <Image className={className} src="/brand-mark.svg" alt={alt} width={64} height={64} />
+);
+
 const FlowVisualizer = () => (
-  <div className="pn-flow-trace reveal">
+  <div className="pn-orbit-panel">
     <div className="pn-orbit-shell" aria-hidden>
       <div className="pn-orbit-ring pn-orbit-ring-outer" />
       <div className="pn-orbit-ring pn-orbit-ring-inner" />
 
       <div className="pn-orbit-core">
-        <span>AN</span>
+        <BrandMark className="pn-orbit-core-mark" alt="" />
       </div>
 
-      <div className="pn-orbit-node pn-orbit-node-top">
-        <div className="pn-orbit-node-icon" aria-hidden>
-          <LogosGithubIcon />
+      <div className="pn-orbit-track">
+        <div className="pn-orbit-node pn-orbit-node-top">
+          <div className="pn-orbit-node-icon" aria-hidden>
+            <LogosGithubIcon />
+          </div>
         </div>
-      </div>
-      <div className="pn-orbit-node pn-orbit-node-right">
-        <div className="pn-orbit-node-icon" aria-hidden>
-          <LogosLinearIcon />
+        <div className="pn-orbit-node pn-orbit-node-right">
+          <div className="pn-orbit-node-icon" aria-hidden>
+            <LogosLinearIcon />
+          </div>
         </div>
-      </div>
-      <div className="pn-orbit-node pn-orbit-node-left">
-        <div className="pn-orbit-node-icon" aria-hidden>
-          <LogosSlackIcon />
+        <div className="pn-orbit-node pn-orbit-node-left">
+          <div className="pn-orbit-node-icon" aria-hidden>
+            <LogosSlackIcon />
+          </div>
         </div>
       </div>
     </div>
 
-    <div className="pn-flow-caption">
-      <p className="pn-kicker !text-[#c5a676]">Anchored Orbit</p>
-      <p>
-        GitHub, Linear, and Slack orbit the same release anchor before drafting, checks, and approval begin.
+    <div className="pn-orbit-copy">
+      <p className="pn-card-label !text-[#c5a676]">Release-anchored</p>
+      <h3 className="text-2xl mt-4 font-serif">Input systems attach to the same release record first.</h3>
+      <p className="mt-4 opacity-70 text-sm leading-relaxed">
+        GitHub, Linear, and Slack feed one release anchor before drafting, claim checks, and approval begin.
       </p>
     </div>
   </div>
@@ -178,16 +186,16 @@ const Terminal = () => (
         <span />
         <span />
       </div>
-      <p>anchra session / release v2.4.0</p>
+      <p>pulsenote session / release v2.4.0</p>
     </div>
 
     <div className="rounded-[22px] bg-[#111111] px-5 py-4 font-mono text-[13px] leading-6 text-[#f8f5ee] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-      <p className="text-[#c5a676]">$ anchra collect --release v2.4.0</p>
+      <p className="text-[#c5a676]">$ pulsenote collect --release v2.4.0</p>
       <p className="mt-1.5 text-white/55">→ ingesting github evidence... [14 prs found]</p>
       <p className="text-white/55">→ sourcing slack context... [8 decisions found]</p>
-      <p className="mt-3 text-[#c5a676]">$ anchra check --audience external</p>
+      <p className="mt-3 text-[#c5a676]">$ pulsenote check --audience external</p>
       <p className="text-white/55">→ flagged unsupported certainty... [2 items]</p>
-      <p className="mt-3 text-[#c5a676]">$ anchra pack --target external</p>
+      <p className="mt-3 text-[#c5a676]">$ pulsenote pack --target external</p>
       <p className="text-white/80">✓ pack generated ./packs/v2.4-external.md</p>
     </div>
 
@@ -218,20 +226,30 @@ const AudiencePackShowcase = () => (
 
     <div className="pn-output-grid mt-20">
       {[
-        { label: "Customer", title: "Public Release Note", desc: "Change-logs and emails linked to PR evidence." },
-        { label: "Internal", title: "Support Handoff Brief", desc: "Operational details for frontline success teams." },
-        { label: "Leadership", title: "Executive Summary", desc: "High-level impact and ROI without the noise." }
+        {
+          label: "Customer",
+          title: "Public Release Note",
+          desc: "Customer-safe summary of what shipped, why it matters, and what users can do next.",
+          meta: "Release notes, changelog, launch email",
+        },
+        {
+          label: "Internal",
+          title: "Support Handoff Brief",
+          desc: "Operational pack for support and success with caveats, rollout notes, and expected questions.",
+          meta: "Support brief, known issues, rollout context",
+        },
+        {
+          label: "Leadership",
+          title: "Executive Summary",
+          desc: "Tight stakeholder view of shipped scope, customer impact, and approval-ready messaging.",
+          meta: "Leadership update, stakeholder recap, approval trail",
+        }
       ].map((pack) => (
         <article key={pack.title} className="pn-output-card border-line/30 !bg-surface/40 !p-12 hover:border-[#c5a676]/30 transition-colors">
           <p className="pn-card-label !text-[#c5a676]">{pack.label}</p>
           <h3 className="text-2xl font-serif mt-6">{pack.title}</h3>
           <p className="mt-4 opacity-60 text-sm leading-relaxed">{pack.desc}</p>
-          <div className="mt-8 flex items-center gap-2">
-            <div className="w-8 h-8 rounded border border-line flex items-center justify-center opacity-40">
-              <span className="text-[10px] font-mono">MD</span>
-            </div>
-            <span className="text-[10px] uppercase tracking-widest opacity-40">Exported</span>
-          </div>
+          <p className="pn-output-meta">{pack.meta}</p>
         </article>
       ))}
     </div>
@@ -244,11 +262,11 @@ export default function Home() {
       <header className="pn-header reveal">
         <a className="pn-brand" href="#top">
           <span className="pn-brand-mark" aria-hidden>
-            AN
+            <BrandMark className="pn-brand-mark-image" alt="" />
           </span>
           <span className="pn-brand-copy">
-            <strong>Anchra</strong>
-            <small>Anchored Release System</small>
+            <strong>PulseNote</strong>
+            <small>Release Communication System</small>
           </span>
         </a>
 
@@ -269,7 +287,7 @@ export default function Home() {
           <p className="pn-kicker !mb-4">Release Communication</p>
           <h1 className="leading-[0.85] tracking-[-0.07em] font-serif !max-w-none italic">AI release communication, anchored to what actually shipped.</h1>
           <p className="pn-hero-lead !mt-8 !max-w-xl text-lg lg:text-xl opacity-70">
-            Anchra gathers release evidence, Linear scope, and Slack decisions into one release anchor, then drafts, checks, and exports communication your team can actually review.
+            PulseNote gathers release evidence, Linear scope, and Slack decisions into one release anchor, then drafts, checks, and exports communication your team can actually review.
           </p>
 
           <div className="pn-actions !mt-10">
@@ -298,7 +316,7 @@ export default function Home() {
 
       <section id="system" className="pn-section reveal !pt-28 border-0">
         <div className="pn-section-intro text-center mx-auto">
-          <p className="pn-kicker">Why Anchra</p>
+          <p className="pn-kicker">Why PulseNote</p>
           <h2 className="text-5xl md:text-7xl !max-w-none">Built for release communication. Not generic AI writing.</h2>
           <p className="text-lg opacity-60 mt-5 max-w-2xl mx-auto">
             The job is not to generate more text. The job is to turn one release into customer-safe communication with evidence, checks, and approval intact.
@@ -313,17 +331,19 @@ export default function Home() {
               <p className="mt-4 opacity-70 text-sm leading-relaxed">{item.body}</p>
             </article>
           ))}
+
+          <article className="pn-bento-card pn-orbit-bento md:col-span-12">
+            <FlowVisualizer />
+          </article>
         </div>
       </section>
-
-      <FlowVisualizer />
 
       <section id="flow" className="pn-section reveal !pt-20">
         <div className="pn-section-intro">
           <p className="pn-kicker">How It Works</p>
           <h2 className="!max-w-none text-5xl md:text-7xl">Collect once. Draft once. Review once.</h2>
           <p className="text-lg opacity-60 mt-4">
-            Anchra keeps the workflow intentionally narrow so the same release anchor can power drafting, safety checks, approval, and export without rewriting the story each time.
+            PulseNote keeps the workflow intentionally narrow so the same release anchor can power drafting, safety checks, approval, and export without rewriting the story each time.
           </p>
         </div>
 
@@ -374,7 +394,7 @@ export default function Home() {
         <p className="pn-kicker !text-[#c5a676]">Start Now</p>
         <h2 className="text-6xl md:text-8xl !max-w-none italic">Your releases. <br/> Your evidence.</h2>
         <p className="text-xl opacity-60 mt-8 max-w-2xl mx-auto">
-          Download the Anchra CLI to guide your release communication workflows. Keep the interface anchored to collect, draft, check, approve, and export.
+          Download the PulseNote CLI to guide your release communication workflows. Keep the interface anchored to collect, draft, check, approve, and export.
         </p>
         <div className="pn-final-actions !mt-12">
           <a className="pn-button pn-button-primary px-12" href="#top">
