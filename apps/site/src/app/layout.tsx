@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     template: "%s | PulseNote",
   },
   description:
-    "PulseNote turns release evidence, Slack decisions, and rollout files into review-ready release notes, internal briefs, and stakeholder updates.",
+    "PulseNote turns release context into public-safe communication with claim checks, approval trail, and exportable publish packs.",
   applicationName: "PulseNote",
   keywords: [
     "release notes",
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "PulseNote",
     description:
-      "PulseNote collects release context, checks risky wording, and exports approval-ready communication from one release anchor.",
+      "PulseNote collects release context, checks risky wording, and exports approval-ready communication from one release record.",
     siteName: "PulseNote",
     type: "website",
     locale: "en_US",
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "PulseNote",
     description:
-      "Anchored release communication for notes, briefs, approvals, and publish packs.",
+      "Release communication with evidence, claim checks, approvals, and publish packs.",
   },
   icons: {
     icon: "/brand-mark.svg",
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#f7f2e8",
+  themeColor: "#ffffff",
 };
 
 export default function RootLayout({
@@ -54,7 +54,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <a className="pn-skip-link" href="#main-content">
+          Skip to content
+        </a>
+        {children}
+      </body>
     </html>
   );
 }
