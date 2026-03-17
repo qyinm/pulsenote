@@ -217,28 +217,30 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="flow" className="pn-section reveal">
-        <div className="pn-section-head">
-          <div className="pn-section-copy">
-            <p className="pn-kicker">Flow</p>
-            <h2>From intake to export, the work stays reviewable.</h2>
+      <section id="flow" className="pn-section pn-section-bg reveal">
+        <div className="pn-site">
+          <div className="pn-section-head">
+            <div className="pn-section-copy">
+              <p className="pn-kicker">Flow</p>
+              <h2>From intake to export, the work stays reviewable.</h2>
+            </div>
+
+            <p className="pn-section-aside">
+              PulseNote is not a generic writer. Every stage exists to move a release from context to reviewable
+              publication without losing the evidence trail.
+            </p>
           </div>
 
-          <p className="pn-section-aside">
-            PulseNote is not a generic writer. Every stage exists to move a release from context to reviewable
-            publication without losing the evidence trail.
-          </p>
+          <ol className="pn-flow-list">
+            {workflow.map((item) => (
+              <li className="pn-flow-row" key={item.step}>
+                <span className="pn-flow-step">{item.step}</span>
+                <h3>{item.title}</h3>
+                <p>{item.body}</p>
+              </li>
+            ))}
+          </ol>
         </div>
-
-        <ol className="pn-flow-list">
-          {workflow.map((item) => (
-            <li className="pn-flow-row" key={item.step}>
-              <span className="pn-flow-step">{item.step}</span>
-              <h3>{item.title}</h3>
-              <p>{item.body}</p>
-            </li>
-          ))}
-        </ol>
       </section>
 
       <section id="outputs" className="pn-section reveal">
@@ -264,24 +266,26 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="questions" className="pn-section reveal">
-        <div className="pn-section-head">
-          <div className="pn-section-copy">
-            <p className="pn-kicker">Questions</p>
-            <h2>Usually asked before moving to a system.</h2>
+      <section id="questions" className="pn-section pn-section-bg reveal">
+        <div className="pn-site">
+          <div className="pn-section-head">
+            <div className="pn-section-copy">
+              <p className="pn-kicker">Questions</p>
+              <h2>Usually asked before moving to a system.</h2>
+            </div>
+            <p className="pn-section-aside">
+              The answers stay direct: visible evidence, explicit checks, and manual publication at the end.
+            </p>
           </div>
-          <p className="pn-section-aside">
-            The answers stay direct: visible evidence, explicit checks, and manual publication at the end.
-          </p>
-        </div>
 
-        <div className="pn-ruled-list">
-          {questions.map((item) => (
-            <article className="pn-ruled-row" key={item.question}>
-              <h3>{item.question}</h3>
-              <p>{item.answer}</p>
-            </article>
-          ))}
+          <div className="pn-ruled-list">
+            {questions.map((item) => (
+              <article className="pn-ruled-row" key={item.question}>
+                <h3>{item.question}</h3>
+                <p>{item.answer}</p>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
 

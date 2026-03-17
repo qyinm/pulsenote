@@ -2,11 +2,12 @@
 
 :root {
   --bg: #ffffff;
-  --ink: #000000;
-  --ink-soft: #444444;
-  --ink-muted: #888888;
-  --line: #e5e5e5;
-  --line-strong: #000000;
+  --bg-soft: #f9f9f9;
+  --ink: #111111;
+  --ink-soft: #4b4b4b;
+  --ink-muted: #808080;
+  --line: rgba(0, 0, 0, 0.06);
+  --line-strong: rgba(0, 0, 0, 0.12);
   --font-serif: "Iowan Old Style", "Newsreader", "Georgia", "Times New Roman", serif;
   --font-ui: "Inter", "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   --font-mono: "IBM Plex Mono", "SFMono-Regular", "Cascadia Mono", monospace;
@@ -29,7 +30,7 @@ body {
 body {
   min-height: 100dvh;
   background: var(--bg);
-  color: var(--ink);
+  color: var(--ink-soft);
   font-family: var(--font-serif);
   -webkit-font-smoothing: antialiased;
 }
@@ -124,6 +125,7 @@ button:focus-visible {
   font-size: 1.2rem;
   font-weight: 600;
   letter-spacing: -0.04em;
+  color: var(--ink);
 }
 
 .pn-brand-copy small {
@@ -166,6 +168,11 @@ button:focus-visible {
 .pn-button-secondary {
   background: var(--bg);
   color: var(--ink);
+  border-color: var(--line-strong);
+}
+
+.pn-button-secondary:hover {
+  background: var(--bg-soft);
 }
 
 .pn-button:hover,
@@ -201,6 +208,7 @@ button:focus-visible {
   font-weight: 500;
   letter-spacing: -0.05em;
   text-wrap: balance;
+  color: var(--ink);
 }
 
 .pn-hero-lead {
@@ -227,7 +235,7 @@ button:focus-visible {
   max-width: 48rem;
   padding: 3rem;
   border: 1px solid var(--line);
-  background: #fafafa;
+  background: var(--bg-soft);
   text-align: left;
 }
 
@@ -235,6 +243,7 @@ button:focus-visible {
   font-size: 1.5rem;
   letter-spacing: -0.04em;
   margin-top: 0.5rem;
+  color: var(--ink);
 }
 
 .pn-record-section {
@@ -246,6 +255,12 @@ button:focus-visible {
 .pn-section {
   padding: 6rem 0;
   border-top: 1px solid var(--line);
+}
+
+.pn-section-bg {
+  background: var(--bg-soft);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
 }
 
 .pn-section-head {
@@ -260,6 +275,7 @@ button:focus-visible {
   line-height: 1.1;
   letter-spacing: -0.04em;
   font-weight: 500;
+  color: var(--ink);
 }
 
 .pn-section-aside {
@@ -284,6 +300,7 @@ button:focus-visible {
   font-size: 1.35rem;
   margin: 0.5rem 0 1rem;
   letter-spacing: -0.02em;
+  color: var(--ink);
 }
 
 .pn-ruled-row p {
@@ -322,6 +339,7 @@ button:focus-visible {
   font-size: 1.4rem;
   margin: 0;
   letter-spacing: -0.03em;
+  color: var(--ink);
 }
 
 .pn-flow-row p {

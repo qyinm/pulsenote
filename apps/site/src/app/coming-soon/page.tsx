@@ -56,25 +56,27 @@ export default function ComingSoonPage() {
         </div>
       </section>
 
-      <section className="pn-section reveal">
-        <div className="pn-section-head">
-          <div className="pn-section-copy">
-            <p className="pn-kicker">First hosted surface</p>
-            <h2>What opens first</h2>
+      <section className="pn-section pn-section-bg reveal">
+        <div className="pn-site">
+          <div className="pn-section-head">
+            <div className="pn-section-copy">
+              <p className="pn-kicker">First hosted surface</p>
+              <h2>What opens first</h2>
+            </div>
+            <p className="pn-section-aside">
+              The initial web experience focuses on the critical handoff and approval moments of the release workflow.
+            </p>
           </div>
-          <p className="pn-section-aside">
-            The initial web experience focuses on the critical handoff and approval moments of the release workflow.
-          </p>
-        </div>
 
-        <div className="pn-ruled-list">
-          {accessItems.map((item) => (
-            <article className="pn-ruled-row" key={item.label}>
-              <p className="pn-kicker">{item.label}</p>
-              <h3>{item.title}</h3>
-              <p>{item.body}</p>
-            </article>
-          ))}
+          <div className="pn-ruled-list">
+            {accessItems.map((item) => (
+              <article className="pn-ruled-row" key={item.label}>
+                <p className="pn-kicker">{item.label}</p>
+                <h3>{item.title}</h3>
+                <p>{item.body}</p>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
     </main>
