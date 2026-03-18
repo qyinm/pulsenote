@@ -1,11 +1,13 @@
 "use client"
 
+import Link from "next/link"
 import { InboxIcon, PlusCircleIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
   SidebarGroup,
   SidebarGroupContent,
+  SidebarMenuBadge,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -16,7 +18,8 @@ export function NavMain({
 }: {
   items: {
     title: string
-    url: string
+    href: string
+    badge?: string
     isActive?: boolean
     icon?: React.ReactNode
   }[]
@@ -26,7 +29,11 @@ export function NavMain({
       <SidebarGroupContent className="flex flex-col gap-2">
         <SidebarMenu>
           <SidebarMenuItem className="flex items-center gap-2">
-            <SidebarMenuButton tooltip="New release" variant="outline">
+            <SidebarMenuButton
+              tooltip="New release"
+              variant="outline"
+              render={<Link href="/dashboard/release-context" />}
+            >
               <PlusCircleIcon data-icon="inline-start" />
               <span>New release</span>
             </SidebarMenuButton>
@@ -45,12 +52,13 @@ export function NavMain({
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton
                 tooltip={item.title}
-                render={<a href={item.url} />}
+                render={<Link href={item.href} />}
                 isActive={item.isActive}
               >
                 {item.icon}
                 <span>{item.title}</span>
               </SidebarMenuButton>
+              {item.badge ? <SidebarMenuBadge>{item.badge}</SidebarMenuBadge> : null}
             </SidebarMenuItem>
           ))}
         </SidebarMenu>

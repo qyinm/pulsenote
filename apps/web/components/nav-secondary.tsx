@@ -1,10 +1,12 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 
 import {
   SidebarGroup,
   SidebarGroupContent,
+  SidebarMenuBadge,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -16,7 +18,9 @@ export function NavSecondary({
 }: {
   items: {
     title: string
-    url: string
+    href: string
+    badge?: string
+    isActive?: boolean
     icon: React.ReactNode
   }[]
 } & React.ComponentPropsWithoutRef<typeof SidebarGroup>) {
@@ -26,10 +30,15 @@ export function NavSecondary({
         <SidebarMenu>
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton render={<a href={item.url} />}>
+              <SidebarMenuButton
+                render={<Link href={item.href} />}
+                isActive={item.isActive}
+                tooltip={item.title}
+              >
                 {item.icon}
                 <span>{item.title}</span>
               </SidebarMenuButton>
+              {item.badge ? <SidebarMenuBadge>{item.badge}</SidebarMenuBadge> : null}
             </SidebarMenuItem>
           ))}
         </SidebarMenu>

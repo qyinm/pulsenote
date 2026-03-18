@@ -3,7 +3,7 @@
 import * as React from "react"
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
 
-import { releaseTrendData } from "@/app/dashboard/data"
+import { releaseTrendData } from "@/lib/dashboard"
 import { useIsMobile } from "@/hooks/use-mobile"
 import {
   Card,
@@ -68,7 +68,7 @@ export function ChartAreaInteractive() {
   })
 
   return (
-    <Card id="release-context" className="@container/card shadow-xs">
+    <Card className="@container/card shadow-xs">
       <CardHeader>
         <CardTitle>Draft readiness vs claim warnings</CardTitle>
         <CardDescription>

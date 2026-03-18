@@ -10,7 +10,7 @@ import {
   SquareArrowOutUpRightIcon,
 } from "lucide-react"
 
-import type { ReleaseRecord } from "@/app/dashboard/data"
+import type { ReleaseRecord } from "@/lib/dashboard"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
