@@ -4,24 +4,54 @@ import Link from "next/link";
 const heroSignals = [
   "Release context stays attached to the draft.",
   "Claim checks run before anyone signs off.",
-  "The publish pack leaves as one reviewed package.",
+  "The publish pack leaves as one reviewed handoff.",
+];
+
+const heroPillars = [
+  {
+    label: "Source-backed",
+    body: "Keep shipped scope, evidence links, and reviewer context visible while the wording changes.",
+  },
+  {
+    label: "Approval-ready",
+    body: "Claim checks and human sign-off happen before the publish pack moves downstream.",
+  },
+];
+
+const heroFacts = [
+  {
+    label: "Inputs",
+    value: "Pull requests, linked issues, rollout notes, and QA context.",
+  },
+  {
+    label: "Checks",
+    value: "Unsupported certainty, internal-only wording, and missing evidence.",
+  },
+  {
+    label: "Approvals",
+    value: "Engineering, support, and product marketing sign-off in one trail.",
+  },
+  {
+    label: "Outputs",
+    value: "Public release notes, support brief, and stakeholder summary.",
+  },
 ];
 
 const failurePoints = [
   {
     label: "01",
-    title: "Context gets rebuilt from scratch.",
-    body: "Merged pull requests, rollout notes, support caveats, and issue links usually live in different systems. Teams rewrite the release story by hand.",
+    title: "Context gets rebuilt from scratch",
+    body: "Merged pull requests, linked issues, rollout notes, QA caveats, and support context rarely live in one place. Teams rewrite the release story by hand and lose traceability in the process.",
   },
   {
     label: "02",
-    title: "Public wording drifts from the evidence.",
-    body: "Claims get cleaner as they move through chat and docs. Unsupported certainty often appears after the code is already out.",
+    title: "Public wording drifts from the evidence",
+    body: "Language often becomes more certain as it moves through docs and chat. Unsupported certainty slips in after the product work is already done.",
   },
   {
     label: "03",
-    title: "Approval becomes hard to inspect.",
-    body: "Marketing, engineering, and support all review the release, but the final wording and rationale are rarely preserved in one place.",
+    title: "Approval is hard to reconstruct later",
+    body: "Marketing, engineering, and support all review the release, but the final wording, rationale, and sign-off usually do not stay attached to the draft.",
   },
 ];
 
@@ -29,68 +59,68 @@ const workflow = [
   {
     step: "01",
     title: "Ingest release context",
-    body: "Collect shipped scope, linked issues, rollout notes, and customer-facing constraints inside one release record.",
+    body: "Pull shipped scope, linked issues, rollout notes, support context, and customer-facing constraints into one release record.",
   },
   {
     step: "02",
     title: "Draft public communication",
-    body: "Prepare customer-safe release notes from the record instead of rebuilding the message for each reviewer.",
+    body: "Generate a customer-facing draft from the release record instead of rebuilding the message from scratch for every reviewer.",
   },
   {
     step: "03",
     title: "Run claim checks",
-    body: "Surface unsupported certainty, missing evidence, and internal-only wording before approval starts.",
+    body: "Flag unsupported certainty, missing evidence, and internal-only wording before approval begins.",
   },
   {
     step: "04",
     title: "Collect approval",
-    body: "Keep edits, reviewer comments, and human sign-off visible in the same place as the draft.",
+    body: "Keep edits, comments, rationale, and human sign-off visible in the same place as the draft.",
   },
   {
     step: "05",
-    title: "Export publish pack",
-    body: "Send approved notes, internal briefing, and evidence references forward as one controlled handoff.",
+    title: "Export the publish pack",
+    body: "Send approved notes, support briefing, stakeholder summary, and evidence references forward as one controlled handoff.",
   },
 ];
 
 const reviewSurface = [
   {
     label: "Release record",
-    title: "Source evidence remains visible while wording changes.",
-    body: "Pull requests, issues, QA notes, and rollout files stay attached to the release instead of becoming an off-screen reference.",
+    title: "Source evidence stays visible while wording changes",
+    body: "Pull requests, issues, QA notes, and rollout files remain attached to the draft instead of becoming off-screen references.",
   },
   {
     label: "Claim checks",
-    title: "Risky language is explicit before the draft leaves review.",
-    body: "PulseNote flags overstatement, unsupported confidence, and phrasing that belongs in an internal brief rather than a public note.",
+    title: "Risky language is explicit before the draft leaves review",
+    body: "PulseNote surfaces overstatement, unsupported confidence, and phrasing that belongs in an internal brief rather than a public note.",
   },
   {
     label: "Approval trail",
-    title: "Human accountability stays on the record.",
-    body: "The final wording, reviewer rationale, and approval responsibility remain inspectable after the export is generated.",
+    title: "Human accountability stays on the record",
+    body: "The final wording, reviewer rationale, and approval responsibility remain inspectable after the release is handed off.",
   },
   {
     label: "Export control",
-    title: "The handoff is prepared, not auto-published.",
-    body: "PulseNote stops at the publish pack so the people responsible for the release still control the final publication step.",
+    title: "The handoff is prepared, not auto-published",
+    body: "PulseNote stops at the publish pack so the people responsible for publication still control the final step.",
   },
 ];
 
 const outputs = [
   {
-    label: "Customer note",
+    label: "Customer-facing",
     title: "Public release notes",
-    body: "Explain what changed, why it matters, and what customers can do now without carrying internal phrasing into the final copy.",
+    body: "Explain what changed, why it matters, and what customers can do now without carrying internal language into the final copy.",
   },
   {
-    label: "Support brief",
-    title: "Internal handoff",
-    body: "Carry rollout caveats, likely questions, and known edges forward so downstream teams do not need to reverse-engineer the launch.",
+    label: "Support and success",
+    title: "Support brief",
+    body: "Carry rollout caveats, likely questions, and known edges forward so downstream teams do not have to reverse-engineer the launch.",
   },
   {
-    label: "Leadership recap",
+    label: "Internal alignment",
     title: "Stakeholder summary",
-    body: "Keep the shipped scope, customer impact, and approved language aligned for the people who need the release story quickly.",
+    body: "Keep shipped scope, customer impact, and approved wording aligned for leadership and internal stakeholders.",
   },
 ];
 
@@ -98,7 +128,7 @@ const questions = [
   {
     question: "Why not just draft this in ChatGPT or Claude?",
     answer:
-      "General-purpose tools can help with writing, but your team still has to collect release context, inspect risky claims, and reconstruct who approved the final wording. PulseNote starts from the release record and keeps that trail attached to the draft.",
+      "General-purpose tools can help with writing, but your team still has to gather release context, check risky claims, and reconstruct who approved the final wording. PulseNote starts from the release record and keeps that trail attached to the draft.",
   },
   {
     question: "Does PulseNote publish automatically?",
@@ -110,6 +140,17 @@ const questions = [
     answer:
       "Release records, merged pull requests, linked issues, QA notes, rollout files, support context, and related discussion that explains what actually shipped.",
   },
+  {
+    question: "Who is PulseNote for?",
+    answer:
+      "PulseNote is built for B2B SaaS teams shipping weekly or faster, especially when engineering, support, and product marketing all need to align on exact customer-facing language.",
+  },
+];
+
+const anchorPoints = [
+  "Built for B2B SaaS teams shipping weekly or faster",
+  "Designed for engineering, support, and product marketing sign-off",
+  "Exports a publish pack without forcing auto-publication",
 ];
 
 function BrandMark({
@@ -124,54 +165,62 @@ function BrandMark({
   return <Image className={className} src="/brand-mark.svg" alt={alt} width={64} height={64} priority={priority} />;
 }
 
-function SampleReleaseReview() {
+function ReleaseReviewCanvas() {
   return (
-    <aside className="pn-sample" aria-label="Sample release review">
-      <div className="pn-sample-head">
+    <aside className="pn-release-board" aria-label="Sample release review">
+      <div className="pn-board-head">
         <div>
           <p className="pn-kicker">Sample release review</p>
-          <h2>v2.4.0 permissions rollout</h2>
+          <h2>Q1 permissions rollout candidate</h2>
         </div>
-        <p className="pn-sample-meta">Demo state. Illustrative data only.</p>
+        <p className="pn-board-meta">Demo state. Illustrative data only.</p>
       </div>
 
-      <div className="pn-sample-section">
-        <p className="pn-sample-label">Evidence attached</p>
-        <ul className="pn-bullet-list">
-          <li>11 merged pull requests with shipped scope</li>
-          <li>4 linked issues with rollout notes</li>
-          <li>QA handoff and support caveats included</li>
-        </ul>
+      <div className="pn-board-grid">
+        <section className="pn-board-card">
+          <p className="pn-board-label">Evidence attached</p>
+          <ul className="pn-board-list">
+            <li>11 merged pull requests linked to shipped scope</li>
+            <li>4 related issues with rollout notes attached</li>
+            <li>QA handoff and support caveats included</li>
+          </ul>
+        </section>
+
+        <section className="pn-board-card pn-board-card-emphasis">
+          <p className="pn-board-label">Draft excerpt</p>
+          <blockquote className="pn-board-quote">
+            Workspace admins can now assign permissions from the user detail view without switching screens.
+          </blockquote>
+        </section>
+
+        <section className="pn-board-card">
+          <p className="pn-board-label">Claim checks</p>
+          <ul className="pn-board-status-list">
+            <li>
+              <span className="pn-status pn-status-review">Needs review</span>
+              <span>“Faster for every admin” needs evidence.</span>
+            </li>
+            <li>
+              <span className="pn-status pn-status-clear">Clear</span>
+              <span>Workspace-level permission scope is backed by the shipped change.</span>
+            </li>
+          </ul>
+        </section>
+
+        <section className="pn-board-card">
+          <p className="pn-board-label">Approval trail</p>
+          <ul className="pn-board-list">
+            <li>Engineering confirmed shipped scope</li>
+            <li>Support requested a legacy-role caveat</li>
+            <li>Product marketing approved customer wording</li>
+          </ul>
+        </section>
       </div>
 
-      <div className="pn-sample-section">
-        <p className="pn-sample-label">Draft excerpt</p>
-        <blockquote className="pn-sample-quote">
-          Workspace admins can now assign permissions from the user detail view without switching screens.
-        </blockquote>
-      </div>
-
-      <div className="pn-sample-section">
-        <p className="pn-sample-label">Claim checks</p>
-        <ul className="pn-status-list">
-          <li>
-            <span className="pn-status pn-status-review">Needs review</span>
-            <span>“Faster for every admin” needs evidence.</span>
-          </li>
-          <li>
-            <span className="pn-status pn-status-clear">Clear</span>
-            <span>Workspace-level permission scope is backed by the shipped change.</span>
-          </li>
-        </ul>
-      </div>
-
-      <div className="pn-sample-section">
-        <p className="pn-sample-label">Approval trail</p>
-        <ul className="pn-bullet-list">
-          <li>Engineering confirmed shipped scope</li>
-          <li>Support requested a legacy-role caveat</li>
-          <li>Product marketing approved customer wording</li>
-        </ul>
+      <div className="pn-board-footer">
+        <span>Public release notes</span>
+        <span>Support brief</span>
+        <span>Stakeholder summary</span>
       </div>
     </aside>
   );
@@ -181,7 +230,7 @@ export default function Home() {
   return (
     <main id="main-content" className="pn-page">
       <div className="pn-site">
-        <header className="pn-header reveal">
+        <header className="pn-header">
           <a className="pn-brand" href="#top">
             <BrandMark className="pn-brand-mark" alt="PulseNote brand mark" priority />
             <span className="pn-brand-copy">
@@ -202,14 +251,18 @@ export default function Home() {
           </Link>
         </header>
 
-        <section id="top" className="pn-hero reveal">
-          <div className="pn-hero-grid">
+        <section id="top" className="pn-hero">
+          <div className="pn-hero-shell">
             <div className="pn-hero-copy">
               <p className="pn-kicker">Release communication system</p>
-              <h1>Turn shipped work into approved release communication.</h1>
+              <h1>
+                <span>Turn shipped work</span>
+                <span>into approved</span>
+                <span>release communication.</span>
+              </h1>
               <p className="pn-hero-lead">
-                PulseNote gathers release context, drafts customer-safe copy, flags risky claims, and keeps approval
-                visible until the publish pack is ready.
+                PulseNote gathers release context, drafts customer-safe wording, flags risky claims, and keeps
+                approval visible until the publish pack is ready.
               </p>
               <p className="pn-hero-note">Not a blank AI writer. Start from the release record.</p>
 
@@ -222,20 +275,56 @@ export default function Home() {
                 </a>
               </div>
 
-              <p className="pn-hero-caption">Built for B2B SaaS teams shipping weekly or faster.</p>
+              <div className="pn-chip-row" aria-label="Audience and workflow notes">
+                <span className="pn-chip">Built for B2B SaaS teams shipping weekly or faster</span>
+                <span className="pn-chip">Source-backed drafting with visible approvals</span>
+              </div>
+
+              <dl className="pn-hero-ledger" aria-label="PulseNote operating model">
+                {heroFacts.map((item, index) => (
+                  <div className="pn-hero-ledger-row" key={item.label}>
+                    <dt>
+                      <span>{String(index + 1).padStart(2, "0")}</span>
+                      <strong>{item.label}</strong>
+                    </dt>
+                    <dd>{item.value}</dd>
+                  </div>
+                ))}
+              </dl>
             </div>
 
-            <SampleReleaseReview />
+            <div className="pn-hero-stack">
+              <div className="pn-manifesto">
+                <div className="pn-manifesto-head">
+                  <p className="pn-kicker">Why this category works</p>
+                  <p className="pn-manifesto-copy">
+                    Generic changelog tools help after the sentence is already written. PulseNote keeps the release
+                    record attached until the language is safe and approved.
+                  </p>
+                </div>
+
+                <div className="pn-manifesto-grid">
+                  {heroPillars.map((item) => (
+                    <article className="pn-manifesto-item" key={item.label}>
+                      <p>{item.label}</p>
+                      <span>{item.body}</span>
+                    </article>
+                  ))}
+                </div>
+              </div>
+
+              <ReleaseReviewCanvas />
+            </div>
           </div>
 
-          <div className="pn-proof-strip" aria-label="Key product signals">
+          <div className="pn-signal-strip" aria-label="Key product signals">
             {heroSignals.map((item) => (
               <p key={item}>{item}</p>
             ))}
           </div>
         </section>
 
-        <section id="system" className="pn-section reveal">
+        <section id="system" className="pn-section">
           <div className="pn-section-head">
             <div className="pn-section-copy">
               <p className="pn-kicker">Why teams switch</p>
@@ -248,10 +337,10 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="pn-card-grid">
-            {failurePoints.map((item) => (
-              <article className="pn-card" key={item.title}>
-                <p className="pn-card-label">{item.label}</p>
+          <div className="pn-problem-grid">
+            {failurePoints.map((item, index) => (
+              <article className={`pn-problem-card${index === 0 ? " pn-problem-card-featured" : ""}`} key={item.title}>
+                <p className="pn-card-index">{item.label}</p>
                 <h3>{item.title}</h3>
                 <p>{item.body}</p>
               </article>
@@ -259,70 +348,92 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="flow" className="pn-section reveal">
+        <section id="flow" className="pn-section pn-section-flow">
           <div className="pn-section-head">
             <div className="pn-section-copy">
-              <p className="pn-kicker">Workflow</p>
-              <h2>One operating flow from intake to export.</h2>
+              <p className="pn-kicker">The workflow</p>
+              <h2>One operating flow from source context to publish pack.</h2>
             </div>
 
             <p className="pn-section-aside">
-              PulseNote is deliberately narrow. Each stage exists to move a release from engineering context to
-              reviewable publication without losing the evidence trail.
+              PulseNote is built around release communication, not generic writing. Every step keeps the release record
+              visible until the handoff is ready.
             </p>
           </div>
 
-          <ol className="pn-flow-list">
-            {workflow.map((item) => (
-              <li className="pn-flow-row" key={item.step}>
-                <span className="pn-flow-step">{item.step}</span>
-                <h3>{item.title}</h3>
-                <p>{item.body}</p>
-              </li>
-            ))}
-          </ol>
-        </section>
+          <div className="pn-flow-layout">
+            <aside className="pn-flow-anchor" aria-label="PulseNote positioning">
+              <p className="pn-kicker">What stays true</p>
+              <h3>Start from shipped work, not from a blank page.</h3>
+              <p>
+                The product stays narrow on purpose. It exists to move a release from engineering context to approved
+                customer-facing communication without losing evidence or approval responsibility.
+              </p>
 
-        <section id="review" className="pn-section reveal">
-          <div className="pn-section-head">
-            <div className="pn-section-copy">
-              <p className="pn-kicker">Review surface</p>
-              <h2>Every decision stays inspectable before publish.</h2>
-            </div>
+              <ul className="pn-anchor-list">
+                {anchorPoints.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </aside>
 
-            <p className="pn-section-aside">
-              The draft, evidence, claim checks, and sign-off belong to the same record. That keeps review practical
-              and makes approval responsibility visible.
-            </p>
-          </div>
-
-          <div className="pn-card-grid pn-card-grid-wide">
-            {reviewSurface.map((item) => (
-              <article className="pn-card pn-card-muted" key={item.title}>
-                <p className="pn-kicker">{item.label}</p>
-                <h3>{item.title}</h3>
-                <p>{item.body}</p>
-              </article>
-            ))}
+            <ol className="pn-flow-list">
+              {workflow.map((item) => (
+                <li className="pn-flow-row" key={item.step}>
+                  <span className="pn-flow-step">{item.step}</span>
+                  <div className="pn-flow-copy">
+                    <h3>{item.title}</h3>
+                    <p>{item.body}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
           </div>
         </section>
 
-        <section id="outputs" className="pn-section reveal">
+        <section id="review" className="pn-section">
+          <div className="pn-review-grid">
+            <article className="pn-review-intro">
+              <p className="pn-kicker">Review without drift</p>
+              <h2>Keep the wording, the evidence, and the decision trail together.</h2>
+              <p>
+                The release record, claim checks, reviewer comments, and sign-off belong to the same surface. That
+                makes review practical and keeps approval responsibility visible after the handoff is generated.
+              </p>
+              <blockquote className="pn-review-quote">
+                PulseNote is designed for the moment before publication, when public wording still needs to be proven
+                and approved.
+              </blockquote>
+            </article>
+
+            <div className="pn-review-list">
+              {reviewSurface.map((item) => (
+                <article className="pn-review-card" key={item.title}>
+                  <p className="pn-kicker">{item.label}</p>
+                  <h3>{item.title}</h3>
+                  <p>{item.body}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="outputs" className="pn-section">
           <div className="pn-section-head">
             <div className="pn-section-copy">
-              <p className="pn-kicker">Outputs</p>
-              <h2>One reviewed source. Three usable outputs.</h2>
+              <p className="pn-kicker">Outputs from one release record</p>
+              <h2>Prepare the right communication for each audience.</h2>
             </div>
 
             <p className="pn-section-aside">
-              The approved customer note, internal handoff, and stakeholder summary all come from the same reviewed
+              The approved customer note, support briefing, and stakeholder summary all come from the same reviewed
               record instead of disconnected documents.
             </p>
           </div>
 
-          <div className="pn-card-grid">
+          <div className="pn-output-grid">
             {outputs.map((item) => (
-              <article className="pn-card" key={item.title}>
+              <article className="pn-output-card" key={item.title}>
                 <p className="pn-kicker">{item.label}</p>
                 <h3>{item.title}</h3>
                 <p>{item.body}</p>
@@ -331,11 +442,11 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="questions" className="pn-section reveal">
+        <section id="questions" className="pn-section">
           <div className="pn-section-head">
             <div className="pn-section-copy">
-              <p className="pn-kicker">Questions</p>
-              <h2>Direct answers before anyone asks for a demo.</h2>
+              <p className="pn-kicker">Direct answers</p>
+              <h2>Clear boundaries before anyone asks for a demo.</h2>
             </div>
 
             <p className="pn-section-aside">
@@ -343,27 +454,27 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="pn-faq-list">
+          <div className="pn-question-grid">
             {questions.map((item) => (
-              <details className="pn-faq-item" key={item.question}>
-                <summary>{item.question}</summary>
+              <article className="pn-question-card" key={item.question}>
+                <h3>{item.question}</h3>
                 <p>{item.answer}</p>
-              </details>
+              </article>
             ))}
           </div>
         </section>
 
-        <section className="pn-final reveal">
+        <section className="pn-final">
           <div className="pn-final-panel">
-            <div>
+            <div className="pn-final-head">
               <p className="pn-kicker">Early access</p>
-              <h2>Hosted access opens with review, approval, and publish-pack export.</h2>
+              <h2>Give your release communication the same review discipline as the release itself.</h2>
             </div>
 
             <div className="pn-final-copy">
               <p>
-                The first hosted surface is the release review workspace. It starts where the communication risk is
-                highest, not on a blank page.
+                PulseNote helps teams move from shipped work to customer-safe communication without losing the
+                evidence, review context, or approval trail in between.
               </p>
 
               <div className="pn-actions">
@@ -374,13 +485,19 @@ export default function Home() {
                   See what stays visible
                 </a>
               </div>
+
+              <ul className="pn-anchor-list">
+                {anchorPoints.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
             </div>
           </div>
         </section>
 
         <footer className="pn-footer">
           <p>PulseNote</p>
-          <p>Release communication with evidence, approval, and controlled export.</p>
+          <p>Source-backed release communication for teams shipping weekly or faster.</p>
         </footer>
       </div>
     </main>

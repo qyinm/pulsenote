@@ -4,15 +4,15 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "PulseNote",
+    default: "PulseNote | Source-backed release communication",
     template: "%s | PulseNote",
   },
   description:
-    "PulseNote turns release context into public-safe communication with claim checks, approval trail, and exportable publish packs.",
+    "PulseNote turns shipped work into customer-safe, approval-ready release communication with claim checks, evidence links, and exportable publish packs.",
   applicationName: "PulseNote",
   keywords: [
     "release notes",
-    "anchored communication",
+    "source-backed communication",
     "release communication",
     "approval workflow",
     "github releases",
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "PulseNote",
     description:
-      "PulseNote collects release context, checks risky wording, and exports approval-ready communication from one release record.",
+      "Gather release context, draft public wording, run claim checks, collect approval, and export a publish pack without drifting from shipped facts.",
     siteName: "PulseNote",
     type: "website",
     locale: "en_US",
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "PulseNote",
     description:
-      "Release communication with evidence, claim checks, approvals, and publish packs.",
+      "Source-backed release communication with claim checks, approvals, and publish packs.",
   },
   icons: {
     icon: "/brand-mark.svg",
