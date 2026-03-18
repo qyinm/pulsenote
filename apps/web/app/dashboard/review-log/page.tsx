@@ -6,20 +6,25 @@ import {
 } from "lucide-react"
 
 import {
-  BulletList,
   DashboardPage,
-  DashboardSplit,
-  InlineList,
   MetricCard,
   MetricGrid,
-  SurfaceCard,
 } from "@/components/dashboard/surfaces"
+import { ReviewLogWorkspace } from "@/components/dashboard/review-log-workspace"
 import { reviewLogEntries } from "@/lib/dashboard"
-import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function ReviewLogPage() {
   return (
     <DashboardPage>
+      <Alert>
+        <AlertTitle>Decision history should stay reviewable end to end</AlertTitle>
+        <AlertDescription>
+          Every blocked state, wording revision, and sign-off remains visible here so
+          the final publish pack can be audited without reconstructing context from chat.
+        </AlertDescription>
+      </Alert>
+
       <MetricGrid>
         <MetricCard
           title="Decisions today"
@@ -52,68 +57,7 @@ export default function ReviewLogPage() {
         />
       </MetricGrid>
 
-      <DashboardSplit
-        main={
-          <SurfaceCard
-            title="Chronological audit trail"
-            description="Every change, approval decision, and blocked state is recorded in the same operational log."
-          >
-            <div className="grid gap-3">
-              {reviewLogEntries.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="rounded-xl border border-border bg-muted/20 p-4"
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-medium text-foreground">
-                      {entry.actor}
-                    </span>
-                    <Badge variant="outline">{entry.timestamp}</Badge>
-                    <Badge
-                      variant={entry.outcome === "Blocked" ? "destructive" : "secondary"}
-                    >
-                      {entry.outcome}
-                    </Badge>
-                  </div>
-                  <p className="mt-2 text-sm text-foreground">
-                    {entry.action} on {entry.entity}
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">{entry.note}</p>
-                </div>
-              ))}
-            </div>
-          </SurfaceCard>
-        }
-        aside={
-          <>
-            <SurfaceCard
-              title="Active filters"
-              description="Saved filters keep the audit trail scannable without hiding important review events."
-            >
-              <InlineList
-                items={[
-                  { label: "Scope", value: "Today" },
-                  { label: "Outcome", value: "All decision types" },
-                  { label: "Linked releases", value: "Active workflow records" },
-                ]}
-              />
-            </SurfaceCard>
-
-            <SurfaceCard
-              title="Why the log matters"
-              description="PulseNote keeps decision history inspectable, especially when publish responsibility is shared."
-            >
-              <BulletList
-                items={[
-                  "Approvers can see exactly when wording changed and who changed it.",
-                  "Blocked states remain visible until the release is safe to move forward.",
-                  "Export packs can link back to this log when the final publish trail is reviewed.",
-                ]}
-              />
-            </SurfaceCard>
-          </>
-        }
-      />
+      <ReviewLogWorkspace />
     </DashboardPage>
   )
 }
