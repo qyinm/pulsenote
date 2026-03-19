@@ -52,7 +52,7 @@ export function ChartAreaInteractive() {
 
   const filteredData = releaseTrendData.filter((item) => {
     const date = new Date(item.date)
-    const referenceDate = new Date("2026-03-18")
+    const referenceDate = new Date()
     let daysToSubtract = 84
 
     if (timeRange === "4w") {
