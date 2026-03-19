@@ -57,7 +57,6 @@ export function SearchWorkspace() {
             })
           }}
           placeholder="Search releases, claims, evidence, approvals, or templates"
-          aria-label="Search releases, claims, evidence, approvals, or templates"
         />
         <div className="mt-3 flex flex-wrap gap-2">
           {["sdk", "approval", "evidence", "template", "blocked"].map((item) => (
