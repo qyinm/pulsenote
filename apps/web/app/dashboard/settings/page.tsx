@@ -115,8 +115,8 @@ export default function SettingsPage() {
             description={section.description}
             footer={
               <div className="flex w-full justify-end">
-                <Button variant="outline" size="sm">
-                  Save sample changes
+                <Button variant="outline" size="sm" disabled>
+                  Sample settings only
                 </Button>
               </div>
             }
