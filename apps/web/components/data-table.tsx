@@ -115,11 +115,7 @@ export function DataTable({ data }: { data: ReleaseRecord[] }) {
           </Label>
           <Select
             value={view}
-            onValueChange={(value) => {
-              if (value !== null) {
-                setView(value)
-              }
-            }}
+            onValueChange={setView}
             items={views.map((item) => ({ label: item.label, value: item.value }))}
           >
             <SelectTrigger className="flex w-fit @4xl/main:hidden" size="sm" id="release-view">
