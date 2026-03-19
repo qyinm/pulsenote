@@ -34,6 +34,17 @@ function readinessBadge(readiness: (typeof releaseContextQueue)[number]["readine
 }
 
 export default function ReleaseContextPage() {
+  if (releaseContextQueue.length === 0) {
+    return (
+      <DashboardPage>
+        <SurfaceCard
+          title="No release context in queue"
+          description="New release context will appear here as evidence is ingested."
+        />
+      </DashboardPage>
+    )
+  }
+
   const selected = releaseContextQueue[0]
   const totalEvidence = releaseContextQueue.reduce(
     (sum, item) => sum + item.evidenceCount,
