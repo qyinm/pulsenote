@@ -23,7 +23,7 @@ export function NavDocuments({
   }[]
 }) {
   return (
-    <SidebarGroup className="group-data-[collapsible=icon]:hidden">
+    <SidebarGroup>
       <SidebarGroupLabel>Evidence</SidebarGroupLabel>
       <SidebarMenu>
         {items.map((item) => (
