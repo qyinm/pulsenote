@@ -1,6 +1,8 @@
 import { Hono } from "hono"
 
 import type { FoundationService } from "../foundation/service.js"
+import type { GitHubSyncService } from "../github/service.js"
+import { createGitHubSyncRoute } from "./github-sync.js"
 import type { AppBindings } from "../types.js"
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -25,7 +27,10 @@ function notFound(message: string) {
   } as const
 }
 
-export function createWorkspacesRoute(foundationService: FoundationService) {
+export function createWorkspacesRoute(
+  foundationService: FoundationService,
+  githubSyncService?: GitHubSyncService,
+) {
   const route = new Hono<AppBindings>()
 
   route.post("/bootstrap", async (context) => {
@@ -169,6 +174,10 @@ export function createWorkspacesRoute(foundationService: FoundationService) {
       return context.json({ message, status }, status)
     }
   })
+
+  if (githubSyncService) {
+    route.route("/:workspaceId/github", createGitHubSyncRoute(githubSyncService))
+  }
 
   return route
 }

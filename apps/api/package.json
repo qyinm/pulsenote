@@ -18,6 +18,7 @@
     "better-auth": "^1.5.5",
     "drizzle-orm": "^0.45.1",
     "hono": "^4.12.8",
+    "octokit": "^5.0.5",
     "pg": "^8.20.0"
   },
   "devDependencies": {

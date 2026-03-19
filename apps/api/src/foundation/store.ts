@@ -22,6 +22,8 @@ type CreateIntegrationAccountInput = Pick<
 >
 type CreateSyncRunInput = Pick<SyncRun, "connectionId" | "scope" | "workspaceId">
 type CreateSourceCursorInput = Pick<SourceCursor, "connectionId" | "key" | "value">
+type UpdateSyncRunInput = Pick<SyncRun, "id" | "status"> &
+  Partial<Pick<SyncRun, "errorMessage" | "finishedAt">>
 
 export type WorkspaceSnapshot = {
   integrationAccounts: IntegrationAccount[]
@@ -42,8 +44,10 @@ export type FoundationStore = {
   createWorkspaceMembership(input: CreateWorkspaceMembershipInput): Promise<WorkspaceMembership>
   findWorkspaceMembership(workspaceId: string, userId: string): Promise<WorkspaceMembership | null>
   getIntegrationConnection(connectionId: string): Promise<IntegrationConnection | null>
+  getSyncRun(syncRunId: string): Promise<SyncRun | null>
   getWorkspace(workspaceId: string): Promise<Workspace | null>
   getWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnapshot | null>
+  updateSyncRun(input: UpdateSyncRunInput): Promise<SyncRun>
 }
 
 type InMemoryState = {
@@ -186,6 +190,10 @@ export function createInMemoryFoundationStore(): FoundationStore {
       return state.integrationConnections.get(connectionId) ?? null
     },
 
+    async getSyncRun(syncRunId) {
+      return state.syncRuns.get(syncRunId) ?? null
+    },
+
     async getWorkspace(workspaceId) {
       return state.workspaces.get(workspaceId) ?? null
     },
@@ -222,6 +230,24 @@ export function createInMemoryFoundationStore(): FoundationStore {
         syncRuns,
         workspace,
       }
+    },
+
+    async updateSyncRun(input) {
+      const existingSyncRun = state.syncRuns.get(input.id)
+
+      if (!existingSyncRun) {
+        throw new Error(`Sync run ${input.id} was not found`)
+      }
+
+      const syncRun: SyncRun = {
+        ...existingSyncRun,
+        errorMessage: input.errorMessage ?? existingSyncRun.errorMessage,
+        finishedAt: input.finishedAt ?? existingSyncRun.finishedAt,
+        status: input.status,
+      }
+
+      state.syncRuns.set(syncRun.id, syncRun)
+      return syncRun
     },
   }
 }

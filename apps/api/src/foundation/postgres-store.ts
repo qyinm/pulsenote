@@ -178,6 +178,14 @@ export function createPostgresFoundationStore(
       return integrationConnection ?? null
     },
 
+    async getSyncRun(syncRunId) {
+      const syncRun = await db.query.syncRuns.findFirst({
+        where: eq(syncRuns.id, syncRunId),
+      })
+
+      return syncRun ?? null
+    },
+
     async getWorkspace(workspaceId) {
       const workspace = await db.query.workspaces.findFirst({
         where: eq(workspaces.id, workspaceId),
@@ -233,6 +241,28 @@ export function createPostgresFoundationStore(
         syncRuns: syncRunRows,
         workspace,
       }
+    },
+
+    async updateSyncRun(input) {
+      const existingSyncRun = await db.query.syncRuns.findFirst({
+        where: eq(syncRuns.id, input.id),
+      })
+
+      if (!existingSyncRun) {
+        throw new Error(`Sync run ${input.id} was not found`)
+      }
+
+      const [syncRun] = await db
+        .update(syncRuns)
+        .set({
+          errorMessage: input.errorMessage ?? existingSyncRun.errorMessage,
+          finishedAt: input.finishedAt ?? existingSyncRun.finishedAt,
+          status: input.status,
+        })
+        .where(eq(syncRuns.id, input.id))
+        .returning()
+
+      return syncRun satisfies SyncRun
     },
   }
 }
