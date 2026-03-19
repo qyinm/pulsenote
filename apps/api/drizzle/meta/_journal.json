@@ -8,6 +8,13 @@
       "when": 1773932940339,
       "tag": "0000_flat_wind_dancer",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1773935389399,
+      "tag": "0001_powerful_skin",
+      "breakpoints": true
     }
   ]
 }

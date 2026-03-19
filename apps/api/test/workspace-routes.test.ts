@@ -8,9 +8,13 @@ import { createInMemoryFoundationStore } from "../src/foundation/store.js"
 const runtimeEnv = {
   appName: "pulsenote-api-test",
   appVersion: "test",
+  betterAuthSecret: null,
+  betterAuthUrl: null,
+  databaseUrl: null,
   host: "127.0.0.1",
   nodeEnv: "test" as const,
   port: 9999,
+  trustedOrigins: [],
 }
 
 test("workspace routes bootstrap a workspace and return its snapshot", async () => {

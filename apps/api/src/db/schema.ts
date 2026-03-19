@@ -7,7 +7,7 @@ import {
   workspaceMembershipRoles,
 } from "../domain/models.js"
 
-import { pgEnum, pgTable, text, timestamp, uuid, varchar } from "drizzle-orm/pg-core"
+import { boolean, pgEnum, pgTable, text, timestamp, uuid, varchar } from "drizzle-orm/pg-core"
 
 export const integrationProviderEnum = pgEnum("integration_provider", integrationProviders)
 export const workspaceMembershipRoleEnum = pgEnum(
@@ -24,10 +24,58 @@ export const evidenceStateEnum = pgEnum("evidence_state", evidenceStates)
 
 export const users = pgTable("users", {
   createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
-  email: varchar("email", { length: 255 }).notNull(),
+  email: varchar("email", { length: 255 }).notNull().unique(),
+  emailVerified: boolean("email_verified").default(false).notNull(),
   fullName: text("full_name"),
   id: uuid("id").defaultRandom().primaryKey(),
+  image: text("image"),
   updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
+})
+
+export const sessions = pgTable("sessions", {
+  createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
+  expiresAt: timestamp("expires_at", { mode: "string", withTimezone: true }).notNull(),
+  id: uuid("id").defaultRandom().primaryKey(),
+  ipAddress: text("ip_address"),
+  token: text("token").notNull().unique(),
+  updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
+  userAgent: text("user_agent"),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+})
+
+export const accounts = pgTable("accounts", {
+  accessToken: text("access_token"),
+  accessTokenExpiresAt: timestamp("access_token_expires_at", {
+    mode: "string",
+    withTimezone: true,
+  }),
+  accountId: text("account_id").notNull(),
+  createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
+  id: uuid("id").defaultRandom().primaryKey(),
+  idToken: text("id_token"),
+  password: text("password"),
+  providerId: text("provider_id").notNull(),
+  refreshToken: text("refresh_token"),
+  refreshTokenExpiresAt: timestamp("refresh_token_expires_at", {
+    mode: "string",
+    withTimezone: true,
+  }),
+  scope: text("scope"),
+  updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+})
+
+export const verifications = pgTable("verifications", {
+  createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
+  expiresAt: timestamp("expires_at", { mode: "string", withTimezone: true }).notNull(),
+  id: uuid("id").defaultRandom().primaryKey(),
+  identifier: text("identifier").notNull(),
+  updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
+  value: text("value").notNull(),
 })
 
 export const workspaces = pgTable("workspaces", {

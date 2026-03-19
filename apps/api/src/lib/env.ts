@@ -2,6 +2,7 @@ import type { AppRuntimeEnv, NodeEnv } from "../types.js"
 
 const DEFAULT_PORT = 8787
 const VALID_NODE_ENVS = new Set<NodeEnv>(["development", "test", "production"])
+const DEFAULT_TRUSTED_ORIGINS = ["http://127.0.0.1:3000", "http://localhost:3000"]
 
 function parseNodeEnv(rawValue: string | undefined): NodeEnv {
   if (rawValue && VALID_NODE_ENVS.has(rawValue as NodeEnv)) {
@@ -26,12 +27,20 @@ function parsePort(rawValue: string | undefined): number {
 }
 
 export function getRuntimeEnv(source: NodeJS.ProcessEnv = process.env): AppRuntimeEnv {
+  const trustedOrigins = source.TRUSTED_ORIGINS?.split(",")
+    .map((value) => value.trim())
+    .filter(Boolean)
+
   return {
     appName: source.APP_NAME ?? "pulsenote-api",
     appVersion: source.APP_VERSION ?? "0.1.0",
+    betterAuthSecret: source.BETTER_AUTH_SECRET ?? null,
+    betterAuthUrl: source.BETTER_AUTH_URL ?? null,
     databaseUrl: source.DATABASE_URL ?? null,
     host: source.HOST ?? "127.0.0.1",
     nodeEnv: parseNodeEnv(source.NODE_ENV),
     port: parsePort(source.PORT),
+    trustedOrigins:
+      trustedOrigins && trustedOrigins.length > 0 ? trustedOrigins : DEFAULT_TRUSTED_ORIGINS,
   }
 }
