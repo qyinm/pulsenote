@@ -20,14 +20,27 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 
 export default function ApprovalPage() {
+  const approvalCounts = approvalItems.reduce(
+    (counts, item) => {
+      if (item.status === "Pending") {
+        counts.pending += 1
+      } else if (item.status === "In review") {
+        counts.inReview += 1
+      } else if (item.status === "Signed off") {
+        counts.signedOff += 1
+      }
+
+      return counts
+    },
+    { pending: 0, inReview: 0, signedOff: 0 }
+  )
+
   return (
     <DashboardPage>
       <MetricGrid>
         <MetricCard
           title="Pending approvals"
-          value={String(
-            approvalItems.filter((item) => item.status === "Pending").length
-          )}
+          value={String(approvalCounts.pending)}
           detail="2 records waiting"
           description="Pending stages are visible before they turn into publish-window delays."
           badge="Queue"
@@ -35,18 +48,14 @@ export default function ApprovalPage() {
         />
         <MetricCard
           title="In review"
-          value={String(
-            approvalItems.filter((item) => item.status === "In review").length
-          )}
+          value={String(approvalCounts.inReview)}
           detail="Active reviewer work"
           description="These records have an owner and a live note explaining the current review step."
           icon={UsersIcon}
         />
         <MetricCard
           title="Signed off"
-          value={String(
-            approvalItems.filter((item) => item.status === "Signed off").length
-          )}
+          value={String(approvalCounts.signedOff)}
           detail="Approval complete"
           description="Signed-off items can move directly into publish-pack assembly."
           icon={BadgeCheckIcon}
