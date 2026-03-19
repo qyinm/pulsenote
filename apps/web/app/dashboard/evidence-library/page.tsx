@@ -15,6 +15,21 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { evidenceItems } from "@/lib/dashboard"
 
 export default function EvidenceLibraryPage() {
+  const evidenceStats = evidenceItems.reduce(
+    (stats, item) => {
+      if (item.freshness === "Stale") {
+        stats.stale += 1
+      } else if (item.freshness === "Fresh") {
+        stats.fresh += 1
+      }
+
+      stats.linkedReleases += item.linkedReleases
+
+      return stats
+    },
+    { stale: 0, fresh: 0, linkedReleases: 0 }
+  )
+
   return (
     <DashboardPage>
       <Alert variant="destructive">
@@ -36,27 +51,21 @@ export default function EvidenceLibraryPage() {
         />
         <MetricCard
           title="Stale sources"
-          value={String(
-            evidenceItems.filter((item) => item.freshness === "Stale").length
-          )}
+          value={String(evidenceStats.stale)}
           detail="Needs same-day refresh"
           description="Stale proof stays obvious so public claims do not inherit outdated scope or timing."
           icon={ShieldAlertIcon}
         />
         <MetricCard
           title="Linked releases"
-          value={String(
-            evidenceItems.reduce((sum, item) => sum + item.linkedReleases, 0)
-          )}
+          value={String(evidenceStats.linkedReleases)}
           detail="Across current records"
           description="Linked usage shows where a stale source could cascade into multiple release drafts."
           icon={WaypointsIcon}
         />
         <MetricCard
           title="Fresh syncs"
-          value={String(
-            evidenceItems.filter((item) => item.freshness === "Fresh").length
-          )}
+          value={String(evidenceStats.fresh)}
           detail="Safe to reuse"
           description="Fresh sources reduce approval loops because the evidence trail is already current."
           icon={DatabaseZapIcon}
