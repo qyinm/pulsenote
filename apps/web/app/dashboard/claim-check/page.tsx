@@ -35,6 +35,23 @@ function evidenceBadge(state: (typeof claimCheckItems)[number]["evidenceState"])
 }
 
 export default function ClaimCheckPage() {
+  const claimStats = claimCheckItems.reduce(
+    (stats, item) => {
+      if (item.severity === "High") {
+        stats.highSeverity += 1
+      }
+
+      if (item.evidenceState === "Verified") {
+        stats.verified += 1
+      } else {
+        stats.needsSupport += 1
+      }
+
+      return stats
+    },
+    { highSeverity: 0, verified: 0, needsSupport: 0 }
+  )
+
   return (
     <DashboardPage>
       <Alert variant="destructive">
@@ -56,7 +73,7 @@ export default function ClaimCheckPage() {
         />
         <MetricCard
           title="High severity"
-          value={String(claimCheckItems.filter((item) => item.severity === "High").length)}
+          value={String(claimStats.highSeverity)}
           detail="2 claims blocked"
           description="High-severity claims either overpromise availability or lack current proof."
           badge="Escalate"
@@ -64,18 +81,14 @@ export default function ClaimCheckPage() {
         />
         <MetricCard
           title="Verified evidence"
-          value={String(
-            claimCheckItems.filter((item) => item.evidenceState === "Verified").length
-          )}
+          value={String(claimStats.verified)}
           detail="Still needs wording review"
           description="Evidence-backed claims still go through wording review before approval."
           icon={ShieldCheckIcon}
         />
         <MetricCard
           title="Needs source support"
-          value={String(
-            claimCheckItems.filter((item) => item.evidenceState !== "Verified").length
-          )}
+          value={String(claimStats.needsSupport)}
           detail="Open evidence questions"
           description="Missing or stale proof is surfaced here instead of being hidden in later review."
           icon={FileSearchIcon}
