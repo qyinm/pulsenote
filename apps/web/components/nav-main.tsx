@@ -1,9 +1,9 @@
 "use client"
 
 import Link from "next/link"
-import { InboxIcon, PlusCircleIcon } from "lucide-react"
+import { PlusCircleIcon } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
+import { ReviewInboxButton } from "@/components/review-inbox-button"
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -32,19 +32,13 @@ export function NavMain({
             <SidebarMenuButton
               tooltip="New release"
               variant="outline"
+              className="min-w-0 flex-1"
               render={<Link href="/dashboard/release-context" />}
             >
               <PlusCircleIcon data-icon="inline-start" />
               <span>New release</span>
             </SidebarMenuButton>
-            <Button
-              size="icon"
-              className="size-8 group-data-[collapsible=icon]:opacity-0"
-              variant="outline"
-            >
-              <InboxIcon />
-              <span className="sr-only">Open review queue</span>
-            </Button>
+            <ReviewInboxButton />
           </SidebarMenuItem>
         </SidebarMenu>
         <SidebarMenu>

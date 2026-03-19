@@ -5,6 +5,7 @@ import {
   CircleHelpIcon,
   FileStackIcon,
   FolderKanbanIcon,
+  InboxIcon,
   PackageCheckIcon,
   SearchIcon,
   Settings2Icon,
@@ -28,6 +29,7 @@ export type DashboardRoute = {
   group: RouteGroup
   icon: LucideIcon
   badge?: string
+  showInSidebar?: boolean
   primaryAction?: RouteAction
   secondaryAction?: RouteAction
 }
@@ -885,6 +887,11 @@ const claimCheckBadge = String(
 const approvalBadge = String(
   approvalItems.filter((item) => item.status !== "Signed off").length
 )
+export const inboxQueueBadge = String(
+  claimCheckItems.filter(
+    (item) => item.severity === "High" || item.evidenceState === "Missing source"
+  ).length + approvalItems.filter((item) => item.status !== "Signed off").length
+)
 const publishBadge = String(
   publishAssets.filter((item) => item.status !== "Ready").length
 )
@@ -912,6 +919,28 @@ export const dashboardRoutes: DashboardRoute[] = [
       label: "Export pack",
       href: "/dashboard/publish-pack",
       icon: PackageCheckIcon,
+      variant: "secondary",
+    },
+  },
+  {
+    href: "/dashboard/inbox",
+    title: "Inbox",
+    description:
+      "Review blocked claims, pending approvals, and workflow pressure from one release communication queue.",
+    group: "core",
+    icon: InboxIcon,
+    badge: inboxQueueBadge,
+    showInSidebar: false,
+    primaryAction: {
+      label: "Open claim check",
+      href: "/dashboard/claim-check",
+      icon: ShieldAlertIcon,
+      variant: "outline",
+    },
+    secondaryAction: {
+      label: "Open approval",
+      href: "/dashboard/approval",
+      icon: CheckCheckIcon,
       variant: "secondary",
     },
   },
@@ -1124,10 +1153,14 @@ export const dashboardRoutes: DashboardRoute[] = [
   },
 ]
 
-export const coreRoutes = dashboardRoutes.filter((route) => route.group === "core")
-export const assetRoutes = dashboardRoutes.filter((route) => route.group === "asset")
+export const coreRoutes = dashboardRoutes.filter(
+  (route) => route.group === "core" && route.showInSidebar !== false
+)
+export const assetRoutes = dashboardRoutes.filter(
+  (route) => route.group === "asset" && route.showInSidebar !== false
+)
 export const utilityRoutes = dashboardRoutes.filter(
-  (route) => route.group === "utility"
+  (route) => route.group === "utility" && route.showInSidebar !== false
 )
 
 export function getDashboardRoute(pathname: string | null | undefined) {
