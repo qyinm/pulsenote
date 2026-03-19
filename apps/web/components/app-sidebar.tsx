@@ -43,6 +43,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarMenuButton
               size="lg"
               tooltip="PulseNote"
+              aria-label="PulseNote"
               render={<Link href="/dashboard" />}
               className="data-[slot=sidebar-menu-button]:p-2 group-data-[collapsible=icon]:justify-center"
             >
