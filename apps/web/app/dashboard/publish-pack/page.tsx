@@ -24,14 +24,16 @@ export default function PublishPackPage() {
   const totalAssetCount = publishAssets.length
   const readyCount = publishAssets.filter((item) => item.status === "Ready").length
   const needsInterventionCount = totalAssetCount - readyCount
+  const readinessPercent =
+    totalAssetCount === 0 ? 0 : Math.round((readyCount / totalAssetCount) * 100)
 
   return (
     <DashboardPage>
       <MetricGrid>
         <MetricCard
           title="Export readiness"
-          value="64%"
-          detail="3 of 5 assets cleared"
+          value={`${readinessPercent}%`}
+          detail={`${readyCount} of ${totalAssetCount} assets cleared`}
           description="Readiness only advances when the copy, evidence, and approval note all line up."
           badge="Progress"
           icon={PackageCheckIcon}
