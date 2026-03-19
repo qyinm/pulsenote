@@ -891,7 +891,10 @@ const approvalBadge = String(
 export const inboxQueueBadge = String(
   claimCheckItems.filter(
     (item) => item.severity === "High" || item.evidenceState === "Missing source"
-  ).length + approvalItems.filter((item) => item.status !== "Signed off").length
+  ).length +
+    approvalItems.filter((item) => item.status !== "Signed off").length +
+    evidenceItems.filter((item) => item.freshness !== "Fresh").length +
+    publishAssets.filter((item) => item.status !== "Ready").length
 )
 const publishBadge = String(
   publishAssets.filter((item) => item.status !== "Ready").length
