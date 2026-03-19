@@ -44,7 +44,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               size="lg"
               tooltip="PulseNote"
               render={<Link href="/dashboard" />}
-              className="data-[slot=sidebar-menu-button]:p-2"
+              className="data-[slot=sidebar-menu-button]:p-2 group-data-[collapsible=icon]:justify-center"
             >
               <PulseNoteMark className="size-4 shrink-0" />
               <span className="text-base font-semibold group-data-[collapsible=icon]:hidden">
