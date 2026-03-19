@@ -1,6 +1,12 @@
 export const integrationProviders = ["github", "linear"] as const
 export type IntegrationProvider = (typeof integrationProviders)[number]
 
+export const workspaceMembershipRoles = ["owner", "member"] as const
+export type WorkspaceMembershipRole = (typeof workspaceMembershipRoles)[number]
+
+export const integrationConnectionStatuses = ["active", "disconnected"] as const
+export type IntegrationConnectionStatus = (typeof integrationConnectionStatuses)[number]
+
 export const syncRunStatuses = ["queued", "running", "succeeded", "failed"] as const
 export type SyncRunStatus = (typeof syncRunStatuses)[number]
 
@@ -33,7 +39,7 @@ export type WorkspaceMembership = {
   id: string
   workspaceId: string
   userId: string
-  role: "owner" | "member"
+  role: WorkspaceMembershipRole
   createdAt: string
 }
 
@@ -42,9 +48,18 @@ export type IntegrationConnection = {
   workspaceId: string
   provider: IntegrationProvider
   externalAccountId: string
-  status: "active" | "disconnected"
+  status: IntegrationConnectionStatus
   connectedAt: string
   lastSyncedAt: string | null
+}
+
+export type IntegrationAccount = {
+  id: string
+  connectionId: string
+  provider: IntegrationProvider
+  accountLabel: string
+  accountUrl: string | null
+  createdAt: string
 }
 
 export type SyncRun = {
@@ -124,6 +139,7 @@ export const foundationModelNames = [
   "workspace",
   "workspace_membership",
   "integration_connection",
+  "integration_account",
   "sync_run",
   "source_cursor",
   "release_record",
