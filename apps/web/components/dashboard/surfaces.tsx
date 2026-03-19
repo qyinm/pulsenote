@@ -127,9 +127,9 @@ export function InlineList({
 }) {
   return (
     <div className="grid gap-3">
-      {items.map((item) => (
+      {items.map((item, index) => (
         <div
-          key={item.label}
+          key={`${item.label}-${index}`}
           className="flex items-start justify-between gap-3 border-b border-border/60 pb-3 last:border-b-0 last:pb-0"
         >
           <span className="text-sm text-muted-foreground">{item.label}</span>
