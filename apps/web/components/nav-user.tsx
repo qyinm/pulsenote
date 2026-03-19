@@ -26,8 +26,16 @@ import {
 } from "@/components/ui/sidebar"
 
 function getInitials(name: string) {
-  return name
-    .split(" ")
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+
+  if (parts.length === 0) {
+    return "U"
+  }
+
+  return parts
     .map((part) => part[0] ?? "")
     .join("")
     .slice(0, 2)
