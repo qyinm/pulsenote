@@ -23,23 +23,23 @@ export const reviewStageEnum = pgEnum("review_stage", reviewStages)
 export const evidenceStateEnum = pgEnum("evidence_state", evidenceStates)
 
 export const users = pgTable("users", {
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
   email: varchar("email", { length: 255 }).notNull(),
   fullName: text("full_name"),
   id: uuid("id").defaultRandom().primaryKey(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
 })
 
 export const workspaces = pgTable("workspaces", {
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
   id: uuid("id").defaultRandom().primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   slug: varchar("slug", { length: 255 }).notNull().unique(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
 })
 
 export const workspaceMemberships = pgTable("workspace_memberships", {
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
   id: uuid("id").defaultRandom().primaryKey(),
   role: workspaceMembershipRoleEnum("role").notNull(),
   userId: uuid("user_id")
@@ -51,10 +51,10 @@ export const workspaceMemberships = pgTable("workspace_memberships", {
 })
 
 export const integrationConnections = pgTable("integration_connections", {
-  connectedAt: timestamp("connected_at", { withTimezone: true }).defaultNow().notNull(),
+  connectedAt: timestamp("connected_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
   externalAccountId: varchar("external_account_id", { length: 255 }).notNull(),
   id: uuid("id").defaultRandom().primaryKey(),
-  lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+  lastSyncedAt: timestamp("last_synced_at", { mode: "string", withTimezone: true }),
   provider: integrationProviderEnum("provider").notNull(),
   status: integrationConnectionStatusEnum("status").notNull(),
   workspaceId: uuid("workspace_id")
@@ -68,7 +68,7 @@ export const integrationAccounts = pgTable("integration_accounts", {
   connectionId: uuid("connection_id")
     .notNull()
     .references(() => integrationConnections.id, { onDelete: "cascade" }),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
   id: uuid("id").defaultRandom().primaryKey(),
   provider: integrationProviderEnum("provider").notNull(),
 })
@@ -78,11 +78,11 @@ export const syncRuns = pgTable("sync_runs", {
     .notNull()
     .references(() => integrationConnections.id, { onDelete: "cascade" }),
   errorMessage: text("error_message"),
-  finishedAt: timestamp("finished_at", { withTimezone: true }),
+  finishedAt: timestamp("finished_at", { mode: "string", withTimezone: true }),
   id: uuid("id").defaultRandom().primaryKey(),
   provider: integrationProviderEnum("provider").notNull(),
   scope: text("scope").notNull(),
-  startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(),
+  startedAt: timestamp("started_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
   status: syncRunStatusEnum("status").notNull(),
   workspaceId: uuid("workspace_id")
     .notNull()
@@ -95,6 +95,6 @@ export const sourceCursors = pgTable("source_cursors", {
     .references(() => integrationConnections.id, { onDelete: "cascade" }),
   id: uuid("id").defaultRandom().primaryKey(),
   key: varchar("key", { length: 255 }).notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
   value: text("value").notNull(),
 })

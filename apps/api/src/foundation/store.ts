@@ -59,8 +59,8 @@ function nowIso() {
   return new Date().toISOString()
 }
 
-function createId(prefix: string) {
-  return `${prefix}_${crypto.randomUUID()}`
+function createId() {
+  return crypto.randomUUID()
 }
 
 export function createInMemoryFoundationStore(): FoundationStore {
@@ -81,7 +81,7 @@ export function createInMemoryFoundationStore(): FoundationStore {
         accountUrl: input.accountUrl,
         connectionId: input.connectionId,
         createdAt: nowIso(),
-        id: createId("integration_account"),
+        id: createId(),
         provider: input.provider,
       }
 
@@ -93,7 +93,7 @@ export function createInMemoryFoundationStore(): FoundationStore {
       const integrationConnection: IntegrationConnection = {
         connectedAt: nowIso(),
         externalAccountId: input.externalAccountId,
-        id: createId("integration_connection"),
+        id: createId(),
         lastSyncedAt: null,
         provider: input.provider,
         status: "active",
@@ -105,9 +105,9 @@ export function createInMemoryFoundationStore(): FoundationStore {
     },
 
     async createSourceCursor(input) {
-      const sourceCursor: SourceCursor = {
+        const sourceCursor: SourceCursor = {
         connectionId: input.connectionId,
-        id: createId("source_cursor"),
+        id: createId(),
         key: input.key,
         updatedAt: nowIso(),
         value: input.value,
@@ -122,7 +122,7 @@ export function createInMemoryFoundationStore(): FoundationStore {
         connectionId: input.connectionId,
         errorMessage: null,
         finishedAt: null,
-        id: createId("sync_run"),
+        id: createId(),
         provider: (state.integrationConnections.get(input.connectionId)?.provider ?? "github") as IntegrationProvider,
         scope: input.scope,
         startedAt: nowIso(),
@@ -139,7 +139,7 @@ export function createInMemoryFoundationStore(): FoundationStore {
         createdAt: nowIso(),
         email: input.email,
         fullName: input.fullName,
-        id: createId("user"),
+        id: createId(),
         updatedAt: nowIso(),
       }
 
@@ -150,7 +150,7 @@ export function createInMemoryFoundationStore(): FoundationStore {
     async createWorkspace(input) {
       const workspace: Workspace = {
         createdAt: nowIso(),
-        id: createId("workspace"),
+        id: createId(),
         name: input.name,
         slug: input.slug,
         updatedAt: nowIso(),
@@ -163,7 +163,7 @@ export function createInMemoryFoundationStore(): FoundationStore {
     async createWorkspaceMembership(input) {
       const workspaceMembership: WorkspaceMembership = {
         createdAt: nowIso(),
-        id: createId("workspace_membership"),
+        id: createId(),
         role: input.role,
         userId: input.userId,
         workspaceId: input.workspaceId,

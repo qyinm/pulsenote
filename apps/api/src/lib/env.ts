@@ -29,6 +29,7 @@ export function getRuntimeEnv(source: NodeJS.ProcessEnv = process.env): AppRunti
   return {
     appName: source.APP_NAME ?? "pulsenote-api",
     appVersion: source.APP_VERSION ?? "0.1.0",
+    databaseUrl: source.DATABASE_URL ?? null,
     host: source.HOST ?? "127.0.0.1",
     nodeEnv: parseNodeEnv(source.NODE_ENV),
     port: parsePort(source.PORT),

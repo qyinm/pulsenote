@@ -1,7 +1,7 @@
 import { Hono } from "hono"
 
 import { createFoundationService } from "./foundation/service.js"
-import { createInMemoryFoundationStore } from "./foundation/store.js"
+import { createFoundationStoreForRuntime } from "./foundation/resolve-store.js"
 import { getRuntimeEnv } from "./lib/env.js"
 import { requestContext } from "./middleware/request-context.js"
 import { foundationRoute } from "./routes/foundation.js"
@@ -16,7 +16,7 @@ type CreateAppOptions = {
 export function createApp(runtimeEnv: AppRuntimeEnv = getRuntimeEnv(), options: CreateAppOptions = {}) {
   const app = new Hono<AppBindings>()
   const foundationService =
-    options.foundationService ?? createFoundationService(createInMemoryFoundationStore())
+    options.foundationService ?? createFoundationService(createFoundationStoreForRuntime(runtimeEnv))
 
   app.use("*", requestContext(runtimeEnv))
 
