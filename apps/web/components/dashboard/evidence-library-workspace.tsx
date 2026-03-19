@@ -216,7 +216,7 @@ export function EvidenceLibraryWorkspace() {
             {selectedItem ? (
               <div className="grid gap-3">
                 {filteredItems.map((item) => {
-                  const detail = evidenceDetails[item.id]
+                  const confidence = evidenceDetails[item.id]?.confidence ?? 0
                   const isSelected = item.id === selectedItem.id
 
                   return (
@@ -251,7 +251,7 @@ export function EvidenceLibraryWorkspace() {
                       <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                         <span>{item.owner}</span>
                         <span>{item.linkedReleases} linked releases</span>
-                        <span>{detail.confidence}% confidence</span>
+                        <span>{confidence}% confidence</span>
                       </div>
                     </button>
                   )
