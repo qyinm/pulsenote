@@ -1,6 +1,6 @@
 "use client"
 
-import { startTransition, useDeferredValue, useMemo, useState } from "react"
+import { useDeferredValue, useMemo, useState } from "react"
 import type { LucideIcon } from "lucide-react"
 import Link from "next/link"
 import {
@@ -341,15 +341,13 @@ export function ReviewInboxWorkspace() {
             <Label htmlFor="review-inbox-search">Search queue</Label>
             <div className="relative">
               <SearchIcon className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                id="review-inbox-search"
-                value={query}
-                onChange={(event) => {
-                  const nextValue = event.currentTarget.value
-                  startTransition(() => {
+                <Input
+                  id="review-inbox-search"
+                  value={query}
+                  onChange={(event) => {
+                    const nextValue = event.currentTarget.value
                     setQuery(nextValue)
-                  })
-                }}
+                  }}
                 placeholder="Search release, owner, or review note"
                 className="pl-9"
               />
