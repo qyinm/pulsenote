@@ -14,6 +14,10 @@ export function SiteHeader() {
   const pathname = usePathname()
   const route = getDashboardRoute(pathname)
 
+  if (!route) {
+    return null
+  }
+
   return (
     <header className="sticky top-0 z-20 flex h-(--header-height) shrink-0 items-center border-b bg-background transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
       <div className="flex w-full items-center justify-between gap-3 px-4 lg:px-6">

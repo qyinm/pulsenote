@@ -1170,8 +1170,5 @@ export const utilityRoutes = dashboardRoutes.filter(
 )
 
 export function getDashboardRoute(pathname: string | null | undefined) {
-  return (
-    dashboardRoutes.find((route) => route.href === pathname) ??
-    dashboardRoutes[0]
-  )
+  return dashboardRoutes.find((route) => route.href === pathname) ?? dashboardRoutes[0] ?? null
 }
