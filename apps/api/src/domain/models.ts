@@ -19,6 +19,18 @@ export type ClaimStatus = (typeof claimStatuses)[number]
 export const evidenceStates = ["fresh", "stale", "missing", "unsupported"] as const
 export type EvidenceState = (typeof evidenceStates)[number]
 
+export const evidenceSourceTypes = [
+  "pull_request",
+  "commit",
+  "release",
+  "ticket",
+  "document",
+] as const
+export type EvidenceSourceType = (typeof evidenceSourceTypes)[number]
+
+export const reviewStates = ["pending", "blocked", "approved"] as const
+export type ReviewState = (typeof reviewStates)[number]
+
 export type User = {
   id: string
   email: string
@@ -98,7 +110,7 @@ export type EvidenceBlock = {
   id: string
   releaseRecordId: string
   provider: IntegrationProvider
-  sourceType: "pull_request" | "commit" | "release" | "ticket" | "document"
+  sourceType: EvidenceSourceType
   sourceRef: string
   title: string
   body: string | null
@@ -129,7 +141,7 @@ export type ReviewStatus = {
   releaseRecordId: string
   stage: ReviewStage
   ownerUserId: string | null
-  state: "pending" | "blocked" | "approved"
+  state: ReviewState
   note: string | null
   updatedAt: string
 }

@@ -1,13 +1,25 @@
 import {
+  claimStatuses,
   evidenceStates,
+  evidenceSourceTypes,
   integrationConnectionStatuses,
   integrationProviders,
+  reviewStates,
   reviewStages,
   syncRunStatuses,
   workspaceMembershipRoles,
 } from "../domain/models.js"
 
-import { boolean, pgEnum, pgTable, text, timestamp, uuid, varchar } from "drizzle-orm/pg-core"
+import {
+  boolean,
+  pgEnum,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uuid,
+  varchar,
+} from "drizzle-orm/pg-core"
 
 export const integrationProviderEnum = pgEnum("integration_provider", integrationProviders)
 export const workspaceMembershipRoleEnum = pgEnum(
@@ -21,6 +33,9 @@ export const integrationConnectionStatusEnum = pgEnum(
 export const syncRunStatusEnum = pgEnum("sync_run_status", syncRunStatuses)
 export const reviewStageEnum = pgEnum("review_stage", reviewStages)
 export const evidenceStateEnum = pgEnum("evidence_state", evidenceStates)
+export const claimStatusEnum = pgEnum("claim_status", claimStatuses)
+export const evidenceSourceTypeEnum = pgEnum("evidence_source_type", evidenceSourceTypes)
+export const reviewStateEnum = pgEnum("review_state", reviewStates)
 
 export const users = pgTable("users", {
   createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
@@ -145,4 +160,83 @@ export const sourceCursors = pgTable("source_cursors", {
   key: varchar("key", { length: 255 }).notNull(),
   updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
   value: text("value").notNull(),
+})
+
+export const releaseRecords = pgTable("release_records", {
+  compareRange: text("compare_range"),
+  connectionId: uuid("connection_id")
+    .notNull()
+    .references(() => integrationConnections.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
+  id: uuid("id").defaultRandom().primaryKey(),
+  stage: reviewStageEnum("stage").notNull(),
+  summary: text("summary"),
+  title: text("title").notNull(),
+  updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
+  workspaceId: uuid("workspace_id")
+    .notNull()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+})
+
+export const evidenceBlocks = pgTable("evidence_blocks", {
+  body: text("body"),
+  capturedAt: timestamp("captured_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
+  evidenceState: evidenceStateEnum("evidence_state").notNull(),
+  id: uuid("id").defaultRandom().primaryKey(),
+  provider: integrationProviderEnum("provider").notNull(),
+  releaseRecordId: uuid("release_record_id")
+    .notNull()
+    .references(() => releaseRecords.id, { onDelete: "cascade" }),
+  sourceRef: text("source_ref").notNull(),
+  sourceType: evidenceSourceTypeEnum("source_type").notNull(),
+  title: text("title").notNull(),
+})
+
+export const claimCandidates = pgTable("claim_candidates", {
+  createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
+  id: uuid("id").defaultRandom().primaryKey(),
+  releaseRecordId: uuid("release_record_id")
+    .notNull()
+    .references(() => releaseRecords.id, { onDelete: "cascade" }),
+  sentence: text("sentence").notNull(),
+  status: claimStatusEnum("status").notNull(),
+  updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
+})
+
+export const claimCandidateEvidenceBlocks = pgTable(
+  "claim_candidate_evidence_blocks",
+  {
+    claimCandidateId: uuid("claim_candidate_id")
+      .notNull()
+      .references(() => claimCandidates.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { mode: "string", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    evidenceBlockId: uuid("evidence_block_id")
+      .notNull()
+      .references(() => evidenceBlocks.id, { onDelete: "cascade" }),
+  },
+  (table) => [primaryKey({ columns: [table.claimCandidateId, table.evidenceBlockId] })],
+)
+
+export const sourceLinks = pgTable("source_links", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  label: text("label").notNull(),
+  provider: integrationProviderEnum("provider").notNull(),
+  releaseRecordId: uuid("release_record_id")
+    .notNull()
+    .references(() => releaseRecords.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+})
+
+export const reviewStatuses = pgTable("review_statuses", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  note: text("note"),
+  ownerUserId: uuid("owner_user_id").references(() => users.id, { onDelete: "set null" }),
+  releaseRecordId: uuid("release_record_id")
+    .notNull()
+    .references(() => releaseRecords.id, { onDelete: "cascade" }),
+  stage: reviewStageEnum("stage").notNull(),
+  state: reviewStateEnum("state").notNull(),
+  updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
 })

@@ -15,6 +15,13 @@
       "when": 1773935389399,
       "tag": "0001_powerful_skin",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1773936773839,
+      "tag": "0002_messy_sunspot",
+      "breakpoints": true
     }
   ]
 }
