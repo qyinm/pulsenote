@@ -2,7 +2,7 @@ import { ReviewInboxWorkspace } from "@/components/dashboard/review-inbox-worksp
 
 export default function InboxPage() {
   return (
-    <div className="flex h-[calc(100dvh-var(--header-height)-2rem)] min-h-0 flex-1 overflow-hidden p-4 md:h-[calc(100dvh-var(--header-height)-4rem)] md:p-6">
+    <div className="flex h-[calc(100dvh_-_var(--header-height)_-_2rem)] min-h-0 overflow-hidden p-4 md:h-[calc(100dvh_-_var(--header-height)_-_4rem)] md:p-6">
       <ReviewInboxWorkspace />
     </div>
   )
