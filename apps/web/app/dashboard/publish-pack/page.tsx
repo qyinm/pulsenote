@@ -21,7 +21,9 @@ import { Progress } from "@/components/ui/progress"
 import { publishAssets } from "@/lib/dashboard"
 
 export default function PublishPackPage() {
+  const totalAssetCount = publishAssets.length
   const readyCount = publishAssets.filter((item) => item.status === "Ready").length
+  const needsInterventionCount = totalAssetCount - readyCount
 
   return (
     <DashboardPage>
@@ -43,9 +45,7 @@ export default function PublishPackPage() {
         />
         <MetricCard
           title="Needs intervention"
-          value={String(
-            publishAssets.filter((item) => item.status !== "Ready").length
-          )}
+          value={String(needsInterventionCount)}
           detail="Still in workflow"
           description="Assets remain visible until their approval and evidence gaps are fully resolved."
           icon={ShieldAlertIcon}
