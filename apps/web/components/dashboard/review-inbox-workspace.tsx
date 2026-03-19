@@ -308,9 +308,9 @@ export function ReviewInboxWorkspace() {
     currentItems.find((item) => item.id === selectedId) ?? currentItems[0] ?? null
 
   return (
-    <div className="grid h-full min-h-0 flex-1 overflow-hidden rounded-2xl border border-border bg-card shadow-xs lg:grid-cols-[25rem_minmax(0,1fr)]">
+    <div className="grid h-full min-h-0 flex-1 overflow-hidden bg-background lg:grid-cols-[26rem_minmax(0,1fr)]">
       <aside className="flex h-full min-h-0 flex-col border-b border-border/70 bg-muted/10 lg:border-r lg:border-b-0">
-        <div className="grid gap-4 border-b border-border/70 px-4 py-4">
+        <div className="grid gap-4 border-b border-border/70 pl-4 pr-6 py-4">
           <div className="grid gap-1">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-sm font-medium text-foreground">Inbox queue</h2>
@@ -539,7 +539,7 @@ function InboxListRow({
       type="button"
       onClick={() => onSelect(item.id)}
       className={cn(
-        "cursor-pointer border-b border-border/70 px-4 py-4 text-left transition-colors duration-200 last:border-b-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+        "cursor-pointer border-b border-border/70 pl-4 pr-6 py-4 text-left transition-colors duration-200 last:border-b-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
         isSelected ? "bg-background" : "bg-transparent hover:bg-background/70"
       )}
     >
