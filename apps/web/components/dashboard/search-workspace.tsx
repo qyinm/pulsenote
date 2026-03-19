@@ -63,6 +63,7 @@ export function SearchWorkspace() {
             <button
               key={item}
               type="button"
+              aria-pressed={query === item}
               className="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               onClick={() => {
                 startTransition(() => {
