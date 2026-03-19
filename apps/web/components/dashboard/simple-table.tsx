@@ -27,11 +27,15 @@ export function SimpleTable({
   rows,
   emptyTitle,
   emptyDescription,
+  selectedRowKey,
+  onRowSelect,
 }: {
   columns: TableColumn[]
   rows: TableRowData[]
   emptyTitle: string
   emptyDescription: string
+  selectedRowKey?: string
+  onRowSelect?: (rowKey: string) => void
 }) {
   if (rows.length === 0) {
     return <EmptyState title={emptyTitle} description={emptyDescription} />
@@ -51,7 +55,26 @@ export function SimpleTable({
         </TableHeader>
         <TableBody>
           {rows.map((row) => (
-            <TableRow key={row.key}>
+            <TableRow
+              key={row.key}
+              data-state={row.key === selectedRowKey ? "selected" : undefined}
+              tabIndex={onRowSelect ? 0 : undefined}
+              onClick={onRowSelect ? () => onRowSelect(row.key) : undefined}
+              onKeyDown={
+                onRowSelect
+                  ? (event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault()
+                        onRowSelect(row.key)
+                      }
+                    }
+                  : undefined
+              }
+              className={cn(
+                onRowSelect &&
+                  "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              )}
+            >
               {columns.map((column) => (
                 <TableCell key={column.key} className={cn(column.className)}>
                   {row.cells[column.key]}

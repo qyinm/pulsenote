@@ -1,3 +1,6 @@
+"use client"
+
+import { useState } from "react"
 import {
   FileStackIcon,
   RefreshCcwIcon,
@@ -34,6 +37,8 @@ function readinessBadge(readiness: (typeof releaseContextQueue)[number]["readine
 }
 
 export default function ReleaseContextPage() {
+  const [selectedId, setSelectedId] = useState(releaseContextQueue[0]?.id ?? "")
+
   if (releaseContextQueue.length === 0) {
     return (
       <DashboardPage>
@@ -45,7 +50,8 @@ export default function ReleaseContextPage() {
     )
   }
 
-  const selected = releaseContextQueue[0]
+  const selected =
+    releaseContextQueue.find((item) => item.id === selectedId) ?? releaseContextQueue[0]
   const totalEvidence = releaseContextQueue.reduce(
     (sum, item) => sum + item.evidenceCount,
     0
@@ -124,6 +130,8 @@ export default function ReleaseContextPage() {
                     readiness: readinessBadge(item.readiness),
                   },
                 }))}
+                selectedRowKey={selected.id}
+                onRowSelect={setSelectedId}
                 emptyTitle="No release context in queue"
                 emptyDescription="New release context will appear here as evidence is ingested."
               />
