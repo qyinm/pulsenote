@@ -62,7 +62,7 @@ export default function ApprovalPage() {
         />
         <MetricCard
           title="Decision log"
-          value="5"
+          value={String(reviewLogEntries.length)}
           detail="Captured today"
           description="Every approval decision keeps a clear note so publish responsibility stays reviewable."
           icon={FileTextIcon}
