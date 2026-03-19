@@ -101,7 +101,7 @@ export default function PublishPackPage() {
               description="Use a single readiness signal to see whether the publish pack is actually shippable."
             >
               <div className="grid gap-4">
-                <Progress value={64} />
+                <Progress value={readinessPercent} />
                 <BulletList
                   items={[
                     "Release note block is ready for export once the approval note is attached.",
