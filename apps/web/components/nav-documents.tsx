@@ -27,7 +27,7 @@ export function NavDocuments({
       <SidebarGroupLabel>Evidence</SidebarGroupLabel>
       <SidebarMenu>
         {items.map((item) => (
-          <SidebarMenuItem key={item.title}>
+          <SidebarMenuItem key={item.href}>
             <SidebarMenuButton
               render={<Link href={item.href} />}
               isActive={item.isActive}
