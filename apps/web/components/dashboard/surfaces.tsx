@@ -145,8 +145,8 @@ export function InlineList({
 export function BulletList({ items }: { items: string[] }) {
   return (
     <div className="grid gap-3">
-      {items.map((item) => (
-        <div key={item} className="flex gap-3 text-sm">
+      {items.map((item, index) => (
+        <div key={`${item}-${index}`} className="flex gap-3 text-sm">
           <span className="mt-1 size-1.5 shrink-0 rounded-full bg-foreground/70" />
           <p className="text-muted-foreground">{item}</p>
         </div>
