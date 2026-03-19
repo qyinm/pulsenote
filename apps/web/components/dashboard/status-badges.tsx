@@ -4,6 +4,7 @@ import {
   ShieldAlertIcon,
   ShieldCheckIcon,
 } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 
 import type {
   ApprovalStatus,
@@ -16,44 +17,45 @@ import type {
 } from "@/lib/dashboard"
 import { Badge } from "@/components/ui/badge"
 
+type BadgeVariant = "outline" | "secondary" | "destructive"
+
+type BadgeConfig = {
+  variant: BadgeVariant
+  icon?: LucideIcon
+}
+
+function renderStatusBadge(label: string, config: BadgeConfig) {
+  const Icon = config.icon
+
+  return (
+    <Badge variant={config.variant}>
+      {Icon ? <Icon data-icon="inline-start" /> : null}
+      {label}
+    </Badge>
+  )
+}
+
 export function ReleaseStageBadge({ status }: { status: ReleaseStage }) {
   if (status === "Ready to export") {
-    return (
-      <Badge variant="secondary">
-        <PackageCheckIcon data-icon="inline-start" />
-        {status}
-      </Badge>
-    )
+    return renderStatusBadge(status, {
+      variant: "secondary",
+      icon: PackageCheckIcon,
+    })
   }
 
-  return <Badge variant="outline">{status}</Badge>
+  return renderStatusBadge(status, { variant: "outline" })
 }
 
 export function ClaimCheckBadge({ state }: { state: ClaimCheckState }) {
   if (state === "Blocked") {
-    return (
-      <Badge variant="destructive">
-        <ShieldAlertIcon data-icon="inline-start" />
-        {state}
-      </Badge>
-    )
+    return renderStatusBadge(state, { variant: "destructive", icon: ShieldAlertIcon })
   }
 
   if (state === "Watch") {
-    return (
-      <Badge variant="secondary">
-        <Clock3Icon data-icon="inline-start" />
-        {state}
-      </Badge>
-    )
+    return renderStatusBadge(state, { variant: "secondary", icon: Clock3Icon })
   }
 
-  return (
-    <Badge variant="outline">
-      <ShieldCheckIcon data-icon="inline-start" />
-      {state}
-    </Badge>
-  )
+  return renderStatusBadge(state, { variant: "outline", icon: ShieldCheckIcon })
 }
 
 export function ClaimSeverityBadge({
@@ -62,24 +64,17 @@ export function ClaimSeverityBadge({
   severity: ClaimCheckSeverity
 }) {
   if (severity === "High") {
-    return (
-      <Badge variant="destructive">
-        <ShieldAlertIcon data-icon="inline-start" />
-        {severity}
-      </Badge>
-    )
+    return renderStatusBadge(severity, {
+      variant: "destructive",
+      icon: ShieldAlertIcon,
+    })
   }
 
   if (severity === "Medium") {
-    return (
-      <Badge variant="secondary">
-        <Clock3Icon data-icon="inline-start" />
-        {severity}
-      </Badge>
-    )
+    return renderStatusBadge(severity, { variant: "secondary", icon: Clock3Icon })
   }
 
-  return <Badge variant="outline">{severity}</Badge>
+  return renderStatusBadge(severity, { variant: "outline" })
 }
 
 export function ApprovalStatusBadge({
@@ -88,56 +83,26 @@ export function ApprovalStatusBadge({
   status: ApprovalStatus
 }) {
   if (status === "Signed off") {
-    return (
-      <Badge variant="outline">
-        <ShieldCheckIcon data-icon="inline-start" />
-        {status}
-      </Badge>
-    )
+    return renderStatusBadge(status, { variant: "outline", icon: ShieldCheckIcon })
   }
 
   if (status === "In review") {
-    return (
-      <Badge variant="secondary">
-        <Clock3Icon data-icon="inline-start" />
-        {status}
-      </Badge>
-    )
+    return renderStatusBadge(status, { variant: "secondary", icon: Clock3Icon })
   }
 
-  return (
-    <Badge variant="destructive">
-      <ShieldAlertIcon data-icon="inline-start" />
-      {status}
-    </Badge>
-  )
+  return renderStatusBadge(status, { variant: "destructive", icon: ShieldAlertIcon })
 }
 
 export function PublishStatusBadge({ status }: { status: PublishStatus }) {
   if (status === "Ready") {
-    return (
-      <Badge variant="outline">
-        <PackageCheckIcon data-icon="inline-start" />
-        {status}
-      </Badge>
-    )
+    return renderStatusBadge(status, { variant: "outline", icon: PackageCheckIcon })
   }
 
   if (status === "Needs work") {
-    return (
-      <Badge variant="secondary">
-        <Clock3Icon data-icon="inline-start" />
-        {status}
-      </Badge>
-    )
+    return renderStatusBadge(status, { variant: "secondary", icon: Clock3Icon })
   }
 
-  return (
-    <Badge variant="destructive">
-      <ShieldAlertIcon data-icon="inline-start" />
-      {status}
-    </Badge>
-  )
+  return renderStatusBadge(status, { variant: "destructive", icon: ShieldAlertIcon })
 }
 
 export function EvidenceFreshnessBadge({
@@ -146,29 +111,20 @@ export function EvidenceFreshnessBadge({
   freshness: EvidenceFreshness
 }) {
   if (freshness === "Stale") {
-    return (
-      <Badge variant="destructive">
-        <ShieldAlertIcon data-icon="inline-start" />
-        {freshness}
-      </Badge>
-    )
+    return renderStatusBadge(freshness, {
+      variant: "destructive",
+      icon: ShieldAlertIcon,
+    })
   }
 
   if (freshness === "Watch") {
-    return (
-      <Badge variant="secondary">
-        <Clock3Icon data-icon="inline-start" />
-        {freshness}
-      </Badge>
-    )
+    return renderStatusBadge(freshness, {
+      variant: "secondary",
+      icon: Clock3Icon,
+    })
   }
 
-  return (
-    <Badge variant="outline">
-      <ShieldCheckIcon data-icon="inline-start" />
-      {freshness}
-    </Badge>
-  )
+  return renderStatusBadge(freshness, { variant: "outline", icon: ShieldCheckIcon })
 }
 
 export function TemplateStatusBadge({
@@ -177,22 +133,12 @@ export function TemplateStatusBadge({
   status: TemplateStatus
 }) {
   if (status === "Current") {
-    return (
-      <Badge variant="outline">
-        <ShieldCheckIcon data-icon="inline-start" />
-        {status}
-      </Badge>
-    )
+    return renderStatusBadge(status, { variant: "outline", icon: ShieldCheckIcon })
   }
 
   if (status === "Needs review") {
-    return (
-      <Badge variant="secondary">
-        <Clock3Icon data-icon="inline-start" />
-        {status}
-      </Badge>
-    )
+    return renderStatusBadge(status, { variant: "secondary", icon: Clock3Icon })
   }
 
-  return <Badge variant="destructive">{status}</Badge>
+  return renderStatusBadge(status, { variant: "destructive" })
 }
