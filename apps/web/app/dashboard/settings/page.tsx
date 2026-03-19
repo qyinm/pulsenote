@@ -51,10 +51,7 @@ function FieldRenderer({
       ) : null}
 
       {field.type === "select" ? (
-        <Select
-          defaultValue={field.value}
-          items={field.options.map((option) => ({ label: option, value: option }))}
-        >
+        <Select defaultValue={field.value}>
           <SelectTrigger id={field.id}>
             <SelectValue placeholder={field.value} />
           </SelectTrigger>
