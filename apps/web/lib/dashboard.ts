@@ -25,6 +25,7 @@ export type RouteAction = {
 export type DashboardRoute = {
   href: string
   title: string
+  sidebarTitle?: string
   description: string
   group: RouteGroup
   icon: LucideIcon
@@ -905,6 +906,7 @@ export const dashboardRoutes: DashboardRoute[] = [
   {
     href: "/dashboard",
     title: "Release Dashboard",
+    sidebarTitle: "Overview",
     description:
       "Track release context, claim checks, approvals, and publish packs from one operational surface.",
     group: "core",
@@ -1134,6 +1136,7 @@ export const dashboardRoutes: DashboardRoute[] = [
   {
     href: "/dashboard/help",
     title: "Help Center",
+    sidebarTitle: "Get Help",
     description:
       "Follow the release workflow, see known limits, and route blocked questions to the right owner fast.",
     group: "utility",

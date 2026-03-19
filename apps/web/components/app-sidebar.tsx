@@ -57,7 +57,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarContent>
         <NavMain
           items={coreRoutes.map((route) => ({
-            title: route.title.replace("Release Dashboard", "Overview"),
+            title: route.sidebarTitle ?? route.title,
             href: route.href,
             badge: route.badge,
             isActive: pathname === route.href,
@@ -75,7 +75,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         />
         <NavSecondary
           items={utilityRoutes.map((route) => ({
-            title: route.title.replace("Help Center", "Get Help"),
+            title: route.sidebarTitle ?? route.title,
             href: route.href,
             badge: route.badge,
             isActive: pathname === route.href,
