@@ -1,5 +1,7 @@
 "use client"
 
+import type { ReactNode } from "react"
+
 import { approvalItems, type ApprovalItem } from "@/lib/dashboard"
 import { ApprovalStatusBadge } from "@/components/dashboard/status-badges"
 import { SimpleTable } from "@/components/dashboard/simple-table"
@@ -12,6 +14,17 @@ const stages = [
   "Legal review",
   "Executive final",
 ] as const
+
+type ApprovalStageRow = {
+  key: string
+  cells: {
+    release: string
+    status: ReactNode
+    owner: string
+    dueAt: string
+    note: ReactNode
+  }
+}
 
 const approvalRowsByStage = approvalItems.reduce(
   (rows, item) => {
@@ -33,7 +46,7 @@ const approvalRowsByStage = approvalItems.reduce(
     "Support sign-off": [],
     "Legal review": [],
     "Executive final": [],
-  } as Record<ApprovalItem["stage"], ReturnType<typeof rowsForStage>>
+  } as Record<ApprovalItem["stage"], ApprovalStageRow[]>
 )
 
 function rowsForStage(stage: ApprovalItem["stage"]) {

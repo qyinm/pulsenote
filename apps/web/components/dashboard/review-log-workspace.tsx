@@ -162,9 +162,9 @@ export function ReviewLogWorkspace() {
                 <span className="text-sm font-medium text-foreground">Filter</span>
                 <ToggleGroup
                   multiple={false}
-                  value={view}
+                  value={[view]}
                   onValueChange={(value) => {
-                    const nextValue = (value as LogView | null) ?? "all"
+                    const nextValue = (value[0] as LogView | undefined) ?? "all"
                     setView(nextValue)
                   }}
                   variant="outline"

@@ -45,7 +45,12 @@ export default function ReleaseContextPage() {
         <SurfaceCard
           title="No release context in queue"
           description="New release context will appear here as evidence is ingested."
-        />
+        >
+          <p className="text-sm text-muted-foreground">
+            Add a release intake record to start linking evidence, scope, and owner
+            context.
+          </p>
+        </SurfaceCard>
       </DashboardPage>
     )
   }
