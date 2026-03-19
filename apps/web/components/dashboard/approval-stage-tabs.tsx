@@ -13,10 +13,9 @@ const stages = [
   "Executive final",
 ] as const
 
-function rowsForStage(stage: ApprovalItem["stage"]) {
-  return approvalItems
-    .filter((item) => item.stage === stage)
-    .map((item) => ({
+const approvalRowsByStage = approvalItems.reduce(
+  (rows, item) => {
+    rows[item.stage].push({
       key: item.id,
       cells: {
         release: item.release,
@@ -25,7 +24,20 @@ function rowsForStage(stage: ApprovalItem["stage"]) {
         dueAt: item.dueAt,
         note: <span className="text-muted-foreground">{item.note}</span>,
       },
-    }))
+    })
+
+    return rows
+  },
+  {
+    "Content review": [],
+    "Support sign-off": [],
+    "Legal review": [],
+    "Executive final": [],
+  } as Record<ApprovalItem["stage"], ReturnType<typeof rowsForStage>>
+)
+
+function rowsForStage(stage: ApprovalItem["stage"]) {
+  return approvalRowsByStage[stage]
 }
 
 export function ApprovalStageTabs() {
@@ -33,7 +45,7 @@ export function ApprovalStageTabs() {
     <Tabs defaultValue={stages[0]} className="gap-4">
       <TabsList variant="line" className="w-full flex-wrap justify-start">
         {stages.map((stage) => {
-          const count = approvalItems.filter((item) => item.stage === stage).length
+          const count = approvalRowsByStage[stage].length
 
           return (
             <TabsTrigger key={stage} value={stage}>
