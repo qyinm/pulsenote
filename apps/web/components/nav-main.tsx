@@ -28,17 +28,23 @@ export function NavMain({
     <SidebarGroup>
       <SidebarGroupContent className="flex flex-col gap-2">
         <SidebarMenu>
-          <SidebarMenuItem className="flex items-center gap-2">
+          <SidebarMenuItem>
             <SidebarMenuButton
               tooltip="New release"
               variant="outline"
-              className="min-w-0 flex-1"
               render={<Link href="/dashboard/release-context" />}
             >
               <PlusCircleIcon data-icon="inline-start" />
               <span>New release</span>
             </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem className="group-data-[collapsible=icon]:hidden">
             <ReviewInboxButton />
+          </SidebarMenuItem>
+        </SidebarMenu>
+        <SidebarMenu className="hidden group-data-[collapsible=icon]:flex">
+          <SidebarMenuItem>
+            <ReviewInboxButton compact />
           </SidebarMenuItem>
         </SidebarMenu>
         <SidebarMenu>
