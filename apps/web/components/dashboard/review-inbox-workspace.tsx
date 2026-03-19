@@ -201,18 +201,19 @@ const sourceIcons: Record<InboxSource, LucideIcon> = {
   publish: PackageCheckIcon,
 }
 
+const inboxSourceFilters: Record<InboxView, InboxSource[] | null> = {
+  all: null,
+  claims: ["claim"],
+  approvals: ["approval"],
+  signals: ["evidence", "publish"],
+}
+
 function filterItems(view: InboxView, query: string) {
   const normalized = query.trim().toLowerCase()
+  const allowedSources = inboxSourceFilters[view]
 
   return inboxQueueItems.filter((item) => {
-    const matchesView =
-      view === "all"
-        ? true
-        : view === "claims"
-          ? item.source === "claim"
-          : view === "approvals"
-            ? item.source === "approval"
-            : item.source === "evidence" || item.source === "publish"
+    const matchesView = allowedSources === null || allowedSources.includes(item.source)
 
     if (!matchesView) {
       return false
