@@ -58,6 +58,58 @@ export function createWorkspacesRoute(foundationService: FoundationService) {
     return context.json(snapshot, 201)
   })
 
+  route.use("/:workspaceId", async (context, next) => {
+    const user = context.get("authUser")
+
+    if (!user) {
+      return context.json(
+        {
+          message: "Authentication is required",
+          status: 401,
+        },
+        401,
+      )
+    }
+
+    try {
+      await foundationService.assertWorkspaceAccess({
+        userId: user.id,
+        workspaceId: context.req.param("workspaceId"),
+      })
+
+      await next()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Workspace access is not allowed"
+      return context.json({ message, status: 403 }, 403)
+    }
+  })
+
+  route.use("/:workspaceId/*", async (context, next) => {
+    const user = context.get("authUser")
+
+    if (!user) {
+      return context.json(
+        {
+          message: "Authentication is required",
+          status: 401,
+        },
+        401,
+      )
+    }
+
+    try {
+      await foundationService.assertWorkspaceAccess({
+        userId: user.id,
+        workspaceId: context.req.param("workspaceId"),
+      })
+
+      await next()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Workspace access is not allowed"
+      return context.json({ message, status: 403 }, 403)
+    }
+  })
+
   route.get("/:workspaceId", async (context) => {
     try {
       const snapshot = await foundationService.getWorkspaceSnapshot(context.req.param("workspaceId"))

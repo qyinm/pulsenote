@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import test from "node:test"
 
 import { createApp } from "../src/app.js"
+import type { AuthService, AuthSession } from "../src/auth/service.js"
 import { createFoundationService } from "../src/foundation/service.js"
 import { createInMemoryFoundationStore } from "../src/foundation/store.js"
 
@@ -17,11 +18,48 @@ const runtimeEnv = {
   trustedOrigins: [],
 }
 
+function createAuthService(session: AuthSession): AuthService {
+  return {
+    async getSession() {
+      return session
+    },
+    async handler() {
+      return Response.json({ ok: true })
+    },
+    isConfigured: true,
+  }
+}
+
+function createAuthenticatedSession(userId: string): AuthSession {
+  return {
+    session: {
+      createdAt: "2026-03-20T00:00:00.000Z",
+      expiresAt: "2026-03-27T00:00:00.000Z",
+      id: `session_${userId}`,
+      token: `token_${userId}`,
+      updatedAt: "2026-03-20T00:00:00.000Z",
+      userId,
+    },
+    user: {
+      createdAt: "2026-03-20T00:00:00.000Z",
+      email: `${userId}@pulsenote.dev`,
+      emailVerified: false,
+      id: userId,
+      image: null,
+      name: `User ${userId}`,
+      updatedAt: "2026-03-20T00:00:00.000Z",
+    },
+  }
+}
+
 test("workspace routes bootstrap a workspace and return its snapshot", async () => {
   const foundationService = createFoundationService(createInMemoryFoundationStore())
-  const app = createApp(runtimeEnv, { foundationService })
+  const bootstrapApp = createApp(runtimeEnv, {
+    authService: createAuthService(null),
+    foundationService,
+  })
 
-  const bootstrapResponse = await app.request("/v1/workspaces/bootstrap", {
+  const bootstrapResponse = await bootstrapApp.request("/v1/workspaces/bootstrap", {
     body: JSON.stringify({
       user: {
         email: "owner@pulsenote.dev",
@@ -43,6 +81,10 @@ test("workspace routes bootstrap a workspace and return its snapshot", async () 
   const bootstrapBody = await bootstrapResponse.json()
   assert.equal(bootstrapBody.workspace.slug, "owner-workspace")
 
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(bootstrapBody.memberships[0].userId)),
+    foundationService,
+  })
   const snapshotResponse = await app.request(`/v1/workspaces/${bootstrapBody.workspace.id}`)
   assert.equal(snapshotResponse.status, 200)
 
@@ -53,9 +95,12 @@ test("workspace routes bootstrap a workspace and return its snapshot", async () 
 
 test("workspace routes create integrations and sync runs", async () => {
   const foundationService = createFoundationService(createInMemoryFoundationStore())
-  const app = createApp(runtimeEnv, { foundationService })
+  const bootstrapApp = createApp(runtimeEnv, {
+    authService: createAuthService(null),
+    foundationService,
+  })
 
-  const bootstrapResponse = await app.request("/v1/workspaces/bootstrap", {
+  const bootstrapResponse = await bootstrapApp.request("/v1/workspaces/bootstrap", {
     body: JSON.stringify({
       user: {
         email: "ops@pulsenote.dev",
@@ -73,6 +118,10 @@ test("workspace routes create integrations and sync runs", async () => {
   })
 
   const bootstrapBody = await bootstrapResponse.json()
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(bootstrapBody.memberships[0].userId)),
+    foundationService,
+  })
 
   const integrationResponse = await app.request(
     `/v1/workspaces/${bootstrapBody.workspace.id}/integrations`,

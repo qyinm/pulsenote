@@ -30,6 +30,11 @@ type CreateSyncRunInput = {
   workspaceId: string
 }
 
+type WorkspaceAccessInput = {
+  userId: string
+  workspaceId: string
+}
+
 export type FoundationService = ReturnType<typeof createFoundationService>
 
 function requireNonEmpty(value: string, fieldName: string) {
@@ -111,6 +116,19 @@ export function createFoundationService(store: FoundationStore) {
         scope: input.scope.trim(),
         workspaceId: input.workspaceId,
       })
+    },
+
+    async assertWorkspaceAccess(input: WorkspaceAccessInput): Promise<WorkspaceMembership> {
+      requireNonEmpty(input.userId, "userId")
+      requireNonEmpty(input.workspaceId, "workspaceId")
+
+      const membership = await store.findWorkspaceMembership(input.workspaceId, input.userId)
+
+      if (!membership) {
+        throw new Error("Workspace access is not allowed")
+      }
+
+      return membership
     },
 
     async getWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnapshot> {

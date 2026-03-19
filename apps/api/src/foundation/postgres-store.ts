@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm"
+import { and, desc, eq } from "drizzle-orm"
 
 import {
   integrationAccounts,
@@ -157,6 +157,17 @@ export function createPostgresFoundationStore(
         .returning()
 
       return workspaceMembership satisfies WorkspaceMembership
+    },
+
+    async findWorkspaceMembership(workspaceId, userId) {
+      const workspaceMembership = await db.query.workspaceMemberships.findFirst({
+        where: and(
+          eq(workspaceMemberships.userId, userId),
+          eq(workspaceMemberships.workspaceId, workspaceId),
+        ),
+      })
+
+      return workspaceMembership ?? null
     },
 
     async getIntegrationConnection(connectionId) {

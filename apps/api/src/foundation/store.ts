@@ -40,6 +40,7 @@ export type FoundationStore = {
   createUser(input: CreateUserInput): Promise<User>
   createWorkspace(input: CreateWorkspaceInput): Promise<Workspace>
   createWorkspaceMembership(input: CreateWorkspaceMembershipInput): Promise<WorkspaceMembership>
+  findWorkspaceMembership(workspaceId: string, userId: string): Promise<WorkspaceMembership | null>
   getIntegrationConnection(connectionId: string): Promise<IntegrationConnection | null>
   getWorkspace(workspaceId: string): Promise<Workspace | null>
   getWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnapshot | null>
@@ -171,6 +172,14 @@ export function createInMemoryFoundationStore(): FoundationStore {
 
       state.workspaceMemberships.set(workspaceMembership.id, workspaceMembership)
       return workspaceMembership
+    },
+
+    async findWorkspaceMembership(workspaceId, userId) {
+      return (
+        Array.from(state.workspaceMemberships.values()).find(
+          (membership) => membership.workspaceId === workspaceId && membership.userId === userId,
+        ) ?? null
+      )
     },
 
     async getIntegrationConnection(connectionId) {
