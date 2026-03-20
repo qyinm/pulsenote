@@ -3,6 +3,7 @@ export type NodeEnv = "development" | "test" | "production"
 export type AppRuntimeEnv = {
   appName: string
   appVersion: string
+  autoRunMigrations: boolean
   betterAuthCookieDomain: string | null
   betterAuthSecret: string | null
   betterAuthUrl: string | null

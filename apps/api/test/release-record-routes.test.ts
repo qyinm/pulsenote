@@ -10,6 +10,7 @@ import { createGitHubSyncService } from "../src/github/service.js"
 const runtimeEnv = {
   appName: "pulsenote-api-test",
   appVersion: "test",
+  autoRunMigrations: false,
   betterAuthCookieDomain: null,
   betterAuthSecret: null,
   betterAuthUrl: null,

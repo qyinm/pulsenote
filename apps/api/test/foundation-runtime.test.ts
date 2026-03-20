@@ -8,6 +8,7 @@ import { getRuntimeEnv } from "../src/lib/env.js"
 
 test("runtime env reads DATABASE_URL when present", () => {
   const runtimeEnv = getRuntimeEnv({
+    AUTO_RUN_MIGRATIONS: "true",
     APP_NAME: "pulsenote-api",
     APP_VERSION: "0.1.0",
     BETTER_AUTH_COOKIE_DOMAIN: ".pulsenotes.xyz",
@@ -23,8 +24,30 @@ test("runtime env reads DATABASE_URL when present", () => {
   assert.equal(runtimeEnv.betterAuthCookieDomain, ".pulsenotes.xyz")
   assert.equal(runtimeEnv.betterAuthSecret, "test-secret-for-auth-config-1234567890")
   assert.equal(runtimeEnv.betterAuthUrl, "http://127.0.0.1:8787")
+  assert.equal(runtimeEnv.autoRunMigrations, true)
   assert.equal(runtimeEnv.databaseUrl, "postgres://user:pass@localhost:5432/pulsenote")
   assert.deepEqual(runtimeEnv.trustedOrigins, ["http://127.0.0.1:3000", "http://localhost:3000"])
+})
+
+test("runtime env enables automatic migrations by default in production", () => {
+  const runtimeEnv = getRuntimeEnv({
+    APP_NAME: "pulsenote-api",
+    APP_VERSION: "0.1.0",
+    NODE_ENV: "production",
+  })
+
+  assert.equal(runtimeEnv.autoRunMigrations, true)
+})
+
+test("runtime env allows disabling automatic migrations explicitly", () => {
+  const runtimeEnv = getRuntimeEnv({
+    APP_NAME: "pulsenote-api",
+    APP_VERSION: "0.1.0",
+    AUTO_RUN_MIGRATIONS: "false",
+    NODE_ENV: "production",
+  })
+
+  assert.equal(runtimeEnv.autoRunMigrations, false)
 })
 
 test("runtime env defaults production traffic to 0.0.0.0 when HOST is not set", () => {
@@ -54,6 +77,7 @@ test("createFoundationStoreForRuntime falls back to in-memory without DATABASE_U
   const store = createFoundationStoreForRuntime({
     appName: "pulsenote-api-test",
     appVersion: "test",
+    autoRunMigrations: false,
     betterAuthCookieDomain: null,
     betterAuthSecret: null,
     betterAuthUrl: null,
@@ -90,6 +114,7 @@ test("createFoundationStoreForRuntime uses postgres factory when DATABASE_URL is
     {
       appName: "pulsenote-api-test",
       appVersion: "test",
+      autoRunMigrations: false,
       betterAuthCookieDomain: null,
       betterAuthSecret: null,
       betterAuthUrl: null,

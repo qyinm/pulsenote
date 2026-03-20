@@ -28,6 +28,14 @@ function parsePort(rawValue: string | undefined): number {
   return parsedValue
 }
 
+function parseAutoRunMigrations(rawValue: string | undefined, nodeEnv: NodeEnv) {
+  if (!rawValue) {
+    return nodeEnv === "production"
+  }
+
+  return rawValue === "1" || rawValue.toLowerCase() === "true"
+}
+
 export function getRuntimeEnv(source: NodeJS.ProcessEnv = process.env): AppRuntimeEnv {
   const nodeEnv = parseNodeEnv(source.NODE_ENV)
   const trustedOrigins = source.TRUSTED_ORIGINS?.split(",")
@@ -37,6 +45,7 @@ export function getRuntimeEnv(source: NodeJS.ProcessEnv = process.env): AppRunti
   return {
     appName: source.APP_NAME ?? "pulsenote-api",
     appVersion: source.APP_VERSION ?? "0.1.0",
+    autoRunMigrations: parseAutoRunMigrations(source.AUTO_RUN_MIGRATIONS, nodeEnv),
     betterAuthCookieDomain: source.BETTER_AUTH_COOKIE_DOMAIN?.trim() || null,
     betterAuthSecret: source.BETTER_AUTH_SECRET ?? null,
     betterAuthUrl: source.BETTER_AUTH_URL ?? null,

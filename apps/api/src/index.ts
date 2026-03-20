@@ -1,9 +1,11 @@
 import { serve } from "@hono/node-server"
 
 import { createApp } from "./app.js"
+import { runDatabaseMigrationsForRuntime } from "./db/migrate.js"
 import { getRuntimeEnv } from "./lib/env.js"
 
 const runtimeEnv = getRuntimeEnv()
+await runDatabaseMigrationsForRuntime(runtimeEnv)
 const app = createApp(runtimeEnv)
 
 serve(

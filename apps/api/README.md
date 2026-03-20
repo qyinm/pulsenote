@@ -58,6 +58,7 @@ See [.env.example](./.env.example) for a copyable template.
 | Variable | Required | Notes |
 | --- | --- | --- |
 | `NODE_ENV` | yes | Set to `production` on Railway. |
+| `AUTO_RUN_MIGRATIONS` | recommended | Defaults to `true` in production. Set to `false` only if you run migrations from a separate release job. |
 | `DATABASE_URL` | yes | Postgres connection string for Better Auth and release-state persistence. |
 | `BETTER_AUTH_SECRET` | yes | Long random secret used to sign auth state. |
 | `BETTER_AUTH_URL` | yes | Public HTTPS URL for this API service, e.g. `https://api.pulsenotes.xyz`. |
@@ -69,9 +70,16 @@ See [.env.example](./.env.example) for a copyable template.
 
 ### Database migrations
 
-The API already includes generated SQL migrations under [drizzle/](./drizzle/), but the
-repository does not yet ship an automated Railway migration runner. Before opening public
-traffic, apply the SQL files in order against the Railway Postgres database.
+The API already includes generated SQL migrations under [drizzle/](./drizzle/), and the
+production server now runs them automatically on startup when `DATABASE_URL` is present.
+The startup path acquires a PostgreSQL advisory lock before running Drizzle migrations so
+multiple container starts do not race each other.
+
+If you want to run migrations manually, use:
+
+```bash
+pnpm --dir apps/api db:migrate
+```
 
 At minimum, make sure the target database has the schema from:
 
@@ -92,6 +100,8 @@ At minimum, make sure the target database has the schema from:
   those subdomains.
 - If you deploy preview web environments on different domains, add those preview origins
   explicitly or route preview traffic through a single stable web origin.
+- If you prefer a separate migration release step, set `AUTO_RUN_MIGRATIONS=false` and run
+  `pnpm --dir apps/api db:migrate` against the target database before starting the API.
 
 ## Current scope
 
