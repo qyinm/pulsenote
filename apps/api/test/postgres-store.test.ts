@@ -34,7 +34,7 @@ test("postgres bootstrapWorkspace uses a transaction so failed bootstraps do not
               }
 
               if (table === workspaces) {
-                throw new Error("duplicate key value violates unique constraint \"workspaces_slug_key\"")
+                throw new Error("duplicate key value violates unique constraint \"workspaces_slug_unique\"")
               }
 
               if (table === workspaceMemberships) {
@@ -75,7 +75,7 @@ test("postgres bootstrapWorkspace uses a transaction so failed bootstraps do not
           slug: "pulsenote",
         },
       }),
-    /workspaces_slug_key/,
+    /workspaces_slug_unique/,
   )
 
   assert.equal(transactionCalls, 1)
