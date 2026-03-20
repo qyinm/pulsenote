@@ -8,6 +8,7 @@ import {
   claimCandidateEvidenceBlocks,
   claimCandidates,
   claimStatusEnum,
+  currentWorkspaceSelections,
   evidenceBlocks,
   evidenceSourceTypeEnum,
   integrationConnections,
@@ -90,6 +91,7 @@ test("workspace and review workflow tables enforce idempotent uniqueness constra
 test("sync and release records keep workspace and connection tenant boundaries aligned", () => {
   const syncRunConfig = getTableConfig(syncRuns)
   const releaseRecordConfig = getTableConfig(releaseRecords)
+  const currentWorkspaceSelectionConfig = getTableConfig(currentWorkspaceSelections)
 
   assert.ok(
     syncRunConfig.foreignKeys.some(
@@ -101,6 +103,13 @@ test("sync and release records keep workspace and connection tenant boundaries a
     releaseRecordConfig.foreignKeys.some(
       (constraint) =>
         constraint.getName() === "release_records_connection_id_workspace_id_integration_connections_fk",
+    ),
+  )
+  assert.ok(
+    currentWorkspaceSelectionConfig.foreignKeys.some(
+      (constraint) =>
+        constraint.getName() ===
+        "current_workspace_selections_workspace_id_user_id_workspace_memberships_fk",
     ),
   )
 })
