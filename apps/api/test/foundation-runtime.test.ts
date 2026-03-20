@@ -25,6 +25,29 @@ test("runtime env reads DATABASE_URL when present", () => {
   assert.deepEqual(runtimeEnv.trustedOrigins, ["http://127.0.0.1:3000", "http://localhost:3000"])
 })
 
+test("runtime env defaults production traffic to 0.0.0.0 when HOST is not set", () => {
+  const runtimeEnv = getRuntimeEnv({
+    APP_NAME: "pulsenote-api",
+    APP_VERSION: "0.1.0",
+    NODE_ENV: "production",
+    PORT: "8080",
+  })
+
+  assert.equal(runtimeEnv.host, "0.0.0.0")
+  assert.equal(runtimeEnv.port, 8080)
+})
+
+test("runtime env preserves an explicit HOST override in production", () => {
+  const runtimeEnv = getRuntimeEnv({
+    APP_NAME: "pulsenote-api",
+    APP_VERSION: "0.1.0",
+    HOST: "10.0.0.5",
+    NODE_ENV: "production",
+  })
+
+  assert.equal(runtimeEnv.host, "10.0.0.5")
+})
+
 test("createFoundationStoreForRuntime falls back to in-memory without DATABASE_URL", async () => {
   const store = createFoundationStoreForRuntime({
     appName: "pulsenote-api-test",
