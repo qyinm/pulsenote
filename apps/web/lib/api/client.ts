@@ -151,10 +151,11 @@ function normalizeApiBaseUrl(value: string) {
   return value.replace(/\/+$/, "")
 }
 
-function mergeHeaders(headers?: HeadersInit) {
+function mergeHeaders(init: RequestInit = {}) {
+  const { body, headers } = init
   const resolvedHeaders = new Headers(headers)
 
-  if (!resolvedHeaders.has("content-type")) {
+  if (body !== undefined && !resolvedHeaders.has("content-type")) {
     resolvedHeaders.set("content-type", "application/json")
   }
 
@@ -187,7 +188,7 @@ export function createApiClient(options: CreateApiClientOptions = {}) {
     const response = await fetchImplementation(`${baseUrl}${path}`, {
       ...init,
       credentials: "include",
-      headers: mergeHeaders(init.headers),
+      headers: mergeHeaders(init),
     })
 
     if (!response.ok) {

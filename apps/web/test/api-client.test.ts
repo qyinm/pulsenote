@@ -43,6 +43,7 @@ test("api client sends credentialed requests to session, workspace, and release 
 
   for (const request of requests) {
     assert.equal(request.init?.credentials, "include")
+    assert.equal(new Headers(request.init?.headers).has("content-type"), false)
   }
 })
 
