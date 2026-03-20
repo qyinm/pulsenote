@@ -98,6 +98,9 @@ async function seedReleaseRecord() {
           totalCommits: 1,
         }
       },
+      async getPullRequests() {
+        throw new Error("pull sync should not be called")
+      },
     },
     runtimeEnv,
     store,

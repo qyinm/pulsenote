@@ -74,6 +74,9 @@ test("syncCompareRange marks the sync run as succeeded and returns compare data"
           totalCommits: 1,
         }
       },
+      async getPullRequests() {
+        throw new Error("pull sync should not be called")
+      },
     },
     runtimeEnv,
     store,
@@ -132,6 +135,9 @@ test("syncCompareRange marks the sync run as failed when GitHub compare throws",
       async compareCommits() {
         throw new Error("GitHub compare failed")
       },
+      async getPullRequests() {
+        throw new Error("pull sync should not be called")
+      },
     },
     runtimeEnv,
     store,
@@ -164,6 +170,121 @@ test("syncCompareRange marks the sync run as failed when GitHub compare throws",
   assert.equal(snapshot?.syncRuns[0]?.status, "failed")
   assert.equal(snapshot?.syncRuns[0]?.errorMessage, "GitHub compare failed")
   assert.notEqual(snapshot?.syncRuns[0]?.finishedAt, null)
+
+  const releaseSnapshots = await store.listReleaseRecordSnapshots(workspace.id)
+  assert.equal(releaseSnapshots.length, 0)
+})
+
+test("syncMergedPullRequests marks the sync run as succeeded and persists normalized release data", async () => {
+  const { connection, store, workspace } = await createWorkspaceContext()
+  const service = createGitHubSyncService({
+    githubClient: {
+      async compareCommits() {
+        throw new Error("compare should not be called")
+      },
+      async getPullRequests() {
+        return [
+          {
+            baseRefName: "main",
+            body: "Adds the first merged pull request path.",
+            htmlUrl: "https://github.com/qyinm/pulsenote/pull/101",
+            mergedAt: "2026-03-20T00:00:00.000Z",
+            number: 101,
+            title: "Add merged pull sync",
+          },
+          {
+            baseRefName: "main",
+            body: "Adds the second merged pull request path.",
+            htmlUrl: "https://github.com/qyinm/pulsenote/pull/104",
+            mergedAt: "2026-03-20T01:00:00.000Z",
+            number: 104,
+            title: "Persist pull request evidence",
+          },
+        ]
+      },
+    },
+    runtimeEnv,
+    store,
+  })
+
+  const result = await service.syncMergedPullRequests({
+    auth: {
+      strategy: "personal_access_token",
+      token: "ghp_test_token",
+    },
+    connectionId: connection.id,
+    pullNumbers: [101, 104],
+    repository: {
+      owner: "qyinm",
+      provider: "github",
+      repo: "pulsenote",
+    },
+    workspaceId: workspace.id,
+  })
+
+  assert.equal(result.scope, "github:repo:qyinm/pulsenote pulls:merged#101,104")
+  assert.equal(result.mergedPullCount, 2)
+  assert.equal(result.claimCandidateCount, 2)
+  assert.equal(result.evidenceBlockCount, 2)
+  assert.equal(result.sourceLinkCount, 2)
+  assert.ok(result.releaseRecordId)
+
+  const snapshot = await store.getWorkspaceSnapshot(workspace.id)
+  assert.equal(snapshot?.syncRuns.length, 1)
+  assert.equal(snapshot?.syncRuns[0]?.status, "succeeded")
+
+  const releaseSnapshots = await store.listReleaseRecordSnapshots(workspace.id)
+  assert.equal(releaseSnapshots.length, 1)
+  assert.equal(releaseSnapshots[0]?.releaseRecord.id, result.releaseRecordId)
+  assert.equal(releaseSnapshots[0]?.releaseRecord.stage, "intake")
+  assert.equal(releaseSnapshots[0]?.releaseRecord.compareRange, null)
+  assert.equal(releaseSnapshots[0]?.evidenceBlocks.length, 2)
+  assert.equal(releaseSnapshots[0]?.evidenceBlocks[0]?.sourceType, "pull_request")
+  assert.equal(releaseSnapshots[0]?.claimCandidates.length, 2)
+  assert.equal(releaseSnapshots[0]?.claimCandidates[0]?.sentence, "Add merged pull sync")
+  assert.equal(releaseSnapshots[0]?.sourceLinks.length, 2)
+  assert.equal(releaseSnapshots[0]?.reviewStatuses.length, 1)
+  assert.equal(releaseSnapshots[0]?.reviewStatuses[0]?.state, "pending")
+})
+
+test("syncMergedPullRequests marks the sync run as failed when GitHub pull fetch throws", async () => {
+  const { connection, store, workspace } = await createWorkspaceContext()
+  const service = createGitHubSyncService({
+    githubClient: {
+      async compareCommits() {
+        throw new Error("compare should not be called")
+      },
+      async getPullRequests() {
+        throw new Error("GitHub pull sync failed")
+      },
+    },
+    runtimeEnv,
+    store,
+  })
+
+  await assert.rejects(
+    () =>
+      service.syncMergedPullRequests({
+        auth: {
+          strategy: "personal_access_token",
+          token: "ghp_test_token",
+        },
+        connectionId: connection.id,
+        pullNumbers: [101, 104],
+        repository: {
+          owner: "qyinm",
+          provider: "github",
+          repo: "pulsenote",
+        },
+        workspaceId: workspace.id,
+      }),
+    /GitHub pull sync failed/,
+  )
+
+  const snapshot = await store.getWorkspaceSnapshot(workspace.id)
+  assert.equal(snapshot?.syncRuns.length, 1)
+  assert.equal(snapshot?.syncRuns[0]?.status, "failed")
+  assert.equal(snapshot?.syncRuns[0]?.errorMessage, "GitHub pull sync failed")
 
   const releaseSnapshots = await store.listReleaseRecordSnapshots(workspace.id)
   assert.equal(releaseSnapshots.length, 0)

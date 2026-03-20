@@ -100,6 +100,9 @@ test("github compare sync route returns comparison data for workspace members", 
           totalCommits: 1,
         }
       },
+      async getPullRequests() {
+        throw new Error("pull sync should not be called")
+      },
     },
     runtimeEnv,
     store,
@@ -154,6 +157,9 @@ test("github compare sync route rejects development-only ingest in production", 
       async compareCommits() {
         throw new Error("should not be called")
       },
+      async getPullRequests() {
+        throw new Error("should not be called")
+      },
     },
     runtimeEnv: productionEnv,
     store,
@@ -186,6 +192,181 @@ test("github compare sync route rejects development-only ingest in production", 
     },
     method: "POST",
   })
+
+  assert.equal(response.status, 403)
+  assert.deepEqual(await response.json(), {
+    message: "Development-only GitHub ingest is not available in production",
+    status: 403,
+  })
+})
+
+test("github merged PR sync route returns persisted counts for workspace members", async () => {
+  const { bootstrap, connection, foundationService, store } = await bootstrapWorkspace()
+  const githubSyncService = createGitHubSyncService({
+    githubClient: {
+      async compareCommits() {
+        throw new Error("compare should not be called")
+      },
+      async getPullRequests() {
+        return [
+          {
+            baseRefName: "main",
+            body: "Adds the first merged pull request path.",
+            htmlUrl: "https://github.com/qyinm/pulsenote/pull/101",
+            mergedAt: "2026-03-20T00:00:00.000Z",
+            number: 101,
+            title: "Add merged pull sync",
+          },
+          {
+            baseRefName: "main",
+            body: "Adds the second merged pull request path.",
+            htmlUrl: "https://github.com/qyinm/pulsenote/pull/104",
+            mergedAt: "2026-03-20T01:00:00.000Z",
+            number: 104,
+            title: "Persist pull request evidence",
+          },
+        ]
+      },
+    },
+    runtimeEnv,
+    store,
+  })
+
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(bootstrap.user.id)),
+    foundationService,
+    githubSyncService,
+  })
+
+  const response = await app.request(
+    `/v1/workspaces/${bootstrap.workspace.id}/github/sync/merged-pulls`,
+    {
+      body: JSON.stringify({
+        auth: {
+          strategy: "personal_access_token",
+          token: "ghp_dev_token",
+        },
+        connectionId: connection.id,
+        pullNumbers: [101, 104],
+        repository: {
+          owner: "qyinm",
+          repo: "pulsenote",
+        },
+      }),
+      headers: {
+        "content-type": "application/json",
+      },
+      method: "POST",
+    },
+  )
+
+  assert.equal(response.status, 200)
+  const body = await response.json()
+  assert.equal(body.scope, "github:repo:qyinm/pulsenote pulls:merged#101,104")
+  assert.equal(body.mergedPullCount, 2)
+  assert.equal(body.claimCandidateCount, 2)
+  assert.equal(body.evidenceBlockCount, 2)
+  assert.equal(body.sourceLinkCount, 2)
+  assert.ok(body.releaseRecordId)
+})
+
+test("github merged PR sync route rejects malformed payloads", async () => {
+  const { bootstrap, connection, foundationService, store } = await bootstrapWorkspace()
+  const githubSyncService = createGitHubSyncService({
+    githubClient: {
+      async compareCommits() {
+        throw new Error("compare should not be called")
+      },
+      async getPullRequests() {
+        throw new Error("should not be called")
+      },
+    },
+    runtimeEnv,
+    store,
+  })
+
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(bootstrap.user.id)),
+    foundationService,
+    githubSyncService,
+  })
+
+  const response = await app.request(
+    `/v1/workspaces/${bootstrap.workspace.id}/github/sync/merged-pulls`,
+    {
+      body: JSON.stringify({
+        auth: {
+          strategy: "personal_access_token",
+          token: "ghp_dev_token",
+        },
+        connectionId: connection.id,
+        pullNumbers: [],
+        repository: {
+          owner: "qyinm",
+          repo: "pulsenote",
+        },
+      }),
+      headers: {
+        "content-type": "application/json",
+      },
+      method: "POST",
+    },
+  )
+
+  assert.equal(response.status, 400)
+  assert.deepEqual(await response.json(), {
+    message:
+      "connectionId, auth.token, auth.strategy, repository.owner, repository.repo, and a non-empty pullNumbers array are required",
+    status: 400,
+  })
+})
+
+test("github merged PR sync route rejects development-only ingest in production", async () => {
+  const { bootstrap, connection, foundationService, store } = await bootstrapWorkspace()
+  const productionEnv = {
+    ...runtimeEnv,
+    nodeEnv: "production" as const,
+  }
+  const githubSyncService = createGitHubSyncService({
+    githubClient: {
+      async compareCommits() {
+        throw new Error("compare should not be called")
+      },
+      async getPullRequests() {
+        throw new Error("should not be called")
+      },
+    },
+    runtimeEnv: productionEnv,
+    store,
+  })
+
+  const app = createApp(productionEnv, {
+    authService: createAuthService(createAuthenticatedSession(bootstrap.user.id)),
+    foundationService,
+    githubSyncService,
+  })
+
+  const response = await app.request(
+    `/v1/workspaces/${bootstrap.workspace.id}/github/sync/merged-pulls`,
+    {
+      body: JSON.stringify({
+        auth: {
+          strategy: "personal_access_token",
+          token: "ghp_dev_token",
+        },
+        connectionId: connection.id,
+        pullNumbers: [101, 104],
+        repository: {
+          owner: "qyinm",
+          repo: "pulsenote",
+        },
+      }),
+      headers: {
+        "content-type": "application/json",
+      },
+      method: "POST",
+    },
+  )
 
   assert.equal(response.status, 403)
   assert.deepEqual(await response.json(), {

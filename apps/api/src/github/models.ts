@@ -35,6 +35,15 @@ export type GitHubCompareCommit = {
   sha: string
 }
 
+export type GitHubPullRequestSummary = {
+  baseRefName: string
+  body: string | null
+  htmlUrl: string
+  mergedAt: string | null
+  number: number
+  title: string
+}
+
 export type GitHubCompareSummary = {
   aheadBy: number
   behindBy: number
@@ -52,10 +61,29 @@ export type GitHubCompareSyncRequest = {
   workspaceId: string
 }
 
+export type GitHubMergedPullSyncRequest = {
+  auth: GitHubSyncAuth
+  connectionId: string
+  pullNumbers: number[]
+  repository: GitHubRepositoryScope
+  workspaceId: string
+}
+
 export type GitHubCompareSyncResult = {
   claimCandidateCount: number
   comparison: GitHubCompareSummary
   evidenceBlockCount: number
+  releaseRecordId: string
+  repository: GitHubRepositoryScope
+  scope: string
+  sourceLinkCount: number
+  syncRunId: string
+}
+
+export type GitHubMergedPullSyncResult = {
+  claimCandidateCount: number
+  evidenceBlockCount: number
+  mergedPullCount: number
   releaseRecordId: string
   repository: GitHubRepositoryScope
   scope: string

@@ -3,6 +3,7 @@ import { Octokit } from "octokit"
 import type {
   GitHubCompareRange,
   GitHubCompareSummary,
+  GitHubPullRequestSummary,
   GitHubRepositoryScope,
   GitHubSyncAuth,
 } from "./models.js"
@@ -13,19 +14,28 @@ export type GitHubClient = {
     compare: GitHubCompareRange
     repository: GitHubRepositoryScope
   }): Promise<GitHubCompareSummary>
+  getPullRequests(input: {
+    auth: GitHubSyncAuth
+    pullNumbers: number[]
+    repository: GitHubRepositoryScope
+  }): Promise<GitHubPullRequestSummary[]>
 }
 
 export function createGitHubClient(): GitHubClient {
+  function createOctokit(auth: GitHubSyncAuth) {
+    return new Octokit({
+      auth: auth.token,
+      request: {
+        headers: {
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+      },
+    })
+  }
+
   return {
     async compareCommits({ auth, compare, repository }) {
-      const octokit = new Octokit({
-        auth: auth.token,
-        request: {
-          headers: {
-            "X-GitHub-Api-Version": "2022-11-28",
-          },
-        },
-      })
+      const octokit = createOctokit(auth)
 
       const response = await octokit.rest.repos.compareCommits({
         base: compare.base,
@@ -53,6 +63,30 @@ export function createGitHubClient(): GitHubClient {
         mergeBaseSha: response.data.merge_base_commit?.sha ?? null,
         totalCommits: response.data.total_commits,
       }
+    },
+
+    async getPullRequests({ auth, pullNumbers, repository }) {
+      const octokit = createOctokit(auth)
+      const pullRequests = await Promise.all(
+        pullNumbers.map(async (pullNumber) => {
+          const response = await octokit.rest.pulls.get({
+            owner: repository.owner,
+            pull_number: pullNumber,
+            repo: repository.repo,
+          })
+
+          return {
+            baseRefName: response.data.base.ref,
+            body: response.data.body ?? null,
+            htmlUrl: response.data.html_url,
+            mergedAt: response.data.merged_at ?? null,
+            number: response.data.number,
+            title: response.data.title,
+          } satisfies GitHubPullRequestSummary
+        }),
+      )
+
+      return pullRequests
     },
   }
 }
