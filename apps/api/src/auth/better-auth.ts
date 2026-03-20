@@ -11,6 +11,40 @@ type CreateBetterAuthServiceOptions = {
   runtimeEnv: AppRuntimeEnv
 }
 
+export const betterAuthSchemaFieldMappings = {
+  account: {
+    accessToken: "accessToken",
+    accessTokenExpiresAt: "accessTokenExpiresAt",
+    accountId: "accountId",
+    createdAt: "createdAt",
+    idToken: "idToken",
+    providerId: "providerId",
+    refreshToken: "refreshToken",
+    refreshTokenExpiresAt: "refreshTokenExpiresAt",
+    updatedAt: "updatedAt",
+    userId: "userId",
+  },
+  session: {
+    createdAt: "createdAt",
+    expiresAt: "expiresAt",
+    ipAddress: "ipAddress",
+    updatedAt: "updatedAt",
+    userAgent: "userAgent",
+    userId: "userId",
+  },
+  user: {
+    createdAt: "createdAt",
+    emailVerified: "emailVerified",
+    name: "fullName",
+    updatedAt: "updatedAt",
+  },
+  verification: {
+    createdAt: "createdAt",
+    expiresAt: "expiresAt",
+    updatedAt: "updatedAt",
+  },
+} as const
+
 function resolveBaseUrl(runtimeEnv: AppRuntimeEnv) {
   if (runtimeEnv.betterAuthUrl) {
     return runtimeEnv.betterAuthUrl
@@ -71,45 +105,18 @@ export function createBetterAuthService({
     },
     secret: resolveSecret(runtimeEnv),
     session: {
-      fields: {
-        createdAt: "created_at",
-        expiresAt: "expires_at",
-        ipAddress: "ip_address",
-        updatedAt: "updated_at",
-        userAgent: "user_agent",
-        userId: "user_id",
-      },
+      fields: betterAuthSchemaFieldMappings.session,
       storeSessionInDatabase: true,
     },
     trustedOrigins: runtimeEnv.trustedOrigins,
     user: {
-      fields: {
-        createdAt: "created_at",
-        emailVerified: "email_verified",
-        name: "full_name",
-        updatedAt: "updated_at",
-      },
+      fields: betterAuthSchemaFieldMappings.user,
     },
     account: {
-      fields: {
-        accessToken: "access_token",
-        accessTokenExpiresAt: "access_token_expires_at",
-        accountId: "account_id",
-        createdAt: "created_at",
-        idToken: "id_token",
-        providerId: "provider_id",
-        refreshToken: "refresh_token",
-        refreshTokenExpiresAt: "refresh_token_expires_at",
-        updatedAt: "updated_at",
-        userId: "user_id",
-      },
+      fields: betterAuthSchemaFieldMappings.account,
     },
     verification: {
-      fields: {
-        createdAt: "created_at",
-        expiresAt: "expires_at",
-        updatedAt: "updated_at",
-      },
+      fields: betterAuthSchemaFieldMappings.verification,
     },
   })
 
