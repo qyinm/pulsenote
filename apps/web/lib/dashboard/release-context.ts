@@ -226,13 +226,12 @@ export function buildReleaseContextEvidenceNotes(snapshot: ReleaseRecordSnapshot
 
     return `${evidenceState}: ${evidenceBlock.title}`
   })
+  const sourceLinkNotes = snapshot.sourceLinks.map(
+    (sourceLink) => `Linked source: ${sourceLink.label}`,
+  )
 
-  if (evidenceNotes.length > 0) {
-    return evidenceNotes
-  }
-
-  if (snapshot.sourceLinks.length > 0) {
-    return snapshot.sourceLinks.map((sourceLink) => `Linked source: ${sourceLink.label}`)
+  if (evidenceNotes.length > 0 || sourceLinkNotes.length > 0) {
+    return [...evidenceNotes, ...sourceLinkNotes]
   }
 
   return ["No evidence links are attached to this release record yet."]

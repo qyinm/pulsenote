@@ -3,6 +3,7 @@ import test from "node:test"
 
 import type { ReleaseRecordSnapshot } from "../lib/api/client.js"
 import {
+  buildReleaseContextEvidenceNotes,
   buildReleaseContextMetrics,
   buildReleaseContextQueueItem,
   createReleaseContextDetailCache,
@@ -299,4 +300,36 @@ test("getSelectedReleaseContextSnapshot prefers fetched detail for the selected 
   )
 
   assert.deepEqual(selectedReleaseRecord, detailSnapshot)
+})
+
+test("buildReleaseContextEvidenceNotes keeps linked sources visible alongside evidence blocks", () => {
+  const snapshot = createReleaseRecordSnapshot({
+    evidenceBlocks: [
+      {
+        body: null,
+        capturedAt: "2026-03-20T00:00:00.000Z",
+        evidenceState: "fresh",
+        id: "evidence_1",
+        provider: "github",
+        releaseRecordId: "release_1",
+        sourceRef: "pull/42",
+        sourceType: "pull_request",
+        title: "PR #42",
+      },
+    ],
+    sourceLinks: [
+      {
+        id: "link_1",
+        label: "Release notes",
+        provider: "github",
+        releaseRecordId: "release_1",
+        url: "https://github.com/qyinm/pulsenote/releases/tag/v2.4.0",
+      },
+    ],
+  })
+
+  assert.deepEqual(buildReleaseContextEvidenceNotes(snapshot), [
+    "Fresh: PR #42",
+    "Linked source: Release notes",
+  ])
 })
