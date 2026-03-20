@@ -1,0 +1,31 @@
+{
+  "name": "@pulsenote/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "db:generate": "drizzle-kit generate",
+    "start": "node dist/index.js",
+    "test": "node --import tsx --test test/**/*.test.ts",
+    "test:watch": "node --import tsx --test --watch test/**/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@better-auth/drizzle-adapter": "^1.5.5",
+    "@hono/node-server": "^1.19.11",
+    "better-auth": "^1.5.5",
+    "drizzle-orm": "^0.45.1",
+    "hono": "^4.12.8",
+    "octokit": "^5.0.5",
+    "pg": "^8.20.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/pg": "^8.18.0",
+    "drizzle-kit": "^0.31.10",
+    "tsx": "^4.21.0",
+    "typescript": "^5"
+  }
+}

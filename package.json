@@ -4,11 +4,14 @@
   "packageManager": "pnpm@10.25.0",
   "scripts": {
     "dev": "pnpm --dir apps/site dev",
+    "dev:api": "pnpm --dir apps/api dev",
     "dev:site": "pnpm --dir apps/site dev",
     "build": "pnpm --dir apps/site build",
+    "build:api": "pnpm --dir apps/api build",
     "build:site": "pnpm --dir apps/site build",
     "lint": "pnpm --dir apps/site lint",
     "lint:site": "pnpm --dir apps/site lint",
+    "typecheck:api": "pnpm --dir apps/api typecheck",
     "typecheck:site": "pnpm --dir apps/site exec tsc --noEmit"
   }
 }
