@@ -6,7 +6,7 @@
   },
   "deploy": {
     "healthcheckPath": "/health",
-    "healthcheckTimeout": 120,
+    "healthcheckTimeout": 10,
     "restartPolicyMaxRetries": 10,
     "restartPolicyType": "ON_FAILURE",
     "startCommand": "pnpm --dir apps/api start"
