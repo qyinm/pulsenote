@@ -24,14 +24,14 @@ the service needs three pieces to work together:
 3. cookie-backed CORS must trust the exact web origins
 
 The repo ships an API-specific Railway config at [railway.json](./railway.json). In Railway,
-point the service's config-as-code path at `apps/api/railway.json`, or copy the same build and
-start commands into the service settings.
+point the service's config-as-code path at `/apps/api/railway.json`, or copy the same build and
+start commands into the service settings. Railway expects an absolute repository path here.
 
 ### Recommended Railway setup
 
 1. Create a new Railway service from this repository.
 2. Keep the repository root as the working tree.
-3. Configure the service to use `apps/api/railway.json`.
+3. Configure the service to use `/apps/api/railway.json`.
 4. Attach a Railway Postgres service and copy its `DATABASE_URL`.
 5. Generate a public Railway domain for the API service.
 6. Set the environment variables listed below.
