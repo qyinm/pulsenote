@@ -79,6 +79,21 @@ test("getApiBaseUrl prefers NEXT_PUBLIC_API_BASE_URL when configured", () => {
   )
 })
 
+test("getApiBaseUrl reads NEXT_PUBLIC_API_BASE_URL from process.env when omitted", () => {
+  const previousBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL
+  process.env.NEXT_PUBLIC_API_BASE_URL = "https://api.pulsenotes.xyz"
+
+  try {
+    assert.equal(getApiBaseUrl(), "https://api.pulsenotes.xyz")
+  } finally {
+    if (previousBaseUrl === undefined) {
+      delete process.env.NEXT_PUBLIC_API_BASE_URL
+    } else {
+      process.env.NEXT_PUBLIC_API_BASE_URL = previousBaseUrl
+    }
+  }
+})
+
 test("getApiBaseUrl requires NEXT_PUBLIC_API_BASE_URL", () => {
   assert.throws(() => getApiBaseUrl({}), /NEXT_PUBLIC_API_BASE_URL is required/)
 })

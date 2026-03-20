@@ -8,13 +8,13 @@ type AuthRuntimeEnv = {
 
 type CreateAuthClientImplementation = typeof createAuthClient
 
-export function getAuthClientBaseUrl(env: AuthRuntimeEnv | NodeJS.ProcessEnv = process.env) {
-  return getApiBaseUrl(env)
+export function getAuthClientBaseUrl(env?: AuthRuntimeEnv | NodeJS.ProcessEnv) {
+  return env ? getApiBaseUrl(env) : getApiBaseUrl()
 }
 
 export function createPulseNoteAuthClient(
   createAuthClientImplementation: CreateAuthClientImplementation = createAuthClient,
-  env: AuthRuntimeEnv | NodeJS.ProcessEnv = process.env,
+  env?: AuthRuntimeEnv | NodeJS.ProcessEnv,
 ) {
   return createAuthClientImplementation({
     baseURL: getAuthClientBaseUrl(env),

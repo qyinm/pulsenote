@@ -201,6 +201,16 @@ function normalizeApiBaseUrl(value: string) {
   return value.replace(/\/+$/, "")
 }
 
+function resolveConfiguredApiBaseUrl(env: RuntimeEnv | NodeJS.ProcessEnv) {
+  const configuredBaseUrl = env.NEXT_PUBLIC_API_BASE_URL?.trim()
+
+  if (configuredBaseUrl) {
+    return normalizeApiBaseUrl(configuredBaseUrl)
+  }
+
+  throw new Error("NEXT_PUBLIC_API_BASE_URL is required")
+}
+
 function mergeHeaders(init: RequestInit = {}) {
   const { body, headers } = init
   const resolvedHeaders = new Headers(headers)
@@ -212,14 +222,14 @@ function mergeHeaders(init: RequestInit = {}) {
   return Object.fromEntries(resolvedHeaders.entries())
 }
 
-export function getApiBaseUrl(env: RuntimeEnv | NodeJS.ProcessEnv = process.env) {
-  const configuredBaseUrl = env.NEXT_PUBLIC_API_BASE_URL?.trim()
-
-  if (configuredBaseUrl) {
-    return normalizeApiBaseUrl(configuredBaseUrl)
+export function getApiBaseUrl(env?: RuntimeEnv | NodeJS.ProcessEnv) {
+  if (env) {
+    return resolveConfiguredApiBaseUrl(env)
   }
 
-  throw new Error("NEXT_PUBLIC_API_BASE_URL is required")
+  return resolveConfiguredApiBaseUrl({
+    NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL,
+  })
 }
 
 async function readJson<T>(response: Response, schema: z.ZodType<T>): Promise<T> {
