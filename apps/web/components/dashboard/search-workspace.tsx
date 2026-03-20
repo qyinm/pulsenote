@@ -11,7 +11,7 @@ import {
 import { searchResults } from "@/lib/dashboard"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { buttonVariants } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button-variants"
 import { cn } from "@/lib/utils"
 
 export function SearchWorkspace() {

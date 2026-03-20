@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation"
 
 import { inboxQueueBadge } from "@/lib/dashboard"
 import { Badge } from "@/components/ui/badge"
-import { buttonVariants } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button-variants"
 import { SidebarMenuButton } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
 

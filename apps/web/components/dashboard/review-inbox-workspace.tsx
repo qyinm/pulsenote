@@ -21,7 +21,7 @@ import {
 } from "@/lib/dashboard"
 import { BulletList, EmptyState, InlineList } from "@/components/dashboard/surfaces"
 import { Badge } from "@/components/ui/badge"
-import { buttonVariants } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button-variants"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"

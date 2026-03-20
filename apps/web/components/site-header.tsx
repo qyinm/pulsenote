@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation"
 
 import { getDashboardRoute } from "@/lib/dashboard"
 import { Badge } from "@/components/ui/badge"
-import { buttonVariants } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button-variants"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"

@@ -1,7 +1,7 @@
 import Link from "next/link"
 
 import { DashboardPage, SurfaceCard } from "@/components/dashboard/surfaces"
-import { buttonVariants } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button-variants"
 import { cn } from "@/lib/utils"
 
 type DashboardAccessStateProps = {
