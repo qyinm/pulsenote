@@ -137,6 +137,10 @@ test("github compare sync route returns comparison data for workspace members", 
   const body = await response.json()
   assert.equal(body.comparison.totalCommits, 1)
   assert.equal(body.scope, "github:repo:qyinm/pulsenote compare:main...feat/api-foundation")
+  assert.ok(body.releaseRecordId)
+  assert.equal(body.claimCandidateCount, 1)
+  assert.equal(body.evidenceBlockCount, 1)
+  assert.equal(body.sourceLinkCount, 2)
 })
 
 test("github compare sync route rejects development-only ingest in production", async () => {

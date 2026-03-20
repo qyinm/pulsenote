@@ -53,8 +53,12 @@ export type GitHubCompareSyncRequest = {
 }
 
 export type GitHubCompareSyncResult = {
+  claimCandidateCount: number
   comparison: GitHubCompareSummary
+  evidenceBlockCount: number
+  releaseRecordId: string
   repository: GitHubRepositoryScope
   scope: string
+  sourceLinkCount: number
   syncRunId: string
 }

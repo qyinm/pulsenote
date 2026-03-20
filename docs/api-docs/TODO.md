@@ -46,7 +46,7 @@ Rule:
 - [x] Define the normalized model for `source_link`.
 - [x] Define the normalized model for `review_status`.
 - [x] Add a persistence-ready Drizzle schema for normalized release record tables.
-- [ ] Map GitHub raw payloads into normalized release records and evidence blocks.
+- [x] Map GitHub raw payloads into normalized release records and evidence blocks.
 
 ## Web app integration
 

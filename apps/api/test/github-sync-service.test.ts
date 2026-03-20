@@ -100,12 +100,29 @@ test("syncCompareRange marks the sync run as succeeded and returns compare data"
   assert.equal(result.scope, "github:repo:qyinm/pulsenote compare:main...feat/api-foundation")
   assert.equal(result.comparison.totalCommits, 1)
   assert.equal(result.comparison.files[0]?.filename, "apps/web/app/dashboard/inbox/page.tsx")
+  assert.ok(result.releaseRecordId)
+  assert.equal(result.claimCandidateCount, 1)
+  assert.equal(result.evidenceBlockCount, 2)
+  assert.equal(result.sourceLinkCount, 2)
 
   const snapshot = await store.getWorkspaceSnapshot(workspace.id)
   assert.equal(snapshot?.syncRuns.length, 1)
   assert.equal(snapshot?.syncRuns[0]?.status, "succeeded")
   assert.equal(snapshot?.syncRuns[0]?.errorMessage, null)
   assert.notEqual(snapshot?.syncRuns[0]?.finishedAt, null)
+
+  const releaseSnapshots = await store.listReleaseRecordSnapshots(workspace.id)
+  assert.equal(releaseSnapshots.length, 1)
+  assert.equal(releaseSnapshots[0]?.releaseRecord.id, result.releaseRecordId)
+  assert.equal(releaseSnapshots[0]?.releaseRecord.stage, "intake")
+  assert.equal(releaseSnapshots[0]?.releaseRecord.compareRange, "main...feat/api-foundation")
+  assert.equal(releaseSnapshots[0]?.claimCandidates.length, 1)
+  assert.equal(releaseSnapshots[0]?.claimCandidates[0]?.sentence, "Add release workflow")
+  assert.deepEqual(releaseSnapshots[0]?.claimCandidates[0]?.evidenceBlockIds.length, 1)
+  assert.equal(releaseSnapshots[0]?.evidenceBlocks.length, 2)
+  assert.equal(releaseSnapshots[0]?.sourceLinks.length, 2)
+  assert.equal(releaseSnapshots[0]?.reviewStatuses.length, 1)
+  assert.equal(releaseSnapshots[0]?.reviewStatuses[0]?.state, "pending")
 })
 
 test("syncCompareRange marks the sync run as failed when GitHub compare throws", async () => {
@@ -147,4 +164,7 @@ test("syncCompareRange marks the sync run as failed when GitHub compare throws",
   assert.equal(snapshot?.syncRuns[0]?.status, "failed")
   assert.equal(snapshot?.syncRuns[0]?.errorMessage, "GitHub compare failed")
   assert.notEqual(snapshot?.syncRuns[0]?.finishedAt, null)
+
+  const releaseSnapshots = await store.listReleaseRecordSnapshots(workspace.id)
+  assert.equal(releaseSnapshots.length, 0)
 })

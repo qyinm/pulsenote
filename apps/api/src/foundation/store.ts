@@ -1,8 +1,13 @@
 import {
+  type ClaimCandidate,
+  type EvidenceBlock,
   type IntegrationAccount,
   type IntegrationConnection,
   type IntegrationProvider,
+  type ReleaseRecord,
+  type ReviewStatus,
   type SourceCursor,
+  type SourceLink,
   type SyncRun,
   type User,
   type Workspace,
@@ -22,6 +27,25 @@ type CreateIntegrationAccountInput = Pick<
 >
 type CreateSyncRunInput = Pick<SyncRun, "connectionId" | "scope" | "workspaceId">
 type CreateSourceCursorInput = Pick<SourceCursor, "connectionId" | "key" | "value">
+type CreateReleaseRecordInput = Pick<
+  ReleaseRecord,
+  "compareRange" | "connectionId" | "stage" | "summary" | "title" | "workspaceId"
+>
+type CreateEvidenceBlockInput = Pick<
+  EvidenceBlock,
+  "body" | "evidenceState" | "provider" | "releaseRecordId" | "sourceRef" | "sourceType" | "title"
+> &
+  Partial<Pick<EvidenceBlock, "capturedAt">>
+type CreateClaimCandidateInput = Pick<ClaimCandidate, "releaseRecordId" | "sentence" | "status">
+type LinkClaimCandidateEvidenceBlockInput = {
+  claimCandidateId: string
+  evidenceBlockId: string
+}
+type CreateSourceLinkInput = Pick<SourceLink, "label" | "provider" | "releaseRecordId" | "url">
+type CreateReviewStatusInput = Pick<
+  ReviewStatus,
+  "note" | "ownerUserId" | "releaseRecordId" | "stage" | "state"
+>
 type UpdateSyncRunInput = Pick<SyncRun, "id" | "status"> &
   Partial<Pick<SyncRun, "errorMessage" | "finishedAt">>
 
@@ -34,26 +58,53 @@ export type WorkspaceSnapshot = {
   workspace: Workspace
 }
 
+export type ReleaseRecordSnapshot = {
+  claimCandidates: ClaimCandidate[]
+  evidenceBlocks: EvidenceBlock[]
+  releaseRecord: ReleaseRecord
+  reviewStatuses: ReviewStatus[]
+  sourceLinks: SourceLink[]
+}
+
 export type FoundationStore = {
+  createClaimCandidate(input: CreateClaimCandidateInput): Promise<ClaimCandidate>
+  createEvidenceBlock(input: CreateEvidenceBlockInput): Promise<EvidenceBlock>
   createIntegrationAccount(input: CreateIntegrationAccountInput): Promise<IntegrationAccount>
   createIntegrationConnection(input: CreateIntegrationConnectionInput): Promise<IntegrationConnection>
+  createReleaseRecord(input: CreateReleaseRecordInput): Promise<ReleaseRecord>
+  createReviewStatus(input: CreateReviewStatusInput): Promise<ReviewStatus>
   createSourceCursor(input: CreateSourceCursorInput): Promise<SourceCursor>
+  createSourceLink(input: CreateSourceLinkInput): Promise<SourceLink>
   createSyncRun(input: CreateSyncRunInput): Promise<SyncRun>
   createUser(input: CreateUserInput): Promise<User>
   createWorkspace(input: CreateWorkspaceInput): Promise<Workspace>
   createWorkspaceMembership(input: CreateWorkspaceMembershipInput): Promise<WorkspaceMembership>
   findWorkspaceMembership(workspaceId: string, userId: string): Promise<WorkspaceMembership | null>
   getIntegrationConnection(connectionId: string): Promise<IntegrationConnection | null>
+  getReleaseRecordSnapshot(releaseRecordId: string): Promise<ReleaseRecordSnapshot | null>
   getSyncRun(syncRunId: string): Promise<SyncRun | null>
   getWorkspace(workspaceId: string): Promise<Workspace | null>
   getWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnapshot | null>
+  linkClaimCandidateEvidenceBlock(input: LinkClaimCandidateEvidenceBlockInput): Promise<void>
+  listReleaseRecordSnapshots(workspaceId: string): Promise<ReleaseRecordSnapshot[]>
   updateSyncRun(input: UpdateSyncRunInput): Promise<SyncRun>
 }
 
+type ClaimCandidateEvidenceLink = {
+  claimCandidateId: string
+  evidenceBlockId: string
+}
+
 type InMemoryState = {
+  claimCandidateEvidenceLinks: ClaimCandidateEvidenceLink[]
+  claimCandidates: Map<string, ClaimCandidate>
+  evidenceBlocks: Map<string, EvidenceBlock>
   integrationAccounts: Map<string, IntegrationAccount>
   integrationConnections: Map<string, IntegrationConnection>
+  releaseRecords: Map<string, ReleaseRecord>
+  reviewStatuses: Map<string, ReviewStatus>
   sourceCursors: Map<string, SourceCursor>
+  sourceLinks: Map<string, SourceLink>
   syncRuns: Map<string, SyncRun>
   users: Map<string, User>
   workspaceMemberships: Map<string, WorkspaceMembership>
@@ -70,16 +121,94 @@ function createId() {
 
 export function createInMemoryFoundationStore(): FoundationStore {
   const state: InMemoryState = {
+    claimCandidateEvidenceLinks: [],
+    claimCandidates: new Map(),
+    evidenceBlocks: new Map(),
     integrationAccounts: new Map(),
     integrationConnections: new Map(),
+    releaseRecords: new Map(),
+    reviewStatuses: new Map(),
     sourceCursors: new Map(),
+    sourceLinks: new Map(),
     syncRuns: new Map(),
     users: new Map(),
     workspaceMemberships: new Map(),
     workspaces: new Map(),
   }
 
+  function buildReleaseRecordSnapshot(releaseRecordId: string): ReleaseRecordSnapshot | null {
+    const releaseRecord = state.releaseRecords.get(releaseRecordId)
+
+    if (!releaseRecord) {
+      return null
+    }
+
+    const evidenceBlocks = Array.from(state.evidenceBlocks.values()).filter(
+      (evidenceBlock) => evidenceBlock.releaseRecordId === releaseRecordId,
+    )
+    const evidenceBlockIdsByClaimCandidateId = new Map<string, string[]>()
+
+    for (const link of state.claimCandidateEvidenceLinks) {
+      const evidenceBlockIds = evidenceBlockIdsByClaimCandidateId.get(link.claimCandidateId) ?? []
+      evidenceBlockIds.push(link.evidenceBlockId)
+      evidenceBlockIdsByClaimCandidateId.set(link.claimCandidateId, evidenceBlockIds)
+    }
+
+    const claimCandidates = Array.from(state.claimCandidates.values())
+      .filter((claimCandidate) => claimCandidate.releaseRecordId === releaseRecordId)
+      .map((claimCandidate) => ({
+        ...claimCandidate,
+        evidenceBlockIds: evidenceBlockIdsByClaimCandidateId.get(claimCandidate.id) ?? [],
+      }))
+    const sourceLinks = Array.from(state.sourceLinks.values()).filter(
+      (sourceLink) => sourceLink.releaseRecordId === releaseRecordId,
+    )
+    const reviewStatuses = Array.from(state.reviewStatuses.values()).filter(
+      (reviewStatus) => reviewStatus.releaseRecordId === releaseRecordId,
+    )
+
+    return {
+      claimCandidates,
+      evidenceBlocks,
+      releaseRecord,
+      reviewStatuses,
+      sourceLinks,
+    }
+  }
+
   return {
+    async createClaimCandidate(input) {
+      const claimCandidate: ClaimCandidate = {
+        createdAt: nowIso(),
+        evidenceBlockIds: [],
+        id: createId(),
+        releaseRecordId: input.releaseRecordId,
+        sentence: input.sentence,
+        status: input.status,
+        updatedAt: nowIso(),
+      }
+
+      state.claimCandidates.set(claimCandidate.id, claimCandidate)
+      return claimCandidate
+    },
+
+    async createEvidenceBlock(input) {
+      const evidenceBlock: EvidenceBlock = {
+        body: input.body,
+        capturedAt: input.capturedAt ?? nowIso(),
+        evidenceState: input.evidenceState,
+        id: createId(),
+        provider: input.provider,
+        releaseRecordId: input.releaseRecordId,
+        sourceRef: input.sourceRef,
+        sourceType: input.sourceType,
+        title: input.title,
+      }
+
+      state.evidenceBlocks.set(evidenceBlock.id, evidenceBlock)
+      return evidenceBlock
+    },
+
     async createIntegrationAccount(input) {
       const integrationAccount: IntegrationAccount = {
         accountLabel: input.accountLabel,
@@ -109,8 +238,40 @@ export function createInMemoryFoundationStore(): FoundationStore {
       return integrationConnection
     },
 
+    async createReleaseRecord(input) {
+      const releaseRecord: ReleaseRecord = {
+        compareRange: input.compareRange,
+        connectionId: input.connectionId,
+        createdAt: nowIso(),
+        id: createId(),
+        stage: input.stage,
+        summary: input.summary,
+        title: input.title,
+        updatedAt: nowIso(),
+        workspaceId: input.workspaceId,
+      }
+
+      state.releaseRecords.set(releaseRecord.id, releaseRecord)
+      return releaseRecord
+    },
+
+    async createReviewStatus(input) {
+      const reviewStatus: ReviewStatus = {
+        id: createId(),
+        note: input.note,
+        ownerUserId: input.ownerUserId,
+        releaseRecordId: input.releaseRecordId,
+        stage: input.stage,
+        state: input.state,
+        updatedAt: nowIso(),
+      }
+
+      state.reviewStatuses.set(reviewStatus.id, reviewStatus)
+      return reviewStatus
+    },
+
     async createSourceCursor(input) {
-        const sourceCursor: SourceCursor = {
+      const sourceCursor: SourceCursor = {
         connectionId: input.connectionId,
         id: createId(),
         key: input.key,
@@ -120,6 +281,19 @@ export function createInMemoryFoundationStore(): FoundationStore {
 
       state.sourceCursors.set(sourceCursor.id, sourceCursor)
       return sourceCursor
+    },
+
+    async createSourceLink(input) {
+      const sourceLink: SourceLink = {
+        id: createId(),
+        label: input.label,
+        provider: input.provider,
+        releaseRecordId: input.releaseRecordId,
+        url: input.url,
+      }
+
+      state.sourceLinks.set(sourceLink.id, sourceLink)
+      return sourceLink
     },
 
     async createSyncRun(input) {
@@ -190,6 +364,10 @@ export function createInMemoryFoundationStore(): FoundationStore {
       return state.integrationConnections.get(connectionId) ?? null
     },
 
+    async getReleaseRecordSnapshot(releaseRecordId) {
+      return buildReleaseRecordSnapshot(releaseRecordId)
+    },
+
     async getSyncRun(syncRunId) {
       return state.syncRuns.get(syncRunId) ?? null
     },
@@ -230,6 +408,23 @@ export function createInMemoryFoundationStore(): FoundationStore {
         syncRuns,
         workspace,
       }
+    },
+
+    async linkClaimCandidateEvidenceBlock(input) {
+      state.claimCandidateEvidenceLinks.push({
+        claimCandidateId: input.claimCandidateId,
+        evidenceBlockId: input.evidenceBlockId,
+      })
+    },
+
+    async listReleaseRecordSnapshots(workspaceId) {
+      const releaseRecords = Array.from(state.releaseRecords.values())
+        .filter((releaseRecord) => releaseRecord.workspaceId === workspaceId)
+        .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+
+      const snapshots = releaseRecords.map((releaseRecord) => buildReleaseRecordSnapshot(releaseRecord.id))
+
+      return snapshots.filter((snapshot): snapshot is ReleaseRecordSnapshot => snapshot !== null)
     },
 
     async updateSyncRun(input) {

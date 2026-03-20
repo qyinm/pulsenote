@@ -2,7 +2,20 @@ import type { AppRuntimeEnv } from "../types.js"
 import type { FoundationStore } from "../foundation/store.js"
 import type { SyncRun } from "../domain/models.js"
 import type { GitHubClient } from "./client.js"
-import type { GitHubCompareSyncRequest, GitHubCompareSyncResult } from "./models.js"
+import type {
+  GitHubCompareSummary,
+  GitHubCompareSyncRequest,
+  GitHubCompareSyncResult,
+} from "./models.js"
+import {
+  buildCommitUrl,
+  buildCompareRange,
+  buildCompareReleaseSummary,
+  buildCompareReleaseTitle,
+  buildCompareUrl,
+  buildFileEvidenceBody,
+  getCommitHeadline,
+} from "./normalize.js"
 
 export type GitHubSyncService = ReturnType<typeof createGitHubSyncService>
 
@@ -18,6 +31,102 @@ function nowIso() {
 
 function buildCompareScope(input: GitHubCompareSyncRequest) {
   return `github:repo:${input.repository.owner}/${input.repository.repo} compare:${input.compare.base}...${input.compare.head}`
+}
+
+async function persistCompareReleaseRecord(
+  store: FoundationStore,
+  input: GitHubCompareSyncRequest,
+  comparison: GitHubCompareSummary,
+  scope: string,
+) {
+  const compareRange = buildCompareRange(input.compare.base, input.compare.head)
+  const releaseRecord = await store.createReleaseRecord({
+    compareRange,
+    connectionId: input.connectionId,
+    stage: "intake",
+    summary: buildCompareReleaseSummary(comparison),
+    title: buildCompareReleaseTitle(input.repository, compareRange),
+    workspaceId: input.workspaceId,
+  })
+  const compareSourceLink = await store.createSourceLink({
+    label: `GitHub compare ${compareRange}`,
+    provider: "github",
+    releaseRecordId: releaseRecord.id,
+    url: buildCompareUrl(input.repository, compareRange),
+  })
+
+  const persistedEvidenceBlocks = []
+  const persistedSourceLinks = [compareSourceLink]
+  const persistedClaimCandidates = []
+
+  for (const commit of comparison.commits) {
+    const headline = getCommitHeadline(commit.message)
+    const evidenceBlock = await store.createEvidenceBlock({
+      body: commit.message,
+      capturedAt: commit.committedAt ?? nowIso(),
+      evidenceState: "fresh",
+      provider: "github",
+      releaseRecordId: releaseRecord.id,
+      sourceRef: commit.sha,
+      sourceType: "commit",
+      title: headline || commit.sha,
+    })
+
+    persistedEvidenceBlocks.push(evidenceBlock)
+    persistedSourceLinks.push(
+      await store.createSourceLink({
+        label: `Commit ${commit.sha.slice(0, 7)}`,
+        provider: "github",
+        releaseRecordId: releaseRecord.id,
+        url: buildCommitUrl(input.repository, commit.sha),
+      }),
+    )
+
+    if (headline) {
+      const claimCandidate = await store.createClaimCandidate({
+        releaseRecordId: releaseRecord.id,
+        sentence: headline,
+        status: "pending",
+      })
+
+      await store.linkClaimCandidateEvidenceBlock({
+        claimCandidateId: claimCandidate.id,
+        evidenceBlockId: evidenceBlock.id,
+      })
+
+      persistedClaimCandidates.push(claimCandidate)
+    }
+  }
+
+  for (const file of comparison.files) {
+    persistedEvidenceBlocks.push(
+      await store.createEvidenceBlock({
+        body: buildFileEvidenceBody(file),
+        capturedAt: nowIso(),
+        evidenceState: "fresh",
+        provider: "github",
+        releaseRecordId: releaseRecord.id,
+        sourceRef: file.filename,
+        sourceType: "document",
+        title: file.filename,
+      }),
+    )
+  }
+
+  await store.createReviewStatus({
+    note: `Queued from ${scope}`,
+    ownerUserId: null,
+    releaseRecordId: releaseRecord.id,
+    stage: "intake",
+    state: "pending",
+  })
+
+  return {
+    claimCandidateCount: persistedClaimCandidates.length,
+    evidenceBlockCount: persistedEvidenceBlocks.length,
+    releaseRecordId: releaseRecord.id,
+    sourceLinkCount: persistedSourceLinks.length,
+  }
 }
 
 async function markSyncRunStatus(
@@ -86,13 +195,23 @@ export function createGitHubSyncService(options: {
           compare: input.compare,
           repository: input.repository,
         })
+        const persisted = await persistCompareReleaseRecord(
+          store,
+          input,
+          comparison,
+          scope,
+        )
 
         await markSyncRunStatus(store, queuedSyncRun, "succeeded")
 
         return {
+          claimCandidateCount: persisted.claimCandidateCount,
           comparison,
+          evidenceBlockCount: persisted.evidenceBlockCount,
+          releaseRecordId: persisted.releaseRecordId,
           repository: input.repository,
           scope,
+          sourceLinkCount: persisted.sourceLinkCount,
           syncRunId: queuedSyncRun.id,
         }
       } catch (error) {

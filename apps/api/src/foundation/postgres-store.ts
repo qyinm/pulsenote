@@ -1,9 +1,15 @@
 import { and, desc, eq } from "drizzle-orm"
 
 import {
+  claimCandidateEvidenceBlocks,
+  claimCandidates,
+  evidenceBlocks,
   integrationAccounts,
   integrationConnections,
+  releaseRecords,
+  reviewStatuses,
   sourceCursors,
+  sourceLinks,
   syncRuns,
   users,
   workspaceMemberships,
@@ -11,15 +17,20 @@ import {
 } from "../db/schema.js"
 import type { DatabaseClient } from "../db/client.js"
 import {
+  type ClaimCandidate,
+  type EvidenceBlock,
   type IntegrationAccount,
   type IntegrationConnection,
+  type ReleaseRecord,
+  type ReviewStatus,
   type SourceCursor,
+  type SourceLink,
   type SyncRun,
   type User,
   type Workspace,
   type WorkspaceMembership,
 } from "../domain/models.js"
-import type { FoundationStore } from "./store.js"
+import type { FoundationStore, ReleaseRecordSnapshot } from "./store.js"
 
 function nowIso() {
   return new Date().toISOString()
@@ -38,7 +49,93 @@ export function createPostgresFoundationStore(
 ): FoundationStore {
   const db = "db" in dbOrOptions ? dbOrOptions.db : dbOrOptions
 
+  async function buildReleaseRecordSnapshot(releaseRecordId: string): Promise<ReleaseRecordSnapshot | null> {
+    const releaseRecord = await db.query.releaseRecords.findFirst({
+      where: eq(releaseRecords.id, releaseRecordId),
+    })
+
+    if (!releaseRecord) {
+      return null
+    }
+
+    const [evidenceBlockRows, claimCandidateRows, sourceLinkRows, reviewStatusRows, claimLinks] =
+      await Promise.all([
+        db.query.evidenceBlocks.findMany({
+          where: eq(evidenceBlocks.releaseRecordId, releaseRecordId),
+        }),
+        db.query.claimCandidates.findMany({
+          where: eq(claimCandidates.releaseRecordId, releaseRecordId),
+        }),
+        db.query.sourceLinks.findMany({
+          where: eq(sourceLinks.releaseRecordId, releaseRecordId),
+        }),
+        db.query.reviewStatuses.findMany({
+          where: eq(reviewStatuses.releaseRecordId, releaseRecordId),
+        }),
+        db.query.claimCandidateEvidenceBlocks.findMany(),
+      ])
+
+    const evidenceBlockIdsByClaimCandidateId = new Map<string, string[]>()
+
+    for (const link of claimLinks) {
+      const evidenceBlockIds = evidenceBlockIdsByClaimCandidateId.get(link.claimCandidateId) ?? []
+      evidenceBlockIds.push(link.evidenceBlockId)
+      evidenceBlockIdsByClaimCandidateId.set(link.claimCandidateId, evidenceBlockIds)
+    }
+
+    const normalizedClaimCandidates = claimCandidateRows.map((claimCandidate) => ({
+      ...claimCandidate,
+      evidenceBlockIds: evidenceBlockIdsByClaimCandidateId.get(claimCandidate.id) ?? [],
+    }))
+
+    return {
+      claimCandidates: normalizedClaimCandidates,
+      evidenceBlocks: evidenceBlockRows,
+      releaseRecord,
+      reviewStatuses: reviewStatusRows,
+      sourceLinks: sourceLinkRows,
+    } satisfies ReleaseRecordSnapshot
+  }
+
   return {
+    async createClaimCandidate(input) {
+      const [claimCandidate] = await db
+        .insert(claimCandidates)
+        .values({
+          createdAt: nowIso(),
+          id: createId(),
+          releaseRecordId: input.releaseRecordId,
+          sentence: input.sentence,
+          status: input.status,
+          updatedAt: nowIso(),
+        })
+        .returning()
+
+      return {
+        ...claimCandidate,
+        evidenceBlockIds: [],
+      } satisfies ClaimCandidate
+    },
+
+    async createEvidenceBlock(input) {
+      const [evidenceBlock] = await db
+        .insert(evidenceBlocks)
+        .values({
+          body: input.body,
+          capturedAt: input.capturedAt ?? nowIso(),
+          evidenceState: input.evidenceState,
+          id: createId(),
+          provider: input.provider,
+          releaseRecordId: input.releaseRecordId,
+          sourceRef: input.sourceRef,
+          sourceType: input.sourceType,
+          title: input.title,
+        })
+        .returning()
+
+      return evidenceBlock satisfies EvidenceBlock
+    },
+
     async createIntegrationAccount(input) {
       const [integrationAccount] = await db
         .insert(integrationAccounts)
@@ -72,6 +169,42 @@ export function createPostgresFoundationStore(
       return integrationConnection satisfies IntegrationConnection
     },
 
+    async createReleaseRecord(input) {
+      const [releaseRecord] = await db
+        .insert(releaseRecords)
+        .values({
+          compareRange: input.compareRange,
+          connectionId: input.connectionId,
+          createdAt: nowIso(),
+          id: createId(),
+          stage: input.stage,
+          summary: input.summary,
+          title: input.title,
+          updatedAt: nowIso(),
+          workspaceId: input.workspaceId,
+        })
+        .returning()
+
+      return releaseRecord satisfies ReleaseRecord
+    },
+
+    async createReviewStatus(input) {
+      const [reviewStatus] = await db
+        .insert(reviewStatuses)
+        .values({
+          id: createId(),
+          note: input.note,
+          ownerUserId: input.ownerUserId,
+          releaseRecordId: input.releaseRecordId,
+          stage: input.stage,
+          state: input.state,
+          updatedAt: nowIso(),
+        })
+        .returning()
+
+      return reviewStatus satisfies ReviewStatus
+    },
+
     async createSourceCursor(input) {
       const [sourceCursor] = await db
         .insert(sourceCursors)
@@ -85,6 +218,21 @@ export function createPostgresFoundationStore(
         .returning()
 
       return sourceCursor satisfies SourceCursor
+    },
+
+    async createSourceLink(input) {
+      const [sourceLink] = await db
+        .insert(sourceLinks)
+        .values({
+          id: createId(),
+          label: input.label,
+          provider: input.provider,
+          releaseRecordId: input.releaseRecordId,
+          url: input.url,
+        })
+        .returning()
+
+      return sourceLink satisfies SourceLink
     },
 
     async createSyncRun(input) {
@@ -178,6 +326,10 @@ export function createPostgresFoundationStore(
       return integrationConnection ?? null
     },
 
+    async getReleaseRecordSnapshot(releaseRecordId) {
+      return buildReleaseRecordSnapshot(releaseRecordId)
+    },
+
     async getSyncRun(syncRunId) {
       const syncRun = await db.query.syncRuns.findFirst({
         where: eq(syncRuns.id, syncRunId),
@@ -241,6 +393,27 @@ export function createPostgresFoundationStore(
         syncRuns: syncRunRows,
         workspace,
       }
+    },
+
+    async linkClaimCandidateEvidenceBlock(input) {
+      await db.insert(claimCandidateEvidenceBlocks).values({
+        claimCandidateId: input.claimCandidateId,
+        createdAt: nowIso(),
+        evidenceBlockId: input.evidenceBlockId,
+      })
+    },
+
+    async listReleaseRecordSnapshots(workspaceId) {
+      const releaseRecordRows = await db.query.releaseRecords.findMany({
+        orderBy: desc(releaseRecords.createdAt),
+        where: eq(releaseRecords.workspaceId, workspaceId),
+      })
+
+      const snapshots = await Promise.all(
+        releaseRecordRows.map((releaseRecord) => buildReleaseRecordSnapshot(releaseRecord.id)),
+      )
+
+      return snapshots.filter((snapshot): snapshot is ReleaseRecordSnapshot => snapshot !== null)
     },
 
     async updateSyncRun(input) {
