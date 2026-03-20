@@ -1,9 +1,9 @@
 import { Hono } from "hono"
 
 import { createAuthServiceForRuntime } from "./auth/service.js"
-import { createGitHubClient } from "./github/client.js"
+import { createGitHubClient, type GitHubClient } from "./github/client.js"
 import { createGitHubSyncService } from "./github/service.js"
-import { createFoundationService } from "./foundation/service.js"
+import { createFoundationService, type FoundationService } from "./foundation/service.js"
 import { createFoundationStoreForRuntime } from "./foundation/resolve-store.js"
 import { getRuntimeEnv } from "./lib/env.js"
 import { requestContext } from "./middleware/request-context.js"
@@ -15,19 +15,20 @@ import type { AppBindings, AppRuntimeEnv } from "./types.js"
 
 type CreateAppOptions = {
   authService?: ReturnType<typeof createAuthServiceForRuntime>
-  foundationService?: ReturnType<typeof createFoundationService>
+  foundationService?: FoundationService
+  githubClient?: GitHubClient
   githubSyncService?: ReturnType<typeof createGitHubSyncService>
 }
 
 export function createApp(runtimeEnv: AppRuntimeEnv = getRuntimeEnv(), options: CreateAppOptions = {}) {
   const app = new Hono<AppBindings>()
   const authService = options.authService ?? createAuthServiceForRuntime(runtimeEnv)
-  const foundationStore = createFoundationStoreForRuntime(runtimeEnv)
+  const foundationStore = options.foundationService?.store ?? createFoundationStoreForRuntime(runtimeEnv)
   const foundationService = options.foundationService ?? createFoundationService(foundationStore)
   const githubSyncService =
     options.githubSyncService ??
     createGitHubSyncService({
-      githubClient: createGitHubClient(),
+      githubClient: options.githubClient ?? createGitHubClient(),
       runtimeEnv,
       store: foundationStore,
     })

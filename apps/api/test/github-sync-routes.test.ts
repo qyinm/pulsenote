@@ -149,6 +149,71 @@ test("github compare sync route returns comparison data for workspace members", 
   assert.equal(body.sourceLinkCount, 2)
 })
 
+test("createApp reuses the injected foundation service store for default github sync routes", async () => {
+  const { bootstrap, connection, foundationService } = await bootstrapWorkspace()
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(bootstrap.user.id)),
+    foundationService,
+    githubClient: {
+      async compareCommits() {
+        return {
+          aheadBy: 1,
+          behindBy: 0,
+          commits: [
+            {
+              committedAt: "2026-03-20T00:00:00.000Z",
+              message: "Add shared store wiring",
+              sha: "abc123",
+            },
+          ],
+          files: [],
+          mergeBaseSha: "base123",
+          totalCommits: 1,
+        }
+      },
+      async getPullRequests() {
+        throw new Error("pull sync should not be called")
+      },
+      async getRelease() {
+        throw new Error("release sync should not be called")
+      },
+    },
+  })
+
+  const syncResponse = await app.request(`/v1/workspaces/${bootstrap.workspace.id}/github/sync/compare`, {
+    body: JSON.stringify({
+      auth: {
+        strategy: "personal_access_token",
+        token: "ghp_dev_token",
+      },
+      compare: {
+        base: "main",
+        head: "feat/api-foundation",
+      },
+      connectionId: connection.id,
+      repository: {
+        owner: "qyinm",
+        repo: "pulsenote",
+      },
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "POST",
+  })
+
+  assert.equal(syncResponse.status, 200)
+
+  const releaseRecordsResponse = await app.request(
+    `/v1/workspaces/${bootstrap.workspace.id}/release-records`,
+  )
+
+  assert.equal(releaseRecordsResponse.status, 200)
+  const body = await releaseRecordsResponse.json()
+  assert.equal(body.length, 1)
+  assert.equal(body[0]?.releaseRecord.compareRange, "main...feat/api-foundation")
+})
+
 test("github compare sync route rejects development-only ingest in production", async () => {
   const { bootstrap, connection, foundationService, store } = await bootstrapWorkspace()
   const productionEnv = {

@@ -45,6 +45,8 @@ function requireNonEmpty(value: string, fieldName: string) {
 
 export function createFoundationService(store: FoundationStore) {
   return {
+    store,
+
     async bootstrapWorkspace(input: BootstrapWorkspaceInput): Promise<BootstrapWorkspaceResult> {
       requireNonEmpty(input.user.email, "user.email")
       requireNonEmpty(input.workspace.name, "workspace.name")
