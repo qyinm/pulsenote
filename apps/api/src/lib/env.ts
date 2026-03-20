@@ -37,6 +37,7 @@ export function getRuntimeEnv(source: NodeJS.ProcessEnv = process.env): AppRunti
   return {
     appName: source.APP_NAME ?? "pulsenote-api",
     appVersion: source.APP_VERSION ?? "0.1.0",
+    betterAuthCookieDomain: source.BETTER_AUTH_COOKIE_DOMAIN?.trim() || null,
     betterAuthSecret: source.BETTER_AUTH_SECRET ?? null,
     betterAuthUrl: source.BETTER_AUTH_URL ?? null,
     databaseUrl: source.DATABASE_URL ?? null,

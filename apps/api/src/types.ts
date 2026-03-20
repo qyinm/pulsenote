@@ -3,6 +3,7 @@ export type NodeEnv = "development" | "test" | "production"
 export type AppRuntimeEnv = {
   appName: string
   appVersion: string
+  betterAuthCookieDomain: string | null
   betterAuthSecret: string | null
   betterAuthUrl: string | null
   databaseUrl: string | null

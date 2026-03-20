@@ -10,6 +10,7 @@ test("runtime env reads DATABASE_URL when present", () => {
   const runtimeEnv = getRuntimeEnv({
     APP_NAME: "pulsenote-api",
     APP_VERSION: "0.1.0",
+    BETTER_AUTH_COOKIE_DOMAIN: ".pulsenotes.xyz",
     BETTER_AUTH_SECRET: "test-secret-for-auth-config-1234567890",
     BETTER_AUTH_URL: "http://127.0.0.1:8787",
     DATABASE_URL: "postgres://user:pass@localhost:5432/pulsenote",
@@ -19,6 +20,7 @@ test("runtime env reads DATABASE_URL when present", () => {
     TRUSTED_ORIGINS: "http://127.0.0.1:3000,http://localhost:3000",
   })
 
+  assert.equal(runtimeEnv.betterAuthCookieDomain, ".pulsenotes.xyz")
   assert.equal(runtimeEnv.betterAuthSecret, "test-secret-for-auth-config-1234567890")
   assert.equal(runtimeEnv.betterAuthUrl, "http://127.0.0.1:8787")
   assert.equal(runtimeEnv.databaseUrl, "postgres://user:pass@localhost:5432/pulsenote")
@@ -52,6 +54,7 @@ test("createFoundationStoreForRuntime falls back to in-memory without DATABASE_U
   const store = createFoundationStoreForRuntime({
     appName: "pulsenote-api-test",
     appVersion: "test",
+    betterAuthCookieDomain: null,
     betterAuthSecret: null,
     betterAuthUrl: null,
     databaseUrl: null,
@@ -87,6 +90,7 @@ test("createFoundationStoreForRuntime uses postgres factory when DATABASE_URL is
     {
       appName: "pulsenote-api-test",
       appVersion: "test",
+      betterAuthCookieDomain: null,
       betterAuthSecret: null,
       betterAuthUrl: null,
       databaseUrl: "postgres://postgres:postgres@localhost:5432/pulsenote",

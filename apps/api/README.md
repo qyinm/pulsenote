@@ -60,7 +60,8 @@ See [.env.example](./.env.example) for a copyable template.
 | `NODE_ENV` | yes | Set to `production` on Railway. |
 | `DATABASE_URL` | yes | Postgres connection string for Better Auth and release-state persistence. |
 | `BETTER_AUTH_SECRET` | yes | Long random secret used to sign auth state. |
-| `BETTER_AUTH_URL` | yes | Public HTTPS URL for this API service, e.g. `https://pulsenote-api.up.railway.app`. |
+| `BETTER_AUTH_URL` | yes | Public HTTPS URL for this API service, e.g. `https://api.pulsenotes.xyz`. |
+| `BETTER_AUTH_COOKIE_DOMAIN` | recommended | Shared cookie domain for auth across subdomains, e.g. `.pulsenotes.xyz`. |
 | `TRUSTED_ORIGINS` | yes | Comma-separated exact web origins allowed to send credentialed requests. No wildcard support. |
 | `HOST` | optional | Defaults to `0.0.0.0` in production. Override only if Railway support asks for it. |
 | `PORT` | optional | Railway injects this automatically. Keep it unset in normal deployments. |
@@ -86,6 +87,9 @@ At minimum, make sure the target database has the schema from:
 - `TRUSTED_ORIGINS` must list the exact browser origins that call this API, because the API
   uses credentialed requests for Better Auth sessions.
 - `BETTER_AUTH_URL` should match the final public API URL exactly, including `https://`.
+- If the web app runs on `app.pulsenotes.xyz` and the API runs on `api.pulsenotes.xyz`, set
+  `BETTER_AUTH_COOKIE_DOMAIN=.pulsenotes.xyz` so Better Auth can share session cookies across
+  those subdomains.
 - If you deploy preview web environments on different domains, add those preview origins
   explicitly or route preview traffic through a single stable web origin.
 

@@ -9,6 +9,7 @@ import { createInMemoryFoundationStore } from "../src/foundation/store.js"
 const runtimeEnv = {
   appName: "pulsenote-api-test",
   appVersion: "test",
+  betterAuthCookieDomain: null,
   betterAuthSecret: null,
   betterAuthUrl: null,
   databaseUrl: null,

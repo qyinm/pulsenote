@@ -41,6 +41,14 @@ export function createBetterAuthService({
 }: CreateBetterAuthServiceOptions): AuthService {
   const auth = betterAuth({
     advanced: {
+      ...(runtimeEnv.betterAuthCookieDomain
+        ? {
+            crossSubDomainCookies: {
+              domain: runtimeEnv.betterAuthCookieDomain,
+              enabled: true,
+            },
+          }
+        : {}),
       database: {
         generateId: false,
       },
