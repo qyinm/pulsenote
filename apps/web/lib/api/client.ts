@@ -100,6 +100,16 @@ function normalizeApiBaseUrl(value: string) {
   return value.replace(/\/+$/, "")
 }
 
+function mergeHeaders(headers?: HeadersInit) {
+  const resolvedHeaders = new Headers(headers)
+
+  if (!resolvedHeaders.has("content-type")) {
+    resolvedHeaders.set("content-type", "application/json")
+  }
+
+  return Object.fromEntries(resolvedHeaders.entries())
+}
+
 export function getApiBaseUrl(env: RuntimeEnv | NodeJS.ProcessEnv = process.env) {
   const configuredBaseUrl = env.NEXT_PUBLIC_API_BASE_URL?.trim()
 
@@ -126,10 +136,7 @@ export function createApiClient(options: CreateApiClientOptions = {}) {
     const response = await fetchImplementation(`${baseUrl}${path}`, {
       ...init,
       credentials: "include",
-      headers: {
-        "content-type": "application/json",
-        ...init.headers,
-      },
+      headers: mergeHeaders(init.headers),
     })
 
     if (!response.ok) {
@@ -143,17 +150,19 @@ export function createApiClient(options: CreateApiClientOptions = {}) {
   }
 
   return {
-    getSession() {
-      return request<ApiSession>("/v1/session")
+    getSession(init?: RequestInit) {
+      return request<ApiSession>("/v1/session", init)
     },
-    getReleaseRecord(workspaceId: string, releaseRecordId: string) {
+    getReleaseRecord(workspaceId: string, releaseRecordId: string, init?: RequestInit) {
       return request<ReleaseRecordSnapshot>(
         `/v1/workspaces/${encodeURIComponent(workspaceId)}/release-records/${encodeURIComponent(releaseRecordId)}`,
+        init,
       )
     },
-    listReleaseRecords(workspaceId: string) {
+    listReleaseRecords(workspaceId: string, init?: RequestInit) {
       return request<ReleaseRecordSnapshot[]>(
         `/v1/workspaces/${encodeURIComponent(workspaceId)}/release-records`,
+        init,
       )
     },
   }

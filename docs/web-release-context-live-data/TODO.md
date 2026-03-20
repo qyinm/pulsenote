@@ -11,7 +11,7 @@ Scope guard:
 ## Essential integration tasks
 
 - [x] Add the minimum `apps/web` runtime config needed to call `apps/api` from the authenticated product surface.
-- [ ] Add Better Auth client helpers in `apps/web` for browser and server session reads.
+- [x] Add Better Auth client helpers in `apps/web` for browser and server session reads.
 - [ ] Add an explicit dashboard auth gate for signed-out and no-membership states.
 - [ ] Replace the `Sample workspace` header state with the current workspace resolved from the authenticated API session.
 - [ ] Fetch release record list data from `GET /v1/workspaces/:workspaceId/release-records`.

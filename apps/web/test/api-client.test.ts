@@ -65,3 +65,27 @@ test("api client throws a structured ApiError for non-ok responses", async () =>
       error.status === 401,
   )
 })
+
+test("api client forwards custom headers for server-side session reads", async () => {
+  const requests: Array<{ init?: RequestInit; input: RequestInfo | URL }> = []
+  const client = createApiClient({
+    baseUrl: "http://127.0.0.1:8787",
+    fetch: async (input, init) => {
+      requests.push({ init, input })
+      return Response.json({ ok: true })
+    },
+  })
+
+  await client.getSession({
+    headers: {
+      cookie: "better-auth.session=abc123",
+    },
+  })
+
+  assert.equal(String(requests[0]?.input), "http://127.0.0.1:8787/v1/session")
+  assert.equal(
+    (requests[0]?.init?.headers as Record<string, string> | undefined)?.cookie,
+    "better-auth.session=abc123",
+  )
+  assert.equal(requests[0]?.init?.credentials, "include")
+})
