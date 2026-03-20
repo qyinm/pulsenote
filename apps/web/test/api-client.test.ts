@@ -79,8 +79,19 @@ test("getApiBaseUrl prefers NEXT_PUBLIC_API_BASE_URL when configured", () => {
   )
 })
 
-test("getApiBaseUrl falls back to the local API origin for development", () => {
-  assert.equal(getApiBaseUrl({}), "http://localhost:8787")
+test("getApiBaseUrl falls back to the local API origin during development", () => {
+  assert.equal(getApiBaseUrl({ NODE_ENV: "development" }), "http://localhost:8787")
+})
+
+test("getApiBaseUrl falls back to the local API origin during tests", () => {
+  assert.equal(getApiBaseUrl({ NODE_ENV: "test" }), "http://localhost:8787")
+})
+
+test("getApiBaseUrl requires NEXT_PUBLIC_API_BASE_URL outside development", () => {
+  assert.throws(
+    () => getApiBaseUrl({ NODE_ENV: "production" }),
+    /NEXT_PUBLIC_API_BASE_URL is required in preview and production environments/,
+  )
 })
 
 test("api client sends credentialed requests to session, workspace, and release record routes", async () => {

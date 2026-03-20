@@ -4,6 +4,7 @@ const DEFAULT_API_BASE_URL = "http://localhost:8787"
 
 type RuntimeEnv = {
   NEXT_PUBLIC_API_BASE_URL?: string | undefined
+  NODE_ENV?: string | undefined
 }
 
 type FetchLike = typeof fetch
@@ -217,11 +218,15 @@ function mergeHeaders(init: RequestInit = {}) {
 export function getApiBaseUrl(env: RuntimeEnv | NodeJS.ProcessEnv = process.env) {
   const configuredBaseUrl = env.NEXT_PUBLIC_API_BASE_URL?.trim()
 
-  if (!configuredBaseUrl) {
+  if (configuredBaseUrl) {
+    return normalizeApiBaseUrl(configuredBaseUrl)
+  }
+
+  if (env.NODE_ENV !== "production") {
     return DEFAULT_API_BASE_URL
   }
 
-  return normalizeApiBaseUrl(configuredBaseUrl)
+  throw new Error("NEXT_PUBLIC_API_BASE_URL is required in preview and production environments")
 }
 
 async function readJson<T>(response: Response, schema: z.ZodType<T>): Promise<T> {

@@ -33,6 +33,7 @@ From the repo root:
 
 ```bash
 pnpm install
+cp apps/web/.env.example apps/web/.env.local
 pnpm --dir apps/web dev
 ```
 
@@ -43,6 +44,23 @@ pnpm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+
+## Environment
+
+Create `apps/web/.env.local` from [`.env.example`](/Users/hippoo/Desktop/01_projects/05_zero2one/Pulsenote/apps/web/.env.example).
+
+Required variables:
+
+- `NEXT_PUBLIC_API_BASE_URL`
+  Public origin for `apps/api`, for example `http://localhost:8787` in local development or
+  `https://pulsenote-api.up.railway.app` in preview and production.
+
+Important:
+
+- Local development can fall back to `http://localhost:8787`, but deployed environments must set
+  `NEXT_PUBLIC_API_BASE_URL` explicitly.
+- If this variable is missing in preview or production, the web app now fails fast instead of
+  silently calling `localhost`.
 
 ## Validation
 
