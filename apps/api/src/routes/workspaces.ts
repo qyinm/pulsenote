@@ -5,6 +5,7 @@ import {
   CurrentWorkspaceNotFoundError,
   CurrentWorkspaceSelectionRequiredError,
   type FoundationService,
+  WorkspaceAccessDeniedError,
 } from "../foundation/service.js"
 import type { GitHubSyncService } from "../github/service.js"
 import { createGitHubSyncRoute } from "./github-sync.js"
@@ -193,9 +194,12 @@ export function createWorkspacesRoute(
       })
       return context.json(snapshot)
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Workspace access is not allowed"
-      const status = message === "Workspace access is not allowed" ? 403 : 400
-      return context.json({ message, status }, status)
+      if (error instanceof WorkspaceAccessDeniedError) {
+        return context.json({ message: error.message, status: 403 }, 403)
+      }
+
+      const message = error instanceof Error ? error.message : "Failed to select workspace"
+      return context.json({ message, status: 400 }, 400)
     }
   })
 
@@ -220,7 +224,10 @@ export function createWorkspacesRoute(
 
       await next()
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Workspace access is not allowed"
+      const message =
+        error instanceof WorkspaceAccessDeniedError
+          ? error.message
+          : "Workspace access is not allowed"
       return context.json({ message, status: 403 }, 403)
     }
   })

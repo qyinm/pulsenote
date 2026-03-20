@@ -433,3 +433,56 @@ test("workspace routes list workspace choices and persist the current workspace 
   const currentWorkspaceBody = await currentWorkspaceResponse.json()
   assert.equal(currentWorkspaceBody.workspace.id, secondWorkspace.id)
 })
+
+test("workspace routes return 403 when selecting a workspace without membership access", async () => {
+  const store = createInMemoryFoundationStore()
+  const foundationService = createFoundationService(store)
+  const bootstrapApp = createApp(runtimeEnv, {
+    authService: createAuthService(null),
+    foundationService,
+  })
+
+  const bootstrapResponse = await bootstrapApp.request("/v1/workspaces/bootstrap", {
+    body: JSON.stringify({
+      user: {
+        email: "selection-access@pulsenote.dev",
+        fullName: "Selection Access User",
+      },
+      workspace: {
+        name: "Primary workspace",
+        slug: "selection-access-primary",
+      },
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "POST",
+  })
+
+  const bootstrapBody = await bootstrapResponse.json()
+  const foreignWorkspace = await store.createWorkspace({
+    name: "Foreign workspace",
+    slug: "selection-access-foreign",
+  })
+
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(bootstrapBody.memberships[0].userId)),
+    foundationService,
+  })
+
+  const response = await app.request("/v1/workspaces/current", {
+    body: JSON.stringify({
+      workspaceId: foreignWorkspace.id,
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "PUT",
+  })
+
+  assert.equal(response.status, 403)
+  assert.deepEqual(await response.json(), {
+    message: "Workspace access is not allowed",
+    status: 403,
+  })
+})

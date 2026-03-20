@@ -81,6 +81,13 @@ export class CurrentWorkspaceSelectionRequiredError extends Error {
   }
 }
 
+export class WorkspaceAccessDeniedError extends Error {
+  constructor() {
+    super("Workspace access is not allowed")
+    this.name = "WorkspaceAccessDeniedError"
+  }
+}
+
 function requireNonEmpty(value: string, fieldName: string) {
   if (!value.trim()) {
     throw new Error(`${fieldName} is required`)
@@ -201,7 +208,7 @@ export function createFoundationService(store: FoundationStore) {
       const membership = await store.findWorkspaceMembership(input.workspaceId, input.userId)
 
       if (!membership) {
-        throw new Error("Workspace access is not allowed")
+        throw new WorkspaceAccessDeniedError()
       }
 
       return membership
@@ -281,7 +288,7 @@ export function createFoundationService(store: FoundationStore) {
       const membership = await store.findWorkspaceMembership(input.workspaceId, input.userId)
 
       if (!membership) {
-        throw new Error("Workspace access is not allowed")
+        throw new WorkspaceAccessDeniedError()
       }
 
       await store.setCurrentWorkspaceSelection({

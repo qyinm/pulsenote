@@ -73,7 +73,34 @@ test("auth routes allow trusted-origin preflight requests with credentials", asy
   assert.equal(response.status, 204)
   assert.equal(response.headers.get("access-control-allow-origin"), "http://localhost:3000")
   assert.equal(response.headers.get("access-control-allow-credentials"), "true")
-  assert.equal(response.headers.get("access-control-allow-methods"), "GET, POST, OPTIONS")
+  assert.equal(response.headers.get("access-control-allow-methods"), "GET, POST, PUT, OPTIONS")
+})
+
+test("auth routes reject untrusted-origin preflight requests", async () => {
+  const foundationService = createFoundationService(createInMemoryFoundationStore())
+  const app = createApp(
+    {
+      ...runtimeEnv,
+      trustedOrigins: ["http://localhost:3000"],
+    },
+    {
+      authService: createAuthService(null),
+      foundationService,
+    },
+  )
+
+  const response = await app.request("/api/auth/ok", {
+    headers: {
+      "access-control-request-method": "POST",
+      origin: "http://127.0.0.1:3000",
+    },
+    method: "OPTIONS",
+  })
+
+  assert.equal(response.status, 403)
+  assert.deepEqual(await response.json(), {
+    error: "Origin is not allowed",
+  })
 })
 
 test("session route returns the authenticated session", async () => {

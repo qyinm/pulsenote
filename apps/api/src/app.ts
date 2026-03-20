@@ -46,7 +46,7 @@ export function createApp(runtimeEnv: AppRuntimeEnv = getRuntimeEnv(), options: 
 
     context.header("Access-Control-Allow-Credentials", "true")
     context.header("Access-Control-Allow-Headers", "Content-Type")
-    context.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+    context.header("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
     context.header("Access-Control-Allow-Origin", origin)
     context.header("Vary", "Origin")
     return true
@@ -57,9 +57,23 @@ export function createApp(runtimeEnv: AppRuntimeEnv = getRuntimeEnv(), options: 
     context: Context<AppBindings>,
     next: () => Promise<void>,
   ) => {
-    applyAuthCorsHeaders(context)
+    const isTrustedOrigin = applyAuthCorsHeaders(context)
 
     if (context.req.method === "OPTIONS") {
+      if (!isTrustedOrigin) {
+        console.warn(
+          JSON.stringify({
+            event: "cors.preflight.rejected",
+            origin: context.req.header("origin") ?? null,
+            path: context.req.path,
+            requestId: context.get("requestId"),
+            service: runtimeEnv.appName,
+            timestamp: new Date().toISOString(),
+          }),
+        )
+        return context.json({ error: "Origin is not allowed" }, 403)
+      }
+
       return context.body(null, 204)
     }
 
