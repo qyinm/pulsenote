@@ -98,3 +98,23 @@ test("createSyncRun rejects connections from another workspace", async () => {
     /does not belong to workspace/,
   )
 })
+
+test("createIntegrationConnection rejects unsupported providers before persistence", async () => {
+  const store = createInMemoryFoundationStore()
+  const service = createFoundationService(store)
+
+  const bootstrap = await service.bootstrapWorkspace({
+    user: { email: "owner@pulsenote.dev", fullName: "Owner User" },
+    workspace: { name: "PulseNote", slug: "pulsenote" },
+  })
+
+  await assert.rejects(
+    () =>
+      service.createIntegrationConnection({
+        externalAccountId: "gitlab-project-7",
+        provider: "gitlab" as never,
+        workspaceId: bootstrap.workspace.id,
+      }),
+    /provider must be one of: github, linear/,
+  )
+})

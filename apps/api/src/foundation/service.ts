@@ -1,4 +1,12 @@
-import type { IntegrationConnection, SyncRun, User, Workspace, WorkspaceMembership } from "../domain/models.js"
+import {
+  integrationProviders,
+  type IntegrationConnection,
+  type IntegrationProvider,
+  type SyncRun,
+  type User,
+  type Workspace,
+  type WorkspaceMembership,
+} from "../domain/models.js"
 import type { FoundationStore, ReleaseRecordSnapshot, WorkspaceSnapshot } from "./store.js"
 
 type BootstrapWorkspaceInput = {
@@ -43,6 +51,10 @@ function requireNonEmpty(value: string, fieldName: string) {
   }
 }
 
+function isIntegrationProvider(value: string): value is IntegrationProvider {
+  return integrationProviders.includes(value as IntegrationProvider)
+}
+
 export function createFoundationService(store: FoundationStore) {
   return {
     store,
@@ -67,6 +79,11 @@ export function createFoundationService(store: FoundationStore) {
     async createIntegrationConnection(input: CreateIntegrationConnectionInput): Promise<IntegrationConnection> {
       requireNonEmpty(input.workspaceId, "workspaceId")
       requireNonEmpty(input.externalAccountId, "externalAccountId")
+      const provider = input.provider.trim()
+
+      if (!isIntegrationProvider(provider)) {
+        throw new Error("provider must be one of: github, linear")
+      }
 
       const workspace = await store.getWorkspace(input.workspaceId)
 
@@ -76,7 +93,7 @@ export function createFoundationService(store: FoundationStore) {
 
       return store.createIntegrationConnection({
         externalAccountId: input.externalAccountId.trim(),
-        provider: input.provider,
+        provider,
         workspaceId: workspace.id,
       })
     },
