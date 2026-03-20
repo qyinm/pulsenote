@@ -71,6 +71,7 @@ export function createApp(runtimeEnv: AppRuntimeEnv = getRuntimeEnv(), options: 
     console.error(
       JSON.stringify({
         error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
         path: context.req.path,
         requestId,
         service: runtimeEnv.appName,
