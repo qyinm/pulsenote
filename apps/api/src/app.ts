@@ -21,6 +21,10 @@ type CreateAppOptions = {
 }
 
 export function createApp(runtimeEnv: AppRuntimeEnv = getRuntimeEnv(), options: CreateAppOptions = {}) {
+  if (options.githubSyncService && !options.foundationService) {
+    throw new Error("foundationService is required when githubSyncService is injected")
+  }
+
   const app = new Hono<AppBindings>()
   const authService = options.authService ?? createAuthServiceForRuntime(runtimeEnv)
   const foundationStore = options.foundationService?.store ?? createFoundationStoreForRuntime(runtimeEnv)

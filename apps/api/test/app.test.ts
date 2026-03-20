@@ -67,3 +67,14 @@ test("createApp logs stack traces for unhandled errors", async () => {
   assert.match(payload.requestId, /.+/)
   assert.match(payload.stack, /Error: boom/)
 })
+
+test("createApp rejects github sync injection without a matching foundation service", () => {
+  assert.throws(
+    () =>
+      createApp(runtimeEnv, {
+        authService: createAuthService(),
+        githubSyncService: {} as never,
+      }),
+    /foundationService is required when githubSyncService is injected/,
+  )
+})
