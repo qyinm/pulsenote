@@ -3,16 +3,26 @@ import test from "node:test"
 import React from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 
-import { EmailAuthShell } from "../components/auth/email-auth-shell.js"
-import { DashboardAccessState } from "../components/dashboard/dashboard-access-state.js"
-import {
-  type EmailAuthClient,
-  getEmailAuthContent,
-  submitEmailAuthForm,
-  validateEmailAuthName,
-} from "../lib/auth/email-auth.js"
+process.env.NEXT_PUBLIC_API_BASE_URL = "https://api.pulsenotes.xyz"
+
+type EmailAuthClient = import("../lib/auth/email-auth.js").EmailAuthClient
+
+async function loadAuthEntryModules() {
+  const [{ EmailAuthShell }, { DashboardAccessState }, emailAuthModule] = await Promise.all([
+    import("../components/auth/email-auth-shell.js"),
+    import("../components/dashboard/dashboard-access-state.js"),
+    import("../lib/auth/email-auth.js"),
+  ])
+
+  return {
+    DashboardAccessState,
+    EmailAuthShell,
+    ...emailAuthModule,
+  }
+}
 
 test("sign-in page renders the release-scoped auth copy", async () => {
+  const { EmailAuthShell } = await loadAuthEntryModules()
   const markup = renderToStaticMarkup(
     React.createElement(
       EmailAuthShell,
@@ -29,6 +39,7 @@ test("sign-in page renders the release-scoped auth copy", async () => {
 })
 
 test("sign-up page renders the workspace bootstrap auth copy", async () => {
+  const { EmailAuthShell } = await loadAuthEntryModules()
   const markup = renderToStaticMarkup(
     React.createElement(
       EmailAuthShell,
@@ -44,7 +55,8 @@ test("sign-up page renders the workspace bootstrap auth copy", async () => {
   assert.match(markup, /href="\/auth\/sign-in"/i)
 })
 
-test("DashboardAccessState shows auth CTAs for signed-out users", () => {
+test("DashboardAccessState shows auth CTAs for signed-out users", async () => {
+  const { DashboardAccessState } = await loadAuthEntryModules()
   const markup = renderToStaticMarkup(
     React.createElement(DashboardAccessState, { state: "signed-out" }),
   )
@@ -53,7 +65,8 @@ test("DashboardAccessState shows auth CTAs for signed-out users", () => {
   assert.match(markup, /href="\/auth\/sign-up"/i)
 })
 
-test("getEmailAuthContent returns release-specific sign-in copy", () => {
+test("getEmailAuthContent returns release-specific sign-in copy", async () => {
+  const { getEmailAuthContent } = await loadAuthEntryModules()
   assert.deepEqual(getEmailAuthContent("sign-in"), {
     alternateHref: "/auth/sign-up",
     alternateLabel: "Create an account",
@@ -65,6 +78,7 @@ test("getEmailAuthContent returns release-specific sign-in copy", () => {
 })
 
 test("submitEmailAuthForm uses Better Auth sign-in email flow", async () => {
+  const { submitEmailAuthForm } = await loadAuthEntryModules()
   const calls: Array<Record<string, unknown>> = []
   const client: EmailAuthClient = {
     signIn: {
@@ -100,6 +114,7 @@ test("submitEmailAuthForm uses Better Auth sign-in email flow", async () => {
 })
 
 test("submitEmailAuthForm uses Better Auth sign-up email flow", async () => {
+  const { submitEmailAuthForm } = await loadAuthEntryModules()
   const calls: Array<Record<string, unknown>> = []
   const client: EmailAuthClient = {
     signIn: {
@@ -137,6 +152,7 @@ test("submitEmailAuthForm uses Better Auth sign-up email flow", async () => {
 })
 
 test("submitEmailAuthForm throws the Better Auth sign-in error message", async () => {
+  const { submitEmailAuthForm } = await loadAuthEntryModules()
   const client: EmailAuthClient = {
     signIn: {
       async email() {
@@ -170,6 +186,7 @@ test("submitEmailAuthForm throws the Better Auth sign-in error message", async (
 })
 
 test("submitEmailAuthForm throws the Better Auth sign-up error message", async () => {
+  const { submitEmailAuthForm } = await loadAuthEntryModules()
   const client: EmailAuthClient = {
     signIn: {
       async email() {
@@ -203,7 +220,8 @@ test("submitEmailAuthForm throws the Better Auth sign-up error message", async (
   )
 })
 
-test("validateEmailAuthName rejects whitespace-only sign-up names", () => {
+test("validateEmailAuthName rejects whitespace-only sign-up names", async () => {
+  const { validateEmailAuthName } = await loadAuthEntryModules()
   assert.equal(validateEmailAuthName("sign-up", "   "), "Full name is required.")
   assert.equal(validateEmailAuthName("sign-in", ""), null)
 })

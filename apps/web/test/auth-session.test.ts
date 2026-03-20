@@ -2,10 +2,20 @@ import assert from "node:assert/strict"
 import test from "node:test"
 
 import { ApiError } from "../lib/api/client.js"
-import { createPulseNoteAuthClient } from "../lib/auth/client.js"
-import { getServerSession } from "../lib/auth/session.js"
 
-test("createPulseNoteAuthClient points Better Auth at the API origin", () => {
+process.env.NEXT_PUBLIC_API_BASE_URL = "https://api.pulsenotes.xyz"
+
+async function loadAuthSessionModules() {
+  return Promise.all([import("../lib/auth/client.js"), import("../lib/auth/session.js")]).then(
+    ([authClientModule, authSessionModule]) => ({
+      createPulseNoteAuthClient: authClientModule.createPulseNoteAuthClient,
+      getServerSession: authSessionModule.getServerSession,
+    }),
+  )
+}
+
+test("createPulseNoteAuthClient points Better Auth at the API origin", async () => {
+  const { createPulseNoteAuthClient } = await loadAuthSessionModules()
   let receivedOptions: unknown
 
   const client = createPulseNoteAuthClient(
@@ -14,12 +24,12 @@ test("createPulseNoteAuthClient points Better Auth at the API origin", () => {
       return { kind: "auth-client" } as never
     },
     {
-      NEXT_PUBLIC_API_BASE_URL: "https://api.pulsenote.dev",
+      NEXT_PUBLIC_API_BASE_URL: "https://api.pulsenotes.xyz",
     },
   )
 
   assert.deepEqual(receivedOptions, {
-    baseURL: "https://api.pulsenote.dev",
+    baseURL: "https://api.pulsenotes.xyz",
     fetchOptions: {
       credentials: "include",
     },
@@ -28,6 +38,7 @@ test("createPulseNoteAuthClient points Better Auth at the API origin", () => {
 })
 
 test("getServerSession forwards the incoming cookie header", async () => {
+  const { getServerSession } = await loadAuthSessionModules()
   let receivedInit: RequestInit | undefined
 
   const session = await getServerSession(
@@ -67,6 +78,7 @@ test("getServerSession forwards the incoming cookie header", async () => {
 })
 
 test("getServerSession degrades unauthorized responses to null", async () => {
+  const { getServerSession } = await loadAuthSessionModules()
   const session = await getServerSession(new Headers(), {
     async getSession() {
       throw new ApiError("Authentication is required", 401, {

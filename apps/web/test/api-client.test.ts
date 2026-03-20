@@ -73,31 +73,20 @@ function createReleaseRecordSnapshotPayload() {
 test("getApiBaseUrl prefers NEXT_PUBLIC_API_BASE_URL when configured", () => {
   assert.equal(
     getApiBaseUrl({
-      NEXT_PUBLIC_API_BASE_URL: "https://api.pulsenote.dev",
+      NEXT_PUBLIC_API_BASE_URL: "https://api.pulsenotes.xyz",
     }),
-    "https://api.pulsenote.dev",
+    "https://api.pulsenotes.xyz",
   )
 })
 
-test("getApiBaseUrl falls back to the local API origin during development", () => {
-  assert.equal(getApiBaseUrl({ NODE_ENV: "development" }), "http://localhost:8787")
-})
-
-test("getApiBaseUrl falls back to the local API origin during tests", () => {
-  assert.equal(getApiBaseUrl({ NODE_ENV: "test" }), "http://localhost:8787")
-})
-
-test("getApiBaseUrl requires NEXT_PUBLIC_API_BASE_URL outside development", () => {
-  assert.throws(
-    () => getApiBaseUrl({ NODE_ENV: "production" }),
-    /NEXT_PUBLIC_API_BASE_URL is required in preview and production environments/,
-  )
+test("getApiBaseUrl requires NEXT_PUBLIC_API_BASE_URL", () => {
+  assert.throws(() => getApiBaseUrl({}), /NEXT_PUBLIC_API_BASE_URL is required/)
 })
 
 test("api client sends credentialed requests to session, workspace, and release record routes", async () => {
   const requests: Array<{ init?: RequestInit; input: RequestInfo | URL }> = []
   const client = createApiClient({
-    baseUrl: "http://127.0.0.1:8787",
+    baseUrl: "https://api.pulsenotes.xyz",
     fetch: async (input, init) => {
       requests.push({ init, input })
       if (String(input).endsWith("/v1/session")) {
@@ -128,10 +117,10 @@ test("api client sends credentialed requests to session, workspace, and release 
   assert.deepEqual(
     requests.map((request) => String(request.input)),
     [
-      "http://127.0.0.1:8787/v1/session",
-      "http://127.0.0.1:8787/v1/workspaces/current",
-      "http://127.0.0.1:8787/v1/workspaces/workspace%201/release-records",
-      "http://127.0.0.1:8787/v1/workspaces/workspace%201/release-records/release%2F2",
+      "https://api.pulsenotes.xyz/v1/session",
+      "https://api.pulsenotes.xyz/v1/workspaces/current",
+      "https://api.pulsenotes.xyz/v1/workspaces/workspace%201/release-records",
+      "https://api.pulsenotes.xyz/v1/workspaces/workspace%201/release-records/release%2F2",
     ],
   )
 
@@ -143,7 +132,7 @@ test("api client sends credentialed requests to session, workspace, and release 
 
 test("api client throws a structured ApiError for non-ok responses", async () => {
   const client = createApiClient({
-    baseUrl: "http://127.0.0.1:8787",
+    baseUrl: "https://api.pulsenotes.xyz",
     fetch: async () =>
       Response.json(
         {
@@ -165,7 +154,7 @@ test("api client throws a structured ApiError for non-ok responses", async () =>
 
 test("api client rejects unexpected response payloads", async () => {
   const client = createApiClient({
-    baseUrl: "http://localhost:8787",
+    baseUrl: "https://api.pulsenotes.xyz",
     fetch: async () =>
       Response.json({
         user: {
@@ -184,7 +173,7 @@ test("api client rejects unexpected response payloads", async () => {
 test("api client forwards custom headers for server-side session reads", async () => {
   const requests: Array<{ init?: RequestInit; input: RequestInfo | URL }> = []
   const client = createApiClient({
-    baseUrl: "http://127.0.0.1:8787",
+    baseUrl: "https://api.pulsenotes.xyz",
     fetch: async (input, init) => {
       requests.push({ init, input })
       return Response.json(createSessionPayload())
@@ -197,7 +186,7 @@ test("api client forwards custom headers for server-side session reads", async (
     },
   })
 
-  assert.equal(String(requests[0]?.input), "http://127.0.0.1:8787/v1/session")
+  assert.equal(String(requests[0]?.input), "https://api.pulsenotes.xyz/v1/session")
   assert.equal(
     (requests[0]?.init?.headers as Record<string, string> | undefined)?.cookie,
     "better-auth.session=abc123",

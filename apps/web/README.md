@@ -52,15 +52,13 @@ Create `apps/web/.env.local` from [`.env.example`](/Users/hippoo/Desktop/01_proj
 Required variables:
 
 - `NEXT_PUBLIC_API_BASE_URL`
-  Public origin for `apps/api`, for example `http://localhost:8787` in local development or
-  `https://pulsenote-api.up.railway.app` in preview and production.
+  Public origin for `apps/api`, for example `https://api.pulsenotes.xyz`.
 
 Important:
 
-- Local development can fall back to `http://localhost:8787`, but deployed environments must set
-  `NEXT_PUBLIC_API_BASE_URL` explicitly.
-- If this variable is missing in preview or production, the web app now fails fast instead of
-  silently calling `localhost`.
+- The web app requires `NEXT_PUBLIC_API_BASE_URL` in every environment.
+- If this variable is missing, the app fails fast during runtime and build instead of guessing an
+  API origin.
 
 ## Validation
 

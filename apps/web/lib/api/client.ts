@@ -1,10 +1,7 @@
 import { z } from "zod"
 
-const DEFAULT_API_BASE_URL = "http://localhost:8787"
-
 type RuntimeEnv = {
   NEXT_PUBLIC_API_BASE_URL?: string | undefined
-  NODE_ENV?: string | undefined
 }
 
 type FetchLike = typeof fetch
@@ -222,11 +219,7 @@ export function getApiBaseUrl(env: RuntimeEnv | NodeJS.ProcessEnv = process.env)
     return normalizeApiBaseUrl(configuredBaseUrl)
   }
 
-  if (env.NODE_ENV !== "production") {
-    return DEFAULT_API_BASE_URL
-  }
-
-  throw new Error("NEXT_PUBLIC_API_BASE_URL is required in preview and production environments")
+  throw new Error("NEXT_PUBLIC_API_BASE_URL is required")
 }
 
 async function readJson<T>(response: Response, schema: z.ZodType<T>): Promise<T> {
