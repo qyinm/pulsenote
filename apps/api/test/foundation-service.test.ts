@@ -118,3 +118,23 @@ test("createIntegrationConnection rejects unsupported providers before persisten
     /provider must be one of: github, linear/,
   )
 })
+
+test("getCurrentWorkspaceSnapshotForUser returns the signed-in user's first workspace snapshot", async () => {
+  const store = createInMemoryFoundationStore()
+  const service = createFoundationService(store)
+
+  const first = await service.bootstrapWorkspace({
+    user: { email: "owner@pulsenote.dev", fullName: "Owner User" },
+    workspace: { name: "PulseNote", slug: "pulsenote" },
+  })
+
+  await service.bootstrapWorkspace({
+    user: { email: "member@pulsenote.dev", fullName: "Member User" },
+    workspace: { name: "Secondary", slug: "secondary-workspace" },
+  })
+
+  const currentWorkspace = await service.getCurrentWorkspaceSnapshotForUser(first.user.id)
+
+  assert.equal(currentWorkspace.workspace.id, first.workspace.id)
+  assert.equal(currentWorkspace.memberships[0]?.userId, first.user.id)
+})

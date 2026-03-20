@@ -70,6 +70,28 @@ export function createWorkspacesRoute(
     return context.json(snapshot, 201)
   })
 
+  route.get("/current", async (context) => {
+    const user = context.get("authUser")
+
+    if (!user) {
+      return context.json(
+        {
+          message: "Authentication is required",
+          status: 401,
+        },
+        401,
+      )
+    }
+
+    try {
+      const snapshot = await foundationService.getCurrentWorkspaceSnapshotForUser(user.id)
+      return context.json(snapshot)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Current workspace was not found"
+      return context.json(notFound(message), 404)
+    }
+  })
+
   route.use("/:workspaceId", async (context, next) => {
     const user = context.get("authUser")
 

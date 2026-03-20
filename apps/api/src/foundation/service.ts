@@ -153,6 +153,19 @@ export function createFoundationService(store: FoundationStore) {
       return snapshot
     },
 
+    async getCurrentWorkspaceSnapshotForUser(userId: string): Promise<WorkspaceSnapshot> {
+      requireNonEmpty(userId, "userId")
+
+      const memberships = await store.listWorkspaceMembershipsForUser(userId)
+      const currentMembership = memberships[0]
+
+      if (!currentMembership) {
+        throw new Error(`Current workspace was not found for user ${userId}`)
+      }
+
+      return this.getWorkspaceSnapshot(currentMembership.workspaceId)
+    },
+
     async getReleaseRecordSnapshot(
       workspaceId: string,
       releaseRecordId: string,

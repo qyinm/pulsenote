@@ -12,6 +12,7 @@ Scope guard:
 
 - [x] Add the minimum `apps/web` runtime config needed to call `apps/api` from the authenticated product surface.
 - [x] Add Better Auth client helpers in `apps/web` for browser and server session reads.
+- [x] Add an authenticated API route that resolves the current workspace for the signed-in user.
 - [ ] Add an explicit dashboard auth gate for signed-out and no-membership states.
 - [ ] Replace the `Sample workspace` header state with the current workspace resolved from the authenticated API session.
 - [ ] Fetch release record list data from `GET /v1/workspaces/:workspaceId/release-records`.
