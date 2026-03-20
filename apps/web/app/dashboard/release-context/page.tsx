@@ -62,6 +62,7 @@ export default async function ReleaseContextPage() {
         initialReleaseRecords={releaseContextData.releaseRecords}
         initialSelectedId={releaseContextData.selectedId}
         initialSelectedReleaseRecord={releaseContextData.selectedReleaseRecord}
+        key={`${accessState.workspace.workspace.id}:${releaseContextData.selectedId}`}
         workspaceId={accessState.workspace.workspace.id}
       />
     </DashboardPage>

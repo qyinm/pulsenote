@@ -5,6 +5,7 @@ import type { ReleaseRecordSnapshot } from "../lib/api/client.js"
 import {
   buildReleaseContextMetrics,
   buildReleaseContextQueueItem,
+  createReleaseContextDetailCache,
   getServerReleaseContextData,
 } from "../lib/dashboard/release-context.js"
 
@@ -245,5 +246,18 @@ test("buildReleaseContextMetrics summarizes reviewable release intake records", 
     linkedClaims: 1,
     recordsInQueue: 2,
     totalEvidence: 2,
+  })
+})
+
+test("createReleaseContextDetailCache resets the selected detail cache to the current record", () => {
+  const selectedReleaseRecord = createReleaseRecordSnapshot({
+    releaseRecord: {
+      id: "release_2",
+      title: "Billing migration notes",
+    },
+  })
+
+  assert.deepEqual(createReleaseContextDetailCache("release_2", selectedReleaseRecord), {
+    release_2: selectedReleaseRecord,
   })
 })

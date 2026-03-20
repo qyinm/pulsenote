@@ -36,6 +36,15 @@ export type ReleaseContextData = {
   selectedReleaseRecord: ReleaseRecordSnapshot | null
 }
 
+export function createReleaseContextDetailCache(
+  selectedId: string,
+  selectedReleaseRecord: ReleaseRecordSnapshot,
+) {
+  return {
+    [selectedId]: selectedReleaseRecord,
+  } satisfies Record<string, ReleaseRecordSnapshot>
+}
+
 const sourceTypeLabels = {
   commit: "Commit",
   document: "Doc",

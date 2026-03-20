@@ -15,6 +15,7 @@ import {
   buildReleaseContextMetrics,
   buildReleaseContextQueueItem,
   buildReleaseContextReviewNotes,
+  createReleaseContextDetailCache,
 } from "@/lib/dashboard/release-context"
 import {
   BulletList,
@@ -53,9 +54,9 @@ export function ReleaseContextLiveWorkspace({
   workspaceId,
 }: ReleaseContextLiveWorkspaceProps) {
   const [selectedId, setSelectedId] = useState(initialSelectedId)
-  const [detailById, setDetailById] = useState<Record<string, ReleaseRecordSnapshot>>({
-    [initialSelectedId]: initialSelectedReleaseRecord,
-  })
+  const [detailById, setDetailById] = useState<Record<string, ReleaseRecordSnapshot>>(
+    createReleaseContextDetailCache(initialSelectedId, initialSelectedReleaseRecord),
+  )
   const [detailError, setDetailError] = useState<string | null>(null)
   const [isLoadingDetail, setIsLoadingDetail] = useState(false)
 
@@ -64,6 +65,13 @@ export function ReleaseContextLiveWorkspace({
   const selectedReleaseRecord = detailById[selectedId] ?? null
   const selectedQueueItem =
     queueItems.find((queueItem) => queueItem.id === selectedId) ?? queueItems[0] ?? null
+
+  useEffect(() => {
+    setSelectedId(initialSelectedId)
+    setDetailById(createReleaseContextDetailCache(initialSelectedId, initialSelectedReleaseRecord))
+    setDetailError(null)
+    setIsLoadingDetail(false)
+  }, [initialSelectedId, initialSelectedReleaseRecord, workspaceId])
 
   useEffect(() => {
     if (!selectedId || detailById[selectedId]) {
@@ -193,7 +201,7 @@ export function ReleaseContextLiveWorkspace({
                 onRowSelect={(rowKey) => {
                   setSelectedId(rowKey)
                   setDetailError(null)
-                  setIsLoadingDetail(!detailById[rowKey])
+                  setIsLoadingDetail(false)
                 }}
                 emptyTitle="No release context in queue"
                 emptyDescription="New release intake records will appear here as GitHub evidence is synced."
