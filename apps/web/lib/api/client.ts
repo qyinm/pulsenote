@@ -1,3 +1,5 @@
+import { z } from "zod"
+
 const DEFAULT_API_BASE_URL = "http://localhost:8787"
 
 type RuntimeEnv = {
@@ -6,125 +8,157 @@ type RuntimeEnv = {
 
 type FetchLike = typeof fetch
 
-export type ApiSession = {
-  session: {
-    createdAt: Date | string
-    expiresAt: Date | string
-    id: string
-    updatedAt: Date | string
-    userId: string
-  }
-  user: {
-    createdAt: Date | string
-    email: string
-    emailVerified: boolean
-    id: string
-    image?: string | null
-    name: string
-    updatedAt: Date | string
-  }
-}
+const integrationProviderSchema = z.enum(["github", "linear"])
+const releaseStageSchema = z.enum(["intake", "draft", "claim_check", "approval", "publish_pack"])
+const reviewStateSchema = z.enum(["pending", "blocked", "approved"])
+const claimStatusSchema = z.enum(["pending", "flagged", "approved", "rejected"])
+const evidenceStateSchema = z.enum(["fresh", "stale", "missing", "unsupported"])
+const evidenceSourceTypeSchema = z.enum(["pull_request", "commit", "release", "ticket", "document"])
+const workspaceMembershipRoleSchema = z.enum(["owner", "member"])
+const integrationStatusSchema = z.enum(["active", "disconnected"])
+const syncRunStatusSchema = z.enum(["queued", "running", "succeeded", "failed"])
 
-export type ReleaseRecordSnapshot = {
-  claimCandidates: Array<{
-    createdAt: string
-    evidenceBlockIds: string[]
-    id: string
-    releaseRecordId: string
-    sentence: string
-    status: "pending" | "flagged" | "approved" | "rejected"
-    updatedAt: string
-  }>
-  evidenceBlocks: Array<{
-    body: string | null
-    capturedAt: string
-    evidenceState: "fresh" | "stale" | "missing" | "unsupported"
-    id: string
-    provider: "github" | "linear"
-    releaseRecordId: string
-    sourceRef: string
-    sourceType: "pull_request" | "commit" | "release" | "ticket" | "document"
-    title: string
-  }>
-  releaseRecord: {
-    compareRange: string | null
-    connectionId: string
-    createdAt: string
-    id: string
-    stage: "intake" | "draft" | "claim_check" | "approval" | "publish_pack"
-    summary: string | null
-    title: string
-    updatedAt: string
-    workspaceId: string
-  }
-  reviewStatuses: Array<{
-    id: string
-    note: string | null
-    ownerUserId: string | null
-    releaseRecordId: string
-    stage: "intake" | "draft" | "claim_check" | "approval" | "publish_pack"
-    state: "pending" | "blocked" | "approved"
-    updatedAt: string
-  }>
-  sourceLinks: Array<{
-    id: string
-    label: string
-    provider: "github" | "linear"
-    releaseRecordId: string
-    url: string
-  }>
-}
+const apiSessionSchema = z.object({
+  session: z.object({
+    createdAt: z.string(),
+    expiresAt: z.string(),
+    id: z.string(),
+    updatedAt: z.string(),
+    userId: z.string(),
+  }),
+  user: z.object({
+    createdAt: z.string(),
+    email: z.string().email(),
+    emailVerified: z.boolean(),
+    id: z.string(),
+    image: z.string().nullable().optional(),
+    name: z.string(),
+    updatedAt: z.string(),
+  }),
+})
 
-export type WorkspaceSnapshot = {
-  integrationAccounts: Array<{
-    accountLabel: string
-    accountUrl: string | null
-    connectionId: string
-    createdAt: string
-    id: string
-    provider: "github" | "linear"
-  }>
-  integrations: Array<{
-    connectedAt: string
-    externalAccountId: string
-    id: string
-    lastSyncedAt: string | null
-    provider: "github" | "linear"
-    status: "active" | "error" | "disconnected"
-    workspaceId: string
-  }>
-  memberships: Array<{
-    createdAt: string
-    id: string
-    role: "owner" | "editor" | "reviewer" | "viewer"
-    userId: string
-    workspaceId: string
-  }>
-  sourceCursors: Array<{
-    connectionId: string
-    id: string
-    key: string
-    updatedAt: string
-    value: string
-  }>
-  syncRuns: Array<{
-    connectionId: string
-    errorMessage: string | null
-    finishedAt: string | null
-    id: string
-    scope: string
-    startedAt: string
-    status: "queued" | "running" | "completed" | "failed"
-    workspaceId: string
-  }>
-  workspace: {
-    createdAt: string
-    id: string
-    name: string
-    slug: string
-    updatedAt: string
-  }
-}
+const releaseRecordSnapshotSchema = z.object({
+  claimCandidates: z.array(
+    z.object({
+      createdAt: z.string(),
+      evidenceBlockIds: z.array(z.string()),
+      id: z.string(),
+      releaseRecordId: z.string(),
+      sentence: z.string(),
+      status: claimStatusSchema,
+      updatedAt: z.string(),
+    }),
+  ),
+  evidenceBlocks: z.array(
+    z.object({
+      body: z.string().nullable(),
+      capturedAt: z.string(),
+      evidenceState: evidenceStateSchema,
+      id: z.string(),
+      provider: integrationProviderSchema,
+      releaseRecordId: z.string(),
+      sourceRef: z.string(),
+      sourceType: evidenceSourceTypeSchema,
+      title: z.string(),
+    }),
+  ),
+  releaseRecord: z.object({
+    compareRange: z.string().nullable(),
+    connectionId: z.string(),
+    createdAt: z.string(),
+    id: z.string(),
+    stage: releaseStageSchema,
+    summary: z.string().nullable(),
+    title: z.string(),
+    updatedAt: z.string(),
+    workspaceId: z.string(),
+  }),
+  reviewStatuses: z.array(
+    z.object({
+      id: z.string(),
+      note: z.string().nullable(),
+      ownerUserId: z.string().nullable(),
+      releaseRecordId: z.string(),
+      stage: releaseStageSchema,
+      state: reviewStateSchema,
+      updatedAt: z.string(),
+    }),
+  ),
+  sourceLinks: z.array(
+    z.object({
+      id: z.string(),
+      label: z.string(),
+      provider: integrationProviderSchema,
+      releaseRecordId: z.string(),
+      url: z.string().url(),
+    }),
+  ),
+})
+
+const workspaceSnapshotSchema = z.object({
+  integrationAccounts: z.array(
+    z.object({
+      accountLabel: z.string(),
+      accountUrl: z.string().nullable(),
+      connectionId: z.string(),
+      createdAt: z.string(),
+      id: z.string(),
+      provider: integrationProviderSchema,
+    }),
+  ),
+  integrations: z.array(
+    z.object({
+      connectedAt: z.string(),
+      externalAccountId: z.string(),
+      id: z.string(),
+      lastSyncedAt: z.string().nullable(),
+      provider: integrationProviderSchema,
+      status: integrationStatusSchema,
+      workspaceId: z.string(),
+    }),
+  ),
+  memberships: z.array(
+    z.object({
+      createdAt: z.string(),
+      id: z.string(),
+      role: workspaceMembershipRoleSchema,
+      userId: z.string(),
+      workspaceId: z.string(),
+    }),
+  ),
+  sourceCursors: z.array(
+    z.object({
+      connectionId: z.string(),
+      id: z.string(),
+      key: z.string(),
+      updatedAt: z.string(),
+      value: z.string(),
+    }),
+  ),
+  syncRuns: z.array(
+    z.object({
+      connectionId: z.string(),
+      errorMessage: z.string().nullable(),
+      finishedAt: z.string().nullable(),
+      id: z.string(),
+      scope: z.string(),
+      startedAt: z.string(),
+      status: syncRunStatusSchema,
+      workspaceId: z.string(),
+    }),
+  ),
+  workspace: z.object({
+    createdAt: z.string(),
+    id: z.string(),
+    name: z.string(),
+    slug: z.string(),
+    updatedAt: z.string(),
+  }),
+})
+
+export type ApiSession = z.infer<typeof apiSessionSchema>
+export type ReleaseRecordSnapshot = z.infer<typeof releaseRecordSnapshotSchema>
+export type WorkspaceSnapshot = z.infer<typeof workspaceSnapshotSchema>
 
 type CreateApiClientOptions = {
   baseUrl?: string
@@ -172,8 +206,8 @@ export function getApiBaseUrl(env: RuntimeEnv | NodeJS.ProcessEnv = process.env)
   return normalizeApiBaseUrl(configuredBaseUrl)
 }
 
-async function readJson<T>(response: Response): Promise<T> {
-  return (await response.json()) as T
+async function readJson<T>(response: Response, schema: z.ZodType<T>): Promise<T> {
+  return schema.parse(await response.json())
 }
 
 export function createApiClient(options: CreateApiClientOptions = {}) {
@@ -184,7 +218,7 @@ export function createApiClient(options: CreateApiClientOptions = {}) {
     throw new Error("fetch is required to create the PulseNote API client")
   }
 
-  async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  async function request<T>(path: string, schema: z.ZodType<T>, init: RequestInit = {}): Promise<T> {
     const response = await fetchImplementation(`${baseUrl}${path}`, {
       ...init,
       credentials: "include",
@@ -198,25 +232,27 @@ export function createApiClient(options: CreateApiClientOptions = {}) {
       throw new ApiError(error?.message ?? "Request failed", response.status, payload)
     }
 
-    return readJson<T>(response)
+    return readJson(response, schema)
   }
 
   return {
     getCurrentWorkspace(init?: RequestInit) {
-      return request<WorkspaceSnapshot>("/v1/workspaces/current", init)
+      return request("/v1/workspaces/current", workspaceSnapshotSchema, init)
     },
     getSession(init?: RequestInit) {
-      return request<ApiSession>("/v1/session", init)
+      return request("/v1/session", apiSessionSchema, init)
     },
     getReleaseRecord(workspaceId: string, releaseRecordId: string, init?: RequestInit) {
-      return request<ReleaseRecordSnapshot>(
+      return request(
         `/v1/workspaces/${encodeURIComponent(workspaceId)}/release-records/${encodeURIComponent(releaseRecordId)}`,
+        releaseRecordSnapshotSchema,
         init,
       )
     },
     listReleaseRecords(workspaceId: string, init?: RequestInit) {
-      return request<ReleaseRecordSnapshot[]>(
+      return request(
         `/v1/workspaces/${encodeURIComponent(workspaceId)}/release-records`,
+        z.array(releaseRecordSnapshotSchema),
         init,
       )
     },
