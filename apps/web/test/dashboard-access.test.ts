@@ -71,7 +71,14 @@ test("getServerCurrentWorkspace forwards the incoming cookie header", async () =
     ((receivedInit?.headers as Record<string, string> | undefined) ?? {}).cookie,
     "better-auth.session=abc123",
   )
-  assert.equal(workspace?.workspace.name, "Current workspace")
+  assert.notEqual(workspace, null)
+  assert.notEqual(workspace, "selection-required")
+
+  if (!workspace || workspace === "selection-required") {
+    assert.fail("Expected a concrete workspace snapshot")
+  }
+
+  assert.equal(workspace.workspace.name, "Current workspace")
 })
 
 test("getServerCurrentWorkspace degrades missing-workspace responses to null", async () => {

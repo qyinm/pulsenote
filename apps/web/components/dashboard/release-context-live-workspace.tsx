@@ -73,13 +73,6 @@ export function ReleaseContextLiveWorkspace({
     : (queueItems.find((queueItem) => queueItem.id === selectedId) ?? queueItems[0] ?? null)
 
   useEffect(() => {
-    setSelectedId(initialSelectedId)
-    setDetailById(createReleaseContextDetailCache(initialSelectedId, initialSelectedReleaseRecord))
-    setDetailError(null)
-    setIsLoadingDetail(false)
-  }, [initialSelectedId, initialSelectedReleaseRecord, workspaceId])
-
-  useEffect(() => {
     if (!selectedId || detailById[selectedId]) {
       return
     }
