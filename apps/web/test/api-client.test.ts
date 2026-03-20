@@ -16,7 +16,7 @@ test("getApiBaseUrl falls back to the local API origin for development", () => {
   assert.equal(getApiBaseUrl({}), "http://127.0.0.1:8787")
 })
 
-test("api client sends credentialed requests to session and release record routes", async () => {
+test("api client sends credentialed requests to session, workspace, and release record routes", async () => {
   const requests: Array<{ init?: RequestInit; input: RequestInfo | URL }> = []
   const client = createApiClient({
     baseUrl: "http://127.0.0.1:8787",
@@ -27,6 +27,7 @@ test("api client sends credentialed requests to session and release record route
   })
 
   await client.getSession()
+  await client.getCurrentWorkspace()
   await client.listReleaseRecords("workspace 1")
   await client.getReleaseRecord("workspace 1", "release/2")
 
@@ -34,6 +35,7 @@ test("api client sends credentialed requests to session and release record route
     requests.map((request) => String(request.input)),
     [
       "http://127.0.0.1:8787/v1/session",
+      "http://127.0.0.1:8787/v1/workspaces/current",
       "http://127.0.0.1:8787/v1/workspaces/workspace%201/release-records",
       "http://127.0.0.1:8787/v1/workspaces/workspace%201/release-records/release%2F2",
     ],

@@ -75,6 +75,57 @@ export type ReleaseRecordSnapshot = {
   }>
 }
 
+export type WorkspaceSnapshot = {
+  integrationAccounts: Array<{
+    accountLabel: string
+    accountUrl: string | null
+    connectionId: string
+    createdAt: string
+    id: string
+    provider: "github" | "linear"
+  }>
+  integrations: Array<{
+    connectedAt: string
+    externalAccountId: string
+    id: string
+    lastSyncedAt: string | null
+    provider: "github" | "linear"
+    status: "active" | "error" | "disconnected"
+    workspaceId: string
+  }>
+  memberships: Array<{
+    createdAt: string
+    id: string
+    role: "owner" | "editor" | "reviewer" | "viewer"
+    userId: string
+    workspaceId: string
+  }>
+  sourceCursors: Array<{
+    connectionId: string
+    id: string
+    key: string
+    updatedAt: string
+    value: string
+  }>
+  syncRuns: Array<{
+    connectionId: string
+    errorMessage: string | null
+    finishedAt: string | null
+    id: string
+    scope: string
+    startedAt: string
+    status: "queued" | "running" | "completed" | "failed"
+    workspaceId: string
+  }>
+  workspace: {
+    createdAt: string
+    id: string
+    name: string
+    slug: string
+    updatedAt: string
+  }
+}
+
 type CreateApiClientOptions = {
   baseUrl?: string
   fetch?: FetchLike
@@ -150,6 +201,9 @@ export function createApiClient(options: CreateApiClientOptions = {}) {
   }
 
   return {
+    getCurrentWorkspace(init?: RequestInit) {
+      return request<WorkspaceSnapshot>("/v1/workspaces/current", init)
+    },
     getSession(init?: RequestInit) {
       return request<ApiSession>("/v1/session", init)
     },
