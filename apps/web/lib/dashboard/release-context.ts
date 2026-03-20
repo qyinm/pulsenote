@@ -45,6 +45,22 @@ export function createReleaseContextDetailCache(
   } satisfies Record<string, ReleaseRecordSnapshot>
 }
 
+export function getSelectedReleaseContextSnapshot(
+  initialReleaseRecords: ReleaseRecordSnapshot[],
+  detailById: Record<string, ReleaseRecordSnapshot>,
+  selectedId: string,
+): ReleaseRecordSnapshot | null {
+  if (!selectedId) {
+    return null
+  }
+
+  return (
+    detailById[selectedId] ??
+    initialReleaseRecords.find((snapshot) => snapshot.releaseRecord.id === selectedId) ??
+    null
+  )
+}
+
 const sourceTypeLabels = {
   commit: "Commit",
   document: "Doc",

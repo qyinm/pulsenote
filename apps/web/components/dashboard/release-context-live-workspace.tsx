@@ -16,6 +16,7 @@ import {
   buildReleaseContextQueueItem,
   buildReleaseContextReviewNotes,
   createReleaseContextDetailCache,
+  getSelectedReleaseContextSnapshot,
 } from "@/lib/dashboard/release-context"
 import {
   BulletList,
@@ -62,9 +63,14 @@ export function ReleaseContextLiveWorkspace({
 
   const queueItems = initialReleaseRecords.map(buildReleaseContextQueueItem)
   const metrics = buildReleaseContextMetrics(initialReleaseRecords)
-  const selectedReleaseRecord = detailById[selectedId] ?? null
-  const selectedQueueItem =
-    queueItems.find((queueItem) => queueItem.id === selectedId) ?? queueItems[0] ?? null
+  const selectedReleaseRecord = getSelectedReleaseContextSnapshot(
+    initialReleaseRecords,
+    detailById,
+    selectedId,
+  )
+  const selectedQueueItem = selectedReleaseRecord
+    ? buildReleaseContextQueueItem(selectedReleaseRecord)
+    : (queueItems.find((queueItem) => queueItem.id === selectedId) ?? queueItems[0] ?? null)
 
   useEffect(() => {
     setSelectedId(initialSelectedId)
@@ -247,9 +253,9 @@ export function ReleaseContextLiveWorkspace({
               title="Review state"
               description="Keep the blocker, reviewer note, and current evidence state visible before drafting."
             >
-              {detailError ? (
+              {detailError && !selectedReleaseRecord ? (
                 <p className="text-sm text-destructive">{detailError}</p>
-              ) : isLoadingDetail ? (
+              ) : isLoadingDetail && !selectedReleaseRecord ? (
                 <p className="text-sm text-muted-foreground">
                   Loading the selected release record from the authenticated API.
                 </p>

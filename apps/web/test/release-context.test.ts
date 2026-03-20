@@ -6,6 +6,7 @@ import {
   buildReleaseContextMetrics,
   buildReleaseContextQueueItem,
   createReleaseContextDetailCache,
+  getSelectedReleaseContextSnapshot,
   getServerReleaseContextData,
 } from "../lib/dashboard/release-context.js"
 
@@ -260,4 +261,42 @@ test("createReleaseContextDetailCache resets the selected detail cache to the cu
   assert.deepEqual(createReleaseContextDetailCache("release_2", selectedReleaseRecord), {
     release_2: selectedReleaseRecord,
   })
+})
+
+test("getSelectedReleaseContextSnapshot falls back to the list snapshot until detail data arrives", () => {
+  const listSnapshot = createReleaseRecordSnapshot({
+    releaseRecord: {
+      id: "release_2",
+      title: "Billing migration notes",
+    },
+  })
+
+  const selectedReleaseRecord = getSelectedReleaseContextSnapshot([listSnapshot], {}, "release_2")
+
+  assert.deepEqual(selectedReleaseRecord, listSnapshot)
+})
+
+test("getSelectedReleaseContextSnapshot prefers fetched detail for the selected record", () => {
+  const listSnapshot = createReleaseRecordSnapshot({
+    releaseRecord: {
+      id: "release_2",
+      summary: "List summary",
+      title: "Billing migration notes",
+    },
+  })
+  const detailSnapshot = createReleaseRecordSnapshot({
+    releaseRecord: {
+      id: "release_2",
+      summary: "Detail summary",
+      title: "Billing migration notes",
+    },
+  })
+
+  const selectedReleaseRecord = getSelectedReleaseContextSnapshot(
+    [listSnapshot],
+    createReleaseContextDetailCache("release_2", detailSnapshot),
+    "release_2",
+  )
+
+  assert.deepEqual(selectedReleaseRecord, detailSnapshot)
 })
