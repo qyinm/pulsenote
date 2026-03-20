@@ -13,6 +13,20 @@ pnpm --dir apps/api start
 pnpm --dir apps/api typecheck
 ```
 
+## Docker deployment
+
+If you want a deployment target that travels beyond Railway, build the API as a container from
+the repository root:
+
+```bash
+docker build -f apps/api/Dockerfile -t pulsenote-api .
+docker run --rm -p 8787:8787 --env-file /path/to/pulsenote-api.env pulsenote-api
+```
+
+This image is designed to work across container-friendly platforms such as Railway, Fly.io,
+Render, ECS, and self-hosted runtimes. It keeps the PulseNote API focused on one release
+communication backend surface instead of introducing provider-specific packaging.
+
 ## Railway deployment
 
 PulseNote's hosted web app now depends on this API for auth onboarding, workspace access,
