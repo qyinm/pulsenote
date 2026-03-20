@@ -44,6 +44,27 @@ export type GitHubPullRequestSummary = {
   title: string
 }
 
+export type GitHubReleaseAsset = {
+  contentType: string | null
+  downloadUrl: string
+  name: string
+  size: number
+}
+
+export type GitHubReleaseSummary = {
+  assets: GitHubReleaseAsset[]
+  body: string | null
+  createdAt: string
+  draft: boolean
+  htmlUrl: string
+  id: number
+  name: string | null
+  prerelease: boolean
+  publishedAt: string | null
+  tagName: string
+  targetCommitish: string
+}
+
 export type GitHubCompareSummary = {
   aheadBy: number
   behindBy: number
@@ -69,6 +90,19 @@ export type GitHubMergedPullSyncRequest = {
   workspaceId: string
 }
 
+export type GitHubReleaseSelector = {
+  releaseId?: number
+  tag?: string
+}
+
+export type GitHubReleaseSyncRequest = {
+  auth: GitHubSyncAuth
+  connectionId: string
+  release: GitHubReleaseSelector
+  repository: GitHubRepositoryScope
+  workspaceId: string
+}
+
 export type GitHubCompareSyncResult = {
   claimCandidateCount: number
   comparison: GitHubCompareSummary
@@ -84,6 +118,17 @@ export type GitHubMergedPullSyncResult = {
   claimCandidateCount: number
   evidenceBlockCount: number
   mergedPullCount: number
+  releaseRecordId: string
+  repository: GitHubRepositoryScope
+  scope: string
+  sourceLinkCount: number
+  syncRunId: string
+}
+
+export type GitHubReleaseSyncResult = {
+  claimCandidateCount: number
+  evidenceBlockCount: number
+  release: GitHubReleaseSummary
   releaseRecordId: string
   repository: GitHubRepositoryScope
   scope: string

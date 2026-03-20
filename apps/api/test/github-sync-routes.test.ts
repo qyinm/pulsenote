@@ -103,6 +103,9 @@ test("github compare sync route returns comparison data for workspace members", 
       async getPullRequests() {
         throw new Error("pull sync should not be called")
       },
+      async getRelease() {
+        throw new Error("release sync should not be called")
+      },
     },
     runtimeEnv,
     store,
@@ -158,6 +161,9 @@ test("github compare sync route rejects development-only ingest in production", 
         throw new Error("should not be called")
       },
       async getPullRequests() {
+        throw new Error("should not be called")
+      },
+      async getRelease() {
         throw new Error("should not be called")
       },
     },
@@ -227,6 +233,9 @@ test("github merged PR sync route returns persisted counts for workspace members
           },
         ]
       },
+      async getRelease() {
+        throw new Error("release sync should not be called")
+      },
     },
     runtimeEnv,
     store,
@@ -279,6 +288,9 @@ test("github merged PR sync route rejects malformed payloads", async () => {
       },
       async getPullRequests() {
         throw new Error("should not be called")
+      },
+      async getRelease() {
+        throw new Error("release sync should not be called")
       },
     },
     runtimeEnv,
@@ -335,6 +347,9 @@ test("github merged PR sync route rejects development-only ingest in production"
       async getPullRequests() {
         throw new Error("should not be called")
       },
+      async getRelease() {
+        throw new Error("release sync should not be called")
+      },
     },
     runtimeEnv: productionEnv,
     store,
@@ -367,6 +382,191 @@ test("github merged PR sync route rejects development-only ingest in production"
       method: "POST",
     },
   )
+
+  assert.equal(response.status, 403)
+  assert.deepEqual(await response.json(), {
+    message: "Development-only GitHub ingest is not available in production",
+    status: 403,
+  })
+})
+
+test("github release sync route returns persisted counts for workspace members", async () => {
+  const { bootstrap, connection, foundationService, store } = await bootstrapWorkspace()
+  const githubSyncService = createGitHubSyncService({
+    githubClient: {
+      async compareCommits() {
+        throw new Error("compare should not be called")
+      },
+      async getPullRequests() {
+        throw new Error("pull sync should not be called")
+      },
+      async getRelease({ release }) {
+        assert.equal(release.tag, "v1.4.0")
+
+        return {
+          assets: [
+            {
+              contentType: "application/zip",
+              downloadUrl: "https://github.com/qyinm/pulsenote/releases/download/v1.4.0/pulsenote.zip",
+              name: "pulsenote.zip",
+              size: 1024,
+            },
+          ],
+          body: "## Highlights\n\n- Adds release intake routes.\n",
+          createdAt: "2026-03-20T00:00:00.000Z",
+          draft: false,
+          htmlUrl: "https://github.com/qyinm/pulsenote/releases/tag/v1.4.0",
+          id: 9001,
+          name: "API Foundation",
+          prerelease: false,
+          publishedAt: "2026-03-20T02:00:00.000Z",
+          tagName: "v1.4.0",
+          targetCommitish: "main",
+        }
+      },
+    } as any,
+    runtimeEnv,
+    store,
+  })
+
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(bootstrap.user.id)),
+    foundationService,
+    githubSyncService,
+  })
+
+  const response = await app.request(`/v1/workspaces/${bootstrap.workspace.id}/github/sync/release`, {
+    body: JSON.stringify({
+      auth: {
+        strategy: "personal_access_token",
+        token: "ghp_dev_token",
+      },
+      connectionId: connection.id,
+      release: {
+        tag: "v1.4.0",
+      },
+      repository: {
+        owner: "qyinm",
+        repo: "pulsenote",
+      },
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "POST",
+  })
+
+  assert.equal(response.status, 200)
+  const body = await response.json()
+  assert.equal(body.scope, "github:repo:qyinm/pulsenote release:v1.4.0#9001")
+  assert.equal(body.claimCandidateCount, 0)
+  assert.equal(body.evidenceBlockCount, 1)
+  assert.equal(body.sourceLinkCount, 3)
+  assert.ok(body.releaseRecordId)
+})
+
+test("github release sync route rejects selectors that are not exactly one of tag or releaseId", async () => {
+  const { bootstrap, connection, foundationService, store } = await bootstrapWorkspace()
+  const githubSyncService = createGitHubSyncService({
+    githubClient: {
+      async compareCommits() {
+        throw new Error("compare should not be called")
+      },
+      async getPullRequests() {
+        throw new Error("pull sync should not be called")
+      },
+      async getRelease() {
+        throw new Error("release sync should not be called")
+      },
+    } as any,
+    runtimeEnv,
+    store,
+  })
+
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(bootstrap.user.id)),
+    foundationService,
+    githubSyncService,
+  })
+
+  const response = await app.request(`/v1/workspaces/${bootstrap.workspace.id}/github/sync/release`, {
+    body: JSON.stringify({
+      auth: {
+        strategy: "personal_access_token",
+        token: "ghp_dev_token",
+      },
+      connectionId: connection.id,
+      release: {
+        releaseId: 9001,
+        tag: "v1.4.0",
+      },
+      repository: {
+        owner: "qyinm",
+        repo: "pulsenote",
+      },
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "POST",
+  })
+
+  assert.equal(response.status, 400)
+  assert.deepEqual(await response.json(), {
+    message:
+      "connectionId, auth.token, auth.strategy, repository.owner, repository.repo, and exactly one of release.tag or release.releaseId are required",
+    status: 400,
+  })
+})
+
+test("github release sync route rejects development-only ingest in production", async () => {
+  const { bootstrap, connection, foundationService, store } = await bootstrapWorkspace()
+  const productionEnv = {
+    ...runtimeEnv,
+    nodeEnv: "production" as const,
+  }
+  const githubSyncService = createGitHubSyncService({
+    githubClient: {
+      async compareCommits() {
+        throw new Error("compare should not be called")
+      },
+      async getPullRequests() {
+        throw new Error("pull sync should not be called")
+      },
+      async getRelease() {
+        throw new Error("should not be called")
+      },
+    } as any,
+    runtimeEnv: productionEnv,
+    store,
+  })
+
+  const app = createApp(productionEnv, {
+    authService: createAuthService(createAuthenticatedSession(bootstrap.user.id)),
+    foundationService,
+    githubSyncService,
+  })
+
+  const response = await app.request(`/v1/workspaces/${bootstrap.workspace.id}/github/sync/release`, {
+    body: JSON.stringify({
+      auth: {
+        strategy: "personal_access_token",
+        token: "ghp_dev_token",
+      },
+      connectionId: connection.id,
+      release: {
+        tag: "v1.4.0",
+      },
+      repository: {
+        owner: "qyinm",
+        repo: "pulsenote",
+      },
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "POST",
+  })
 
   assert.equal(response.status, 403)
   assert.deepEqual(await response.json(), {

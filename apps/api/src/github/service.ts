@@ -9,8 +9,13 @@ import type {
   GitHubMergedPullSyncRequest,
   GitHubMergedPullSyncResult,
   GitHubPullRequestSummary,
+  GitHubReleaseSelector,
+  GitHubReleaseSummary,
+  GitHubReleaseSyncRequest,
+  GitHubReleaseSyncResult,
 } from "./models.js"
 import {
+  buildReleaseAssetLabel,
   buildCommitUrl,
   buildCompareRange,
   buildCompareReleaseSummary,
@@ -21,6 +26,11 @@ import {
   buildMergedPullReleaseTitle,
   buildMergedPullScope,
   buildPullRequestEvidenceBody,
+  buildReleaseEvidenceBody,
+  buildReleaseRecordSummary,
+  buildReleaseRecordTitle,
+  buildReleaseScope,
+  buildReleaseTargetUrl,
   getCommitHeadline,
 } from "./normalize.js"
 
@@ -38,6 +48,24 @@ function nowIso() {
 
 function buildCompareScope(input: GitHubCompareSyncRequest) {
   return `github:repo:${input.repository.owner}/${input.repository.repo} compare:${input.compare.base}...${input.compare.head}`
+}
+
+function validateReleaseSelector(release: {
+  releaseId?: number
+  tag?: string
+}): GitHubReleaseSelector {
+  const hasTag = typeof release.tag === "string" && release.tag.trim().length > 0
+  const hasReleaseId = typeof release.releaseId === "number" && Number.isInteger(release.releaseId) && release.releaseId > 0
+
+  if (hasTag === hasReleaseId) {
+    throw new Error("release selector must provide exactly one of release.tag or release.releaseId")
+  }
+
+  if (hasTag) {
+    return { tag: release.tag!.trim() }
+  }
+
+  return { releaseId: release.releaseId! }
 }
 
 async function persistCompareReleaseRecord(
@@ -212,6 +240,74 @@ async function persistMergedPullReleaseRecord(
   }
 }
 
+async function persistReleaseRecord(
+  store: FoundationStore,
+  input: GitHubReleaseSyncRequest,
+  release: GitHubReleaseSummary,
+  scope: string,
+) {
+  const releaseRecord = await store.createReleaseRecord({
+    compareRange: null,
+    connectionId: input.connectionId,
+    stage: "intake",
+    summary: buildReleaseRecordSummary(release),
+    title: buildReleaseRecordTitle(input.repository, release),
+    workspaceId: input.workspaceId,
+  })
+
+  const evidenceBlock = await store.createEvidenceBlock({
+    body: buildReleaseEvidenceBody(release),
+    capturedAt: release.publishedAt ?? release.createdAt,
+    evidenceState: "fresh",
+    provider: "github",
+    releaseRecordId: releaseRecord.id,
+    sourceRef: String(release.id),
+    sourceType: "release",
+    title: release.name?.trim() || release.tagName,
+  })
+
+  const persistedSourceLinks = [
+    await store.createSourceLink({
+      label: `GitHub release ${release.tagName}`,
+      provider: "github",
+      releaseRecordId: releaseRecord.id,
+      url: release.htmlUrl,
+    }),
+    await store.createSourceLink({
+      label: `Release target ${release.targetCommitish}`,
+      provider: "github",
+      releaseRecordId: releaseRecord.id,
+      url: buildReleaseTargetUrl(input.repository, release.targetCommitish),
+    }),
+  ]
+
+  for (const asset of release.assets) {
+    persistedSourceLinks.push(
+      await store.createSourceLink({
+        label: buildReleaseAssetLabel(asset),
+        provider: "github",
+        releaseRecordId: releaseRecord.id,
+        url: asset.downloadUrl,
+      }),
+    )
+  }
+
+  await store.createReviewStatus({
+    note: `Queued from ${scope}`,
+    ownerUserId: null,
+    releaseRecordId: releaseRecord.id,
+    stage: "intake",
+    state: "pending",
+  })
+
+  return {
+    claimCandidateCount: 0,
+    evidenceBlockCount: 1,
+    releaseRecordId: releaseRecord.id,
+    sourceLinkCount: persistedSourceLinks.length,
+  }
+}
+
 async function markSyncRunStatus(
   store: FoundationStore,
   syncRun: SyncRun,
@@ -372,6 +468,74 @@ export function createGitHubSyncService(options: {
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : "GitHub merged pull sync failed"
+        await markSyncRunStatus(store, queuedSyncRun, "failed", message)
+        throw new Error(message)
+      }
+    },
+
+    async syncRelease(input: GitHubReleaseSyncRequest): Promise<GitHubReleaseSyncResult> {
+      if (runtimeEnv.nodeEnv === "production") {
+        throw new Error("Development-only GitHub ingest is not available in production")
+      }
+
+      requireNonEmpty(input.workspaceId, "workspaceId")
+      requireNonEmpty(input.connectionId, "connectionId")
+      requireNonEmpty(input.repository.owner, "repository.owner")
+      requireNonEmpty(input.repository.repo, "repository.repo")
+      requireNonEmpty(input.auth.token, "auth.token")
+
+      const releaseSelector = validateReleaseSelector(input.release)
+      const connection = await store.getIntegrationConnection(input.connectionId)
+
+      if (!connection) {
+        throw new Error(`Integration connection ${input.connectionId} was not found`)
+      }
+
+      if (connection.provider !== "github") {
+        throw new Error(`Integration connection ${input.connectionId} is not a GitHub connection`)
+      }
+
+      if (connection.workspaceId !== input.workspaceId) {
+        throw new Error(
+          `Integration connection ${input.connectionId} does not belong to workspace ${input.workspaceId}`,
+        )
+      }
+
+      const scopeSeed =
+        "tag" in releaseSelector
+          ? `release-tag:${releaseSelector.tag}`
+          : `release-id:${releaseSelector.releaseId}`
+      const queuedSyncRun = await store.createSyncRun({
+        connectionId: input.connectionId,
+        scope: `github:repo:${input.repository.owner}/${input.repository.repo} ${scopeSeed}`,
+        workspaceId: input.workspaceId,
+      })
+
+      await markSyncRunStatus(store, queuedSyncRun, "running")
+
+      try {
+        const release = await githubClient.getRelease({
+          auth: input.auth,
+          release: releaseSelector,
+          repository: input.repository,
+        })
+        const scope = buildReleaseScope(input.repository, release)
+        const persisted = await persistReleaseRecord(store, input, release, scope)
+
+        await markSyncRunStatus(store, queuedSyncRun, "succeeded")
+
+        return {
+          claimCandidateCount: persisted.claimCandidateCount,
+          evidenceBlockCount: persisted.evidenceBlockCount,
+          release,
+          releaseRecordId: persisted.releaseRecordId,
+          repository: input.repository,
+          scope,
+          sourceLinkCount: persisted.sourceLinkCount,
+          syncRunId: queuedSyncRun.id,
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "GitHub release sync failed"
         await markSyncRunStatus(store, queuedSyncRun, "failed", message)
         throw new Error(message)
       }

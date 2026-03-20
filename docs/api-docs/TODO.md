@@ -35,7 +35,7 @@ Rule:
 - [x] Add a development-only GitHub ingest path using a PAT or installation token.
 - [x] Add a sync trigger for repo plus compare range.
 - [x] Add a sync trigger for merged PR list.
-- [ ] Add a sync trigger for release tag or release ID.
+- [x] Add a sync trigger for release tag or release ID.
 - [x] Persist sync run status, scope, timing, and failure details.
 
 ## Normalized release records

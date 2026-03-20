@@ -4,6 +4,8 @@ import type {
   GitHubCompareRange,
   GitHubCompareSummary,
   GitHubPullRequestSummary,
+  GitHubReleaseSelector,
+  GitHubReleaseSummary,
   GitHubRepositoryScope,
   GitHubSyncAuth,
 } from "./models.js"
@@ -19,6 +21,11 @@ export type GitHubClient = {
     pullNumbers: number[]
     repository: GitHubRepositoryScope
   }): Promise<GitHubPullRequestSummary[]>
+  getRelease(input: {
+    auth: GitHubSyncAuth
+    release: GitHubReleaseSelector
+    repository: GitHubRepositoryScope
+  }): Promise<GitHubReleaseSummary>
 }
 
 export function createGitHubClient(): GitHubClient {
@@ -87,6 +94,46 @@ export function createGitHubClient(): GitHubClient {
       )
 
       return pullRequests
+    },
+
+    async getRelease({ auth, release, repository }) {
+      const octokit = createOctokit(auth)
+      let response
+
+      if (typeof release.tag === "string") {
+        response = await octokit.rest.repos.getReleaseByTag({
+          owner: repository.owner,
+          repo: repository.repo,
+          tag: release.tag,
+        })
+      } else if (typeof release.releaseId === "number") {
+        response = await octokit.rest.repos.getRelease({
+          owner: repository.owner,
+          release_id: release.releaseId,
+          repo: repository.repo,
+        })
+      } else {
+        throw new Error("GitHub release selector is invalid")
+      }
+
+      return {
+        assets: response.data.assets.map((asset) => ({
+          contentType: asset.content_type ?? null,
+          downloadUrl: asset.browser_download_url,
+          name: asset.name,
+          size: asset.size,
+        })),
+        body: response.data.body ?? null,
+        createdAt: response.data.created_at,
+        draft: response.data.draft,
+        htmlUrl: response.data.html_url,
+        id: response.data.id,
+        name: response.data.name ?? null,
+        prerelease: response.data.prerelease,
+        publishedAt: response.data.published_at ?? null,
+        tagName: response.data.tag_name,
+        targetCommitish: response.data.target_commitish,
+      }
     },
   }
 }

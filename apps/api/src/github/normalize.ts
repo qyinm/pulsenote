@@ -2,6 +2,8 @@ import type {
   GitHubCompareFile,
   GitHubCompareSummary,
   GitHubPullRequestSummary,
+  GitHubReleaseAsset,
+  GitHubReleaseSummary,
   GitHubRepositoryScope,
 } from "./models.js"
 
@@ -45,6 +47,49 @@ export function buildMergedPullReleaseSummary(pullRequests: GitHubPullRequestSum
   const pullLabel = pullRequests.length === 1 ? "pull request" : "pull requests"
 
   return `${pullRequests.length} merged ${pullLabel} captured from GitHub.`
+}
+
+export function buildReleaseScope(repository: GitHubRepositoryScope, release: GitHubReleaseSummary) {
+  return `github:repo:${repository.owner}/${repository.repo} release:${release.tagName}#${release.id}`
+}
+
+export function buildReleaseRecordTitle(
+  repository: GitHubRepositoryScope,
+  release: GitHubReleaseSummary,
+) {
+  return release.name?.trim() || `${repository.owner}/${repository.repo} ${release.tagName}`
+}
+
+export function buildReleaseRecordSummary(release: GitHubReleaseSummary) {
+  const assetLabel = release.assets.length === 1 ? "asset" : "assets"
+  const publicationState = release.prerelease ? "pre-release" : "release"
+  const draftPrefix = release.draft ? "draft " : ""
+
+  return `${draftPrefix}GitHub ${publicationState} ${release.tagName} targeting ${release.targetCommitish} with ${release.assets.length} attached ${assetLabel}.`
+}
+
+export function buildReleaseEvidenceBody(release: GitHubReleaseSummary) {
+  const headerLines = [
+    `Tag: ${release.tagName}`,
+    `Target: ${release.targetCommitish}`,
+    `Draft: ${release.draft ? "yes" : "no"}`,
+    `Prerelease: ${release.prerelease ? "yes" : "no"}`,
+  ]
+
+  if (release.body?.trim()) {
+    return `${headerLines.join("\n")}\n\n${release.body.trim()}`
+  }
+
+  return `${headerLines.join("\n")}\n\nNo GitHub release notes were provided.`
+}
+
+export function buildReleaseTargetUrl(repository: GitHubRepositoryScope, targetCommitish: string) {
+  return `https://github.com/${repository.owner}/${repository.repo}/tree/${targetCommitish}`
+}
+
+export function buildReleaseAssetLabel(asset: GitHubReleaseAsset) {
+  const sizeLabel = asset.size > 0 ? ` (${asset.size} bytes)` : ""
+  return `Release asset ${asset.name}${sizeLabel}`
 }
 
 export function getCommitHeadline(message: string) {

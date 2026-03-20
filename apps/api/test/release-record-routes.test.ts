@@ -101,6 +101,9 @@ async function seedReleaseRecord() {
       async getPullRequests() {
         throw new Error("pull sync should not be called")
       },
+      async getRelease() {
+        throw new Error("release sync should not be called")
+      },
     },
     runtimeEnv,
     store,

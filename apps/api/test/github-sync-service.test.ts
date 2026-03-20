@@ -77,6 +77,9 @@ test("syncCompareRange marks the sync run as succeeded and returns compare data"
       async getPullRequests() {
         throw new Error("pull sync should not be called")
       },
+      async getRelease() {
+        throw new Error("release sync should not be called")
+      },
     },
     runtimeEnv,
     store,
@@ -137,6 +140,9 @@ test("syncCompareRange marks the sync run as failed when GitHub compare throws",
       },
       async getPullRequests() {
         throw new Error("pull sync should not be called")
+      },
+      async getRelease() {
+        throw new Error("release sync should not be called")
       },
     },
     runtimeEnv,
@@ -202,6 +208,9 @@ test("syncMergedPullRequests marks the sync run as succeeded and persists normal
           },
         ]
       },
+      async getRelease() {
+        throw new Error("release sync should not be called")
+      },
     },
     runtimeEnv,
     store,
@@ -257,6 +266,9 @@ test("syncMergedPullRequests marks the sync run as failed when GitHub pull fetch
       async getPullRequests() {
         throw new Error("GitHub pull sync failed")
       },
+      async getRelease() {
+        throw new Error("release sync should not be called")
+      },
     },
     runtimeEnv,
     store,
@@ -288,4 +300,175 @@ test("syncMergedPullRequests marks the sync run as failed when GitHub pull fetch
 
   const releaseSnapshots = await store.listReleaseRecordSnapshots(workspace.id)
   assert.equal(releaseSnapshots.length, 0)
+})
+
+test("syncRelease marks the sync run as succeeded and persists release intake data", async () => {
+  const { connection, store, workspace } = await createWorkspaceContext()
+  const service = createGitHubSyncService({
+    githubClient: {
+      async compareCommits() {
+        throw new Error("compare should not be called")
+      },
+      async getPullRequests() {
+        throw new Error("pull sync should not be called")
+      },
+      async getRelease({ release }) {
+        assert.equal(release.releaseId, 9001)
+
+        return {
+          assets: [
+            {
+              contentType: "application/zip",
+              downloadUrl: "https://github.com/qyinm/pulsenote/releases/download/v1.4.0/pulsenote.zip",
+              name: "pulsenote.zip",
+              size: 1024,
+            },
+          ],
+          body: "## Highlights\n\n- Adds release intake routes.\n- Persists normalized records.\n",
+          createdAt: "2026-03-20T00:00:00.000Z",
+          draft: false,
+          htmlUrl: "https://github.com/qyinm/pulsenote/releases/tag/v1.4.0",
+          id: 9001,
+          name: "API Foundation",
+          prerelease: false,
+          publishedAt: "2026-03-20T02:00:00.000Z",
+          tagName: "v1.4.0",
+          targetCommitish: "main",
+        }
+      },
+    } as any,
+    runtimeEnv,
+    store,
+  })
+
+  const result = await service.syncRelease({
+    auth: {
+      strategy: "personal_access_token",
+      token: "ghp_test_token",
+    },
+    connectionId: connection.id,
+    release: {
+      releaseId: 9001,
+    },
+    repository: {
+      owner: "qyinm",
+      provider: "github",
+      repo: "pulsenote",
+    },
+    workspaceId: workspace.id,
+  })
+
+  assert.equal(result.scope, "github:repo:qyinm/pulsenote release:v1.4.0#9001")
+  assert.equal(result.claimCandidateCount, 0)
+  assert.equal(result.evidenceBlockCount, 1)
+  assert.equal(result.sourceLinkCount, 3)
+  assert.ok(result.releaseRecordId)
+
+  const snapshot = await store.getWorkspaceSnapshot(workspace.id)
+  assert.equal(snapshot?.syncRuns.length, 1)
+  assert.equal(snapshot?.syncRuns[0]?.status, "succeeded")
+
+  const releaseSnapshots = await store.listReleaseRecordSnapshots(workspace.id)
+  assert.equal(releaseSnapshots.length, 1)
+  assert.equal(releaseSnapshots[0]?.releaseRecord.id, result.releaseRecordId)
+  assert.equal(releaseSnapshots[0]?.releaseRecord.title, "API Foundation")
+  assert.equal(releaseSnapshots[0]?.releaseRecord.compareRange, null)
+  assert.equal(releaseSnapshots[0]?.evidenceBlocks.length, 1)
+  assert.equal(releaseSnapshots[0]?.evidenceBlocks[0]?.sourceType, "release")
+  assert.equal(releaseSnapshots[0]?.evidenceBlocks[0]?.sourceRef, "9001")
+  assert.equal(releaseSnapshots[0]?.sourceLinks.length, 3)
+  assert.equal(releaseSnapshots[0]?.reviewStatuses.length, 1)
+  assert.equal(releaseSnapshots[0]?.reviewStatuses[0]?.state, "pending")
+})
+
+test("syncRelease marks the sync run as failed when GitHub release lookup throws", async () => {
+  const { connection, store, workspace } = await createWorkspaceContext()
+  const service = createGitHubSyncService({
+    githubClient: {
+      async compareCommits() {
+        throw new Error("compare should not be called")
+      },
+      async getPullRequests() {
+        throw new Error("pull sync should not be called")
+      },
+      async getRelease() {
+        throw new Error("GitHub release sync failed")
+      },
+    } as any,
+    runtimeEnv,
+    store,
+  })
+
+  await assert.rejects(
+    () =>
+      service.syncRelease({
+        auth: {
+          strategy: "personal_access_token",
+          token: "ghp_test_token",
+        },
+        connectionId: connection.id,
+        release: {
+          tag: "v1.4.0",
+        },
+        repository: {
+          owner: "qyinm",
+          provider: "github",
+          repo: "pulsenote",
+        },
+        workspaceId: workspace.id,
+      }),
+    /GitHub release sync failed/,
+  )
+
+  const snapshot = await store.getWorkspaceSnapshot(workspace.id)
+  assert.equal(snapshot?.syncRuns.length, 1)
+  assert.equal(snapshot?.syncRuns[0]?.status, "failed")
+  assert.equal(snapshot?.syncRuns[0]?.errorMessage, "GitHub release sync failed")
+
+  const releaseSnapshots = await store.listReleaseRecordSnapshots(workspace.id)
+  assert.equal(releaseSnapshots.length, 0)
+})
+
+test("syncRelease rejects selectors that are not exactly one of tag or releaseId", async () => {
+  const { connection, store, workspace } = await createWorkspaceContext()
+  const service = createGitHubSyncService({
+    githubClient: {
+      async compareCommits() {
+        throw new Error("compare should not be called")
+      },
+      async getPullRequests() {
+        throw new Error("pull sync should not be called")
+      },
+      async getRelease() {
+        throw new Error("release sync should not be called")
+      },
+    } as any,
+    runtimeEnv,
+    store,
+  })
+
+  await assert.rejects(
+    () =>
+      service.syncRelease({
+        auth: {
+          strategy: "personal_access_token",
+          token: "ghp_test_token",
+        },
+        connectionId: connection.id,
+        release: {
+          releaseId: 9001,
+          tag: "v1.4.0",
+        },
+        repository: {
+          owner: "qyinm",
+          provider: "github",
+          repo: "pulsenote",
+        },
+        workspaceId: workspace.id,
+      }),
+    /release selector must provide exactly one of release.tag or release.releaseId/,
+  )
+
+  const snapshot = await store.getWorkspaceSnapshot(workspace.id)
+  assert.equal(snapshot?.syncRuns.length, 0)
 })

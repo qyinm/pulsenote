@@ -21,6 +21,10 @@ function asPositiveIntegerArray(value: unknown): number[] | null {
   return numbers.every((item) => Number.isInteger(item) && item > 0) ? numbers : null
 }
 
+function asPositiveInteger(value: unknown): number | null {
+  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null
+}
+
 export function createGitHubSyncRoute(githubSyncService: GitHubSyncService) {
   const route = new Hono<AppBindings>()
 
@@ -85,10 +89,13 @@ export function createGitHubSyncRoute(githubSyncService: GitHubSyncService) {
       return context.json(result, 200)
     } catch (error) {
       const message = error instanceof Error ? error.message : "GitHub compare sync failed"
+      const normalizedMessage = message.toLowerCase()
       const status =
         message.includes("not available in production")
           ? 403
-          : message.includes("was not found") || message.includes("does not belong")
+          : normalizedMessage.includes("was not found") ||
+              normalizedMessage.includes("not found") ||
+              normalizedMessage.includes("does not belong")
             ? 404
             : 502
 
@@ -152,10 +159,94 @@ export function createGitHubSyncRoute(githubSyncService: GitHubSyncService) {
       return context.json(result, 200)
     } catch (error) {
       const message = error instanceof Error ? error.message : "GitHub merged pull sync failed"
+      const normalizedMessage = message.toLowerCase()
       const status =
         message.includes("not available in production")
           ? 403
-          : message.includes("was not found") || message.includes("does not belong")
+          : normalizedMessage.includes("was not found") ||
+              normalizedMessage.includes("not found") ||
+              normalizedMessage.includes("does not belong")
+            ? 404
+            : 400
+
+      return context.json({ message, status }, status)
+    }
+  })
+
+  route.post("/sync/release", async (context) => {
+    const workspaceId = context.req.param("workspaceId")
+    const body = await context.req.json().catch(() => null)
+    const payload = asRecord(body)
+    const auth = asRecord(payload?.auth)
+    const repository = asRecord(payload?.repository)
+    const release = asRecord(payload?.release)
+
+    const connectionId = asString(payload?.connectionId)
+    const token = asString(auth?.token)
+    const strategy = asString(auth?.strategy)
+    const owner = asString(repository?.owner)
+    const repo = asString(repository?.repo)
+    const installationId = asString(repository?.installationId)
+    const tag = asString(release?.tag)
+    const releaseId = asPositiveInteger(release?.releaseId)
+    const hasTag = Boolean(tag)
+    const hasReleaseId = releaseId !== null
+
+    if (!connectionId || !token || !strategy || !owner || !repo || hasTag === hasReleaseId) {
+      return context.json(
+        {
+          message:
+            "connectionId, auth.token, auth.strategy, repository.owner, repository.repo, and exactly one of release.tag or release.releaseId are required",
+          status: 400,
+        },
+        400,
+      )
+    }
+
+    if (!workspaceId) {
+      return context.json(
+        {
+          message: "workspaceId is required",
+          status: 400,
+        },
+        400,
+      )
+    }
+
+    try {
+      const result = await githubSyncService.syncRelease({
+        auth: {
+          strategy: strategy as "personal_access_token" | "installation_token",
+          token,
+        },
+        connectionId,
+        release:
+          releaseId !== null
+            ? {
+                releaseId,
+              }
+            : {
+                tag: tag!,
+              },
+        repository: {
+          installationId,
+          owner,
+          provider: "github",
+          repo,
+        },
+        workspaceId,
+      })
+
+      return context.json(result, 200)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "GitHub release sync failed"
+      const normalizedMessage = message.toLowerCase()
+      const status =
+        message.includes("not available in production")
+          ? 403
+          : normalizedMessage.includes("was not found") ||
+              normalizedMessage.includes("not found") ||
+              normalizedMessage.includes("does not belong")
             ? 404
             : 400
 
