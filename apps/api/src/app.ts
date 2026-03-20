@@ -1,4 +1,4 @@
-import { Hono } from "hono"
+import { Hono, type Context } from "hono"
 
 import { createAuthServiceForRuntime } from "./auth/service.js"
 import { createGitHubClient, type GitHubClient } from "./github/client.js"
@@ -37,7 +37,50 @@ export function createApp(runtimeEnv: AppRuntimeEnv = getRuntimeEnv(), options: 
       store: foundationStore,
     })
 
+  const applyAuthCorsHeaders = (context: Context<AppBindings>) => {
+    const origin = context.req.header("origin")
+
+    if (!origin || !runtimeEnv.trustedOrigins.includes(origin)) {
+      return false
+    }
+
+    context.header("Access-Control-Allow-Credentials", "true")
+    context.header("Access-Control-Allow-Headers", "Content-Type")
+    context.header("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
+    context.header("Access-Control-Allow-Origin", origin)
+    context.header("Vary", "Origin")
+    return true
+  }
+
   app.use("*", requestContext(runtimeEnv))
+  const trustedOriginCorsMiddleware = async (
+    context: Context<AppBindings>,
+    next: () => Promise<void>,
+  ) => {
+    const isTrustedOrigin = applyAuthCorsHeaders(context)
+
+    if (context.req.method === "OPTIONS") {
+      if (!isTrustedOrigin) {
+        console.warn(
+          JSON.stringify({
+            event: "cors.preflight.rejected",
+            origin: context.req.header("origin") ?? null,
+            path: context.req.path,
+            requestId: context.get("requestId"),
+            service: runtimeEnv.appName,
+            timestamp: new Date().toISOString(),
+          }),
+        )
+        return context.json({ error: "Origin is not allowed" }, 403)
+      }
+
+      return context.body(null, 204)
+    }
+
+    await next()
+  }
+  app.use("/api/auth/*", trustedOriginCorsMiddleware)
+  app.use("/v1/*", trustedOriginCorsMiddleware)
   app.use("*", async (context, next) => {
     let session = null
 

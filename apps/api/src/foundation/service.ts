@@ -7,12 +7,29 @@ import {
   type Workspace,
   type WorkspaceMembership,
 } from "../domain/models.js"
-import type { FoundationStore, ReleaseRecordSnapshot, WorkspaceSnapshot } from "./store.js"
+import type {
+  FoundationStore,
+  ReleaseRecordSnapshot,
+  WorkspaceChoice,
+  WorkspaceSnapshot,
+} from "./store.js"
 
 type BootstrapWorkspaceInput = {
   user: {
     email: string
     fullName: string | null
+  }
+  workspace: {
+    name: string
+    slug: string
+  }
+}
+
+type BootstrapCurrentUserWorkspaceInput = {
+  user: {
+    email: string
+    fullName: string | null
+    id: string
   }
   workspace: {
     name: string
@@ -43,6 +60,11 @@ type WorkspaceAccessInput = {
   workspaceId: string
 }
 
+type SelectCurrentWorkspaceInput = {
+  userId: string
+  workspaceId: string
+}
+
 export type FoundationService = ReturnType<typeof createFoundationService>
 
 export class CurrentWorkspaceNotFoundError extends Error {
@@ -57,6 +79,34 @@ export class CurrentWorkspaceSelectionRequiredError extends Error {
     super("Multiple workspaces found; specify the current workspace before loading the dashboard")
     this.name = "CurrentWorkspaceSelectionRequiredError"
   }
+}
+
+export class WorkspaceAccessDeniedError extends Error {
+  constructor() {
+    super("Workspace access is not allowed")
+    this.name = "WorkspaceAccessDeniedError"
+  }
+}
+
+export class WorkspaceSlugConflictError extends Error {
+  constructor(slug: string) {
+    super(`Workspace slug "${slug}" is already in use`)
+    this.name = "WorkspaceSlugConflictError"
+  }
+}
+
+function isWorkspaceSlugConflictError(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return false
+  }
+
+  const cause = error as { code?: string; message?: string }
+
+  return (
+    cause.code === "23505" ||
+    cause.message === "Workspace slug is already in use" ||
+    cause.message?.includes("workspaces_slug_unique") === true
+  )
 }
 
 function requireNonEmpty(value: string, fieldName: string) {
@@ -88,6 +138,36 @@ export function createFoundationService(store: FoundationStore) {
           slug: input.workspace.slug.trim(),
         },
       })
+    },
+
+    async bootstrapCurrentUserWorkspace(
+      input: BootstrapCurrentUserWorkspaceInput,
+    ): Promise<BootstrapWorkspaceResult> {
+      requireNonEmpty(input.user.id, "user.id")
+      requireNonEmpty(input.user.email, "user.email")
+      requireNonEmpty(input.workspace.name, "workspace.name")
+      requireNonEmpty(input.workspace.slug, "workspace.slug")
+      const normalizedSlug = input.workspace.slug.trim()
+
+      try {
+        return await store.bootstrapAuthenticatedWorkspace({
+          user: {
+            email: input.user.email.trim().toLowerCase(),
+            fullName: input.user.fullName,
+            id: input.user.id.trim(),
+          },
+          workspace: {
+            name: input.workspace.name.trim(),
+            slug: normalizedSlug,
+          },
+        })
+      } catch (error) {
+        if (isWorkspaceSlugConflictError(error)) {
+          throw new WorkspaceSlugConflictError(normalizedSlug)
+        }
+
+        throw error
+      }
     },
 
     async createIntegrationConnection(input: CreateIntegrationConnectionInput): Promise<IntegrationConnection> {
@@ -149,7 +229,7 @@ export function createFoundationService(store: FoundationStore) {
       const membership = await store.findWorkspaceMembership(input.workspaceId, input.userId)
 
       if (!membership) {
-        throw new Error("Workspace access is not allowed")
+        throw new WorkspaceAccessDeniedError()
       }
 
       return membership
@@ -177,12 +257,67 @@ export function createFoundationService(store: FoundationStore) {
       }
 
       if (memberships.length > 1) {
-        throw new CurrentWorkspaceSelectionRequiredError()
+        const selection = await store.getCurrentWorkspaceSelection(userId)
+
+        if (!selection) {
+          throw new CurrentWorkspaceSelectionRequiredError()
+        }
+
+        const currentMembership = memberships.find(
+          (membership) => membership.workspaceId === selection.workspaceId,
+        )
+
+        if (!currentMembership) {
+          throw new CurrentWorkspaceSelectionRequiredError()
+        }
+
+        return this.getWorkspaceSnapshot(currentMembership.workspaceId)
       }
 
       const currentMembership = memberships[0]
 
       return this.getWorkspaceSnapshot(currentMembership.workspaceId)
+    },
+
+    async listWorkspaceChoicesForUser(userId: string): Promise<WorkspaceChoice[]> {
+      requireNonEmpty(userId, "userId")
+
+      const memberships = await store.listWorkspaceMembershipsForUser(userId)
+
+      const choices = await Promise.all(
+        memberships.map(async (membership) => {
+          const workspace = await store.getWorkspace(membership.workspaceId)
+
+          if (!workspace) {
+            return null
+          }
+
+          return {
+            membership,
+            workspace,
+          } satisfies WorkspaceChoice
+        }),
+      )
+
+      return choices.filter((choice): choice is WorkspaceChoice => choice !== null)
+    },
+
+    async selectCurrentWorkspaceForUser(input: SelectCurrentWorkspaceInput): Promise<WorkspaceSnapshot> {
+      requireNonEmpty(input.userId, "userId")
+      requireNonEmpty(input.workspaceId, "workspaceId")
+
+      const membership = await store.findWorkspaceMembership(input.workspaceId, input.userId)
+
+      if (!membership) {
+        throw new WorkspaceAccessDeniedError()
+      }
+
+      await store.setCurrentWorkspaceSelection({
+        userId: input.userId,
+        workspaceId: input.workspaceId,
+      })
+
+      return this.getWorkspaceSnapshot(input.workspaceId)
     },
 
     async getReleaseRecordSnapshot(

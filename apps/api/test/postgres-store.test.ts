@@ -82,6 +82,92 @@ test("postgres bootstrapWorkspace uses a transaction so failed bootstraps do not
   assert.deepEqual(committedTables, [])
 })
 
+test("postgres bootstrapAuthenticatedWorkspace uses a transaction so failed bootstraps do not commit partial rows", async () => {
+  const committedTables: string[] = []
+  let transactionCalls = 0
+
+  const db = {
+    async transaction(callback: (tx: any) => Promise<unknown>) {
+      transactionCalls += 1
+      const pendingTables: string[] = []
+      const tx = {
+        insert(table: unknown) {
+          return {
+            values() {
+              if (table === users) {
+                return {
+                  onConflictDoUpdate() {
+                    return {
+                      async returning() {
+                        pendingTables.push("users")
+                        return [
+                          {
+                            createdAt: "2026-03-20T00:00:00.000Z",
+                            email: "owner@pulsenote.dev",
+                            fullName: "Owner User",
+                            id: "user_1",
+                            updatedAt: "2026-03-20T00:00:00.000Z",
+                          },
+                        ]
+                      },
+                    }
+                  },
+                }
+              }
+
+              if (table === workspaces) {
+                throw Object.assign(
+                  new Error('duplicate key value violates unique constraint "workspaces_slug_unique"'),
+                  { code: "23505" },
+                )
+              }
+
+              if (table === workspaceMemberships) {
+                pendingTables.push("workspace_memberships")
+              }
+
+              return {
+                async returning() {
+                  return []
+                },
+              }
+            },
+          }
+        },
+      }
+
+      try {
+        const result = await callback(tx)
+        committedTables.push(...pendingTables)
+        return result
+      } catch (error) {
+        return Promise.reject(error)
+      }
+    },
+  }
+
+  const store = createPostgresFoundationStore(db as never)
+
+  await assert.rejects(
+    () =>
+      store.bootstrapAuthenticatedWorkspace({
+        user: {
+          email: "owner@pulsenote.dev",
+          fullName: "Owner User",
+          id: "user_1",
+        },
+        workspace: {
+          name: "PulseNote",
+          slug: "pulsenote",
+        },
+      }),
+    /workspaces_slug_unique/,
+  )
+
+  assert.equal(transactionCalls, 1)
+  assert.deepEqual(committedTables, [])
+})
+
 test("postgres getReleaseRecordSnapshot scopes claim-evidence link queries to release claim candidates", async () => {
   let claimLinkArgs: Record<string, unknown> | undefined
 

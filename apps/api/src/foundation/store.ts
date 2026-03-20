@@ -1,5 +1,6 @@
 import {
   type ClaimCandidate,
+  type CurrentWorkspaceSelection,
   type EvidenceBlock,
   type IntegrationAccount,
   type IntegrationConnection,
@@ -14,6 +15,8 @@ import {
 } from "../domain/models.js"
 
 type CreateUserInput = Pick<User, "email" | "fullName">
+type SyncAuthenticatedUserInput = Pick<User, "email" | "fullName" | "id">
+type SetCurrentWorkspaceSelectionInput = Pick<CurrentWorkspaceSelection, "userId" | "workspaceId">
 type CreateWorkspaceInput = Pick<Workspace, "name" | "slug">
 type CreateWorkspaceMembershipInput = Pick<WorkspaceMembership, "role" | "userId" | "workspaceId">
 type BootstrapWorkspaceInput = {
@@ -24,6 +27,10 @@ type BootstrapWorkspaceResult = {
   membership: WorkspaceMembership
   user: User
   workspace: Workspace
+}
+type BootstrapAuthenticatedWorkspaceInput = {
+  user: SyncAuthenticatedUserInput
+  workspace: CreateWorkspaceInput
 }
 type CreateIntegrationConnectionInput = Pick<
   IntegrationConnection,
@@ -74,7 +81,13 @@ export type ReleaseRecordSnapshot = {
   sourceLinks: SourceLink[]
 }
 
+export type WorkspaceChoice = {
+  membership: WorkspaceMembership
+  workspace: Workspace
+}
+
 export type FoundationStore = {
+  bootstrapAuthenticatedWorkspace(input: BootstrapAuthenticatedWorkspaceInput): Promise<BootstrapWorkspaceResult>
   bootstrapWorkspace(input: BootstrapWorkspaceInput): Promise<BootstrapWorkspaceResult>
   createClaimCandidate(input: CreateClaimCandidateInput): Promise<ClaimCandidate>
   createEvidenceBlock(input: CreateEvidenceBlockInput): Promise<EvidenceBlock>
@@ -90,13 +103,17 @@ export type FoundationStore = {
   createWorkspaceMembership(input: CreateWorkspaceMembershipInput): Promise<WorkspaceMembership>
   findWorkspaceMembership(workspaceId: string, userId: string): Promise<WorkspaceMembership | null>
   getIntegrationConnection(connectionId: string): Promise<IntegrationConnection | null>
+  getCurrentWorkspaceSelection(userId: string): Promise<CurrentWorkspaceSelection | null>
   getReleaseRecordSnapshot(releaseRecordId: string): Promise<ReleaseRecordSnapshot | null>
   getSyncRun(syncRunId: string): Promise<SyncRun | null>
+  getUser(userId: string): Promise<User | null>
   getWorkspace(workspaceId: string): Promise<Workspace | null>
   getWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnapshot | null>
   linkClaimCandidateEvidenceBlock(input: LinkClaimCandidateEvidenceBlockInput): Promise<void>
   listWorkspaceMembershipsForUser(userId: string): Promise<WorkspaceMembership[]>
   listReleaseRecordSnapshots(workspaceId: string): Promise<ReleaseRecordSnapshot[]>
+  setCurrentWorkspaceSelection(input: SetCurrentWorkspaceSelectionInput): Promise<CurrentWorkspaceSelection>
+  syncAuthenticatedUser(input: SyncAuthenticatedUserInput): Promise<User>
   updateSyncRun(input: UpdateSyncRunInput): Promise<SyncRun>
 }
 
@@ -106,6 +123,7 @@ type ClaimCandidateEvidenceLink = {
 }
 
 type InMemoryState = {
+  currentWorkspaceSelections: Map<string, CurrentWorkspaceSelection>
   claimCandidateEvidenceLinks: ClaimCandidateEvidenceLink[]
   claimCandidates: Map<string, ClaimCandidate>
   evidenceBlocks: Map<string, EvidenceBlock>
@@ -131,6 +149,7 @@ function createId() {
 
 export function createInMemoryFoundationStore(): FoundationStore {
   const state: InMemoryState = {
+    currentWorkspaceSelections: new Map(),
     claimCandidateEvidenceLinks: [],
     claimCandidates: new Map(),
     evidenceBlocks: new Map(),
@@ -187,6 +206,57 @@ export function createInMemoryFoundationStore(): FoundationStore {
   }
 
   return {
+    async bootstrapAuthenticatedWorkspace(input) {
+      const previousUser = state.users.get(input.user.id) ?? null
+      let createdWorkspace: Workspace | null = null
+      let createdMembership: WorkspaceMembership | null = null
+
+      try {
+        if (Array.from(state.workspaces.values()).some((workspace) => workspace.slug === input.workspace.slug)) {
+          throw new Error("Workspace slug is already in use")
+        }
+
+        const user = await this.syncAuthenticatedUser({
+          email: input.user.email,
+          fullName: input.user.fullName,
+          id: input.user.id,
+        })
+        const workspace = await this.createWorkspace({
+          name: input.workspace.name,
+          slug: input.workspace.slug,
+        })
+        createdWorkspace = workspace
+        const membership = await this.createWorkspaceMembership({
+          role: "owner",
+          userId: user.id,
+          workspaceId: workspace.id,
+        })
+        createdMembership = membership
+
+        return {
+          membership,
+          user,
+          workspace,
+        }
+      } catch (error) {
+        if (createdMembership) {
+          state.workspaceMemberships.delete(createdMembership.id)
+        }
+
+        if (createdWorkspace) {
+          state.workspaces.delete(createdWorkspace.id)
+        }
+
+        if (previousUser) {
+          state.users.set(previousUser.id, previousUser)
+        } else {
+          state.users.delete(input.user.id)
+        }
+
+        throw error
+      }
+    },
+
     async bootstrapWorkspace(input) {
       const user = await this.createUser({
         email: input.user.email,
@@ -390,6 +460,20 @@ export function createInMemoryFoundationStore(): FoundationStore {
       return workspaceMembership
     },
 
+    async syncAuthenticatedUser(input) {
+      const existingUser = state.users.get(input.id)
+      const user: User = {
+        createdAt: existingUser?.createdAt ?? nowIso(),
+        email: input.email,
+        fullName: input.fullName,
+        id: input.id,
+        updatedAt: nowIso(),
+      }
+
+      state.users.set(user.id, user)
+      return user
+    },
+
     async findWorkspaceMembership(workspaceId, userId) {
       return (
         Array.from(state.workspaceMemberships.values()).find(
@@ -402,12 +486,20 @@ export function createInMemoryFoundationStore(): FoundationStore {
       return state.integrationConnections.get(connectionId) ?? null
     },
 
+    async getCurrentWorkspaceSelection(userId) {
+      return state.currentWorkspaceSelections.get(userId) ?? null
+    },
+
     async getReleaseRecordSnapshot(releaseRecordId) {
       return buildReleaseRecordSnapshot(releaseRecordId)
     },
 
     async getSyncRun(syncRunId) {
       return state.syncRuns.get(syncRunId) ?? null
+    },
+
+    async getUser(userId) {
+      return state.users.get(userId) ?? null
     },
 
     async getWorkspace(workspaceId) {
@@ -469,6 +561,19 @@ export function createInMemoryFoundationStore(): FoundationStore {
       const snapshots = releaseRecords.map((releaseRecord) => buildReleaseRecordSnapshot(releaseRecord.id))
 
       return snapshots.filter((snapshot): snapshot is ReleaseRecordSnapshot => snapshot !== null)
+    },
+
+    async setCurrentWorkspaceSelection(input) {
+      const existingSelection = state.currentWorkspaceSelections.get(input.userId)
+      const selection: CurrentWorkspaceSelection = {
+        createdAt: existingSelection?.createdAt ?? nowIso(),
+        updatedAt: nowIso(),
+        userId: input.userId,
+        workspaceId: input.workspaceId,
+      }
+
+      state.currentWorkspaceSelections.set(input.userId, selection)
+      return selection
     },
 
     async updateSyncRun(input) {

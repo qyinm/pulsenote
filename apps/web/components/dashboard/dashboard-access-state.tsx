@@ -1,4 +1,8 @@
+import Link from "next/link"
+
 import { DashboardPage, SurfaceCard } from "@/components/dashboard/surfaces"
+import { buttonVariants } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 type DashboardAccessStateProps = {
   state: "signed-out" | "no-workspace" | "workspace-selection-required"
@@ -9,7 +13,7 @@ const accessCopy = {
     description:
       "This account does not belong to a PulseNote workspace yet, so no release records can be reviewed.",
     detail:
-      "Add this user to a workspace membership before using release context, claim check, approval, or publish pack.",
+      "Create the first workspace for this user before using release context, claim check, approval, or publish pack.",
     title: "No workspace membership found",
   },
   "signed-out": {
@@ -30,10 +34,36 @@ const accessCopy = {
 
 export function DashboardAccessState({ state }: DashboardAccessStateProps) {
   const copy = accessCopy[state]
+  const action =
+    state === "signed-out" ? (
+      <div className="flex flex-wrap items-center gap-2">
+        <Link href="/auth/sign-in" className={buttonVariants({ size: "sm" })}>
+          Sign in
+        </Link>
+        <Link
+          href="/auth/sign-up"
+          className={cn(buttonVariants({ size: "sm", variant: "outline" }))}
+        >
+          Create account
+        </Link>
+      </div>
+    ) : state === "no-workspace" ? (
+      <div className="flex flex-wrap items-center gap-2">
+        <Link href="/onboarding" className={buttonVariants({ size: "sm" })}>
+          Create workspace
+        </Link>
+      </div>
+    ) : state === "workspace-selection-required" ? (
+      <div className="flex flex-wrap items-center gap-2">
+        <Link href="/select-workspace" className={buttonVariants({ size: "sm" })}>
+          Choose workspace
+        </Link>
+      </div>
+    ) : undefined
 
   return (
     <DashboardPage>
-      <SurfaceCard title={copy.title} description={copy.description}>
+      <SurfaceCard title={copy.title} description={copy.description} action={action}>
         <p className="text-sm text-muted-foreground">{copy.detail}</p>
       </SurfaceCard>
     </DashboardPage>

@@ -5,6 +5,8 @@ import {
   CurrentWorkspaceNotFoundError,
   CurrentWorkspaceSelectionRequiredError,
   type FoundationService,
+  WorkspaceAccessDeniedError,
+  WorkspaceSlugConflictError,
 } from "../foundation/service.js"
 import type { GitHubSyncService } from "../github/service.js"
 import { createGitHubSyncRoute } from "./github-sync.js"
@@ -74,6 +76,70 @@ export function createWorkspacesRoute(
     return context.json(snapshot, 201)
   })
 
+  route.post("/bootstrap-current-user", async (context) => {
+    const authUser = context.get("authUser")
+
+    if (!authUser) {
+      return context.json(
+        {
+          message: "Authentication is required",
+          status: 401,
+        },
+        401,
+      )
+    }
+
+    const body = await context.req.json().catch(() => null)
+    const payload = asRecord(body)
+    const workspace = asRecord(payload?.workspace)
+    const workspaceName = asString(workspace?.name)
+    const workspaceSlug = asString(workspace?.slug)
+
+    if (!workspaceName || !workspaceSlug) {
+      return context.json(badRequest("workspace.name and workspace.slug are required"), 400)
+    }
+
+    try {
+      const bootstrap = await foundationService.bootstrapCurrentUserWorkspace({
+        user: {
+          email: authUser.email,
+          fullName: authUser.name,
+          id: authUser.id,
+        },
+        workspace: {
+          name: workspaceName,
+          slug: workspaceSlug,
+        },
+      })
+      const snapshot = await foundationService.getWorkspaceSnapshot(bootstrap.workspace.id)
+
+      return context.json(snapshot, 201)
+    } catch (error) {
+      if (error instanceof WorkspaceSlugConflictError) {
+        return context.json({ message: error.message, status: 409 }, 409)
+      }
+
+      throw error
+    }
+  })
+
+  route.get("/choices", async (context) => {
+    const user = context.get("authUser")
+
+    if (!user) {
+      return context.json(
+        {
+          message: "Authentication is required",
+          status: 401,
+        },
+        401,
+      )
+    }
+
+    const choices = await foundationService.listWorkspaceChoicesForUser(user.id)
+    return context.json(choices)
+  })
+
   route.get("/current", async (context) => {
     const user = context.get("authUser")
 
@@ -109,6 +175,43 @@ export function createWorkspacesRoute(
     }
   })
 
+  route.put("/current", async (context) => {
+    const user = context.get("authUser")
+
+    if (!user) {
+      return context.json(
+        {
+          message: "Authentication is required",
+          status: 401,
+        },
+        401,
+      )
+    }
+
+    const body = await context.req.json().catch(() => null)
+    const payload = asRecord(body)
+    const workspaceId = asString(payload?.workspaceId)
+
+    if (!workspaceId) {
+      return context.json(badRequest("workspaceId is required"), 400)
+    }
+
+    try {
+      const snapshot = await foundationService.selectCurrentWorkspaceForUser({
+        userId: user.id,
+        workspaceId,
+      })
+      return context.json(snapshot)
+    } catch (error) {
+      if (error instanceof WorkspaceAccessDeniedError) {
+        return context.json({ message: error.message, status: 403 }, 403)
+      }
+
+      const message = error instanceof Error ? error.message : "Failed to select workspace"
+      return context.json({ message, status: 400 }, 400)
+    }
+  })
+
   route.use("/:workspaceId", async (context, next) => {
     const user = context.get("authUser")
 
@@ -130,7 +233,10 @@ export function createWorkspacesRoute(
 
       await next()
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Workspace access is not allowed"
+      const message =
+        error instanceof WorkspaceAccessDeniedError
+          ? error.message
+          : "Workspace access is not allowed"
       return context.json({ message, status: 403 }, 403)
     }
   })

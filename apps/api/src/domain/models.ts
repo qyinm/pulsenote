@@ -55,6 +55,13 @@ export type WorkspaceMembership = {
   createdAt: string
 }
 
+export type CurrentWorkspaceSelection = {
+  userId: string
+  workspaceId: string
+  createdAt: string
+  updatedAt: string
+}
+
 export type IntegrationConnection = {
   id: string
   workspaceId: string
@@ -150,6 +157,7 @@ export const foundationModelNames = [
   "user",
   "workspace",
   "workspace_membership",
+  "current_workspace_selection",
   "integration_connection",
   "integration_account",
   "sync_run",

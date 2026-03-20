@@ -266,6 +266,81 @@ test("workspace routes reject anonymous current workspace lookups", async () => 
   })
 })
 
+test("workspace routes bootstrap a workspace for the authenticated current user", async () => {
+  const foundationService = createFoundationService(createInMemoryFoundationStore())
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession("auth_user_1")),
+    foundationService,
+  })
+
+  const response = await app.request("/v1/workspaces/bootstrap-current-user", {
+    body: JSON.stringify({
+      workspace: {
+        name: "Auth workspace",
+        slug: "auth-workspace",
+      },
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "POST",
+  })
+
+  assert.equal(response.status, 201)
+
+  const body = await response.json()
+  assert.equal(body.workspace.slug, "auth-workspace")
+  assert.equal(body.memberships[0]?.userId, "auth_user_1")
+
+  const currentWorkspaceResponse = await app.request("/v1/workspaces/current")
+  assert.equal(currentWorkspaceResponse.status, 200)
+
+  const currentWorkspaceBody = await currentWorkspaceResponse.json()
+  assert.equal(currentWorkspaceBody.workspace.id, body.workspace.id)
+})
+
+test("workspace routes return 409 when the authenticated current user reuses a workspace slug", async () => {
+  const foundationService = createFoundationService(createInMemoryFoundationStore())
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession("auth_user_1")),
+    foundationService,
+  })
+
+  const firstResponse = await app.request("/v1/workspaces/bootstrap-current-user", {
+    body: JSON.stringify({
+      workspace: {
+        name: "Auth workspace",
+        slug: "auth-workspace",
+      },
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "POST",
+  })
+
+  assert.equal(firstResponse.status, 201)
+
+  const secondResponse = await app.request("/v1/workspaces/bootstrap-current-user", {
+    body: JSON.stringify({
+      workspace: {
+        name: "Duplicate auth workspace",
+        slug: "auth-workspace",
+      },
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "POST",
+  })
+
+  assert.equal(secondResponse.status, 409)
+  assert.deepEqual(await secondResponse.json(), {
+    message: 'Workspace slug "auth-workspace" is already in use',
+    status: 409,
+  })
+})
+
 test("workspace routes return 404 when the authenticated user has no current workspace", async () => {
   const foundationService = createFoundationService(createInMemoryFoundationStore())
   const app = createApp(runtimeEnv, {
@@ -330,5 +405,126 @@ test("workspace routes return 409 when the authenticated user belongs to multipl
   assert.deepEqual(await response.json(), {
     message: "Multiple workspaces found; specify the current workspace before loading the dashboard",
     status: 409,
+  })
+})
+
+test("workspace routes list workspace choices and persist the current workspace selection", async () => {
+  const store = createInMemoryFoundationStore()
+  const foundationService = createFoundationService(store)
+  const bootstrapApp = createApp(runtimeEnv, {
+    authService: createAuthService(null),
+    foundationService,
+  })
+
+  const bootstrapResponse = await bootstrapApp.request("/v1/workspaces/bootstrap", {
+    body: JSON.stringify({
+      user: {
+        email: "workspace-choice@pulsenote.dev",
+        fullName: "Workspace Choice User",
+      },
+      workspace: {
+        name: "Primary workspace",
+        slug: "primary-workspace",
+      },
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "POST",
+  })
+
+  const bootstrapBody = await bootstrapResponse.json()
+  const secondWorkspace = await store.createWorkspace({
+    name: "Second workspace",
+    slug: "second-workspace",
+  })
+
+  await store.createWorkspaceMembership({
+    role: "member",
+    userId: bootstrapBody.memberships[0].userId,
+    workspaceId: secondWorkspace.id,
+  })
+
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(bootstrapBody.memberships[0].userId)),
+    foundationService,
+  })
+
+  const choicesResponse = await app.request("/v1/workspaces/choices")
+  assert.equal(choicesResponse.status, 200)
+
+  const choicesBody = await choicesResponse.json()
+  assert.equal(choicesBody.length, 2)
+  assert.equal(choicesBody[1]?.workspace.id, secondWorkspace.id)
+
+  const selectionResponse = await app.request("/v1/workspaces/current", {
+    body: JSON.stringify({
+      workspaceId: secondWorkspace.id,
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "PUT",
+  })
+
+  assert.equal(selectionResponse.status, 200)
+
+  const currentWorkspaceResponse = await app.request("/v1/workspaces/current")
+  assert.equal(currentWorkspaceResponse.status, 200)
+
+  const currentWorkspaceBody = await currentWorkspaceResponse.json()
+  assert.equal(currentWorkspaceBody.workspace.id, secondWorkspace.id)
+})
+
+test("workspace routes return 403 when selecting a workspace without membership access", async () => {
+  const store = createInMemoryFoundationStore()
+  const foundationService = createFoundationService(store)
+  const bootstrapApp = createApp(runtimeEnv, {
+    authService: createAuthService(null),
+    foundationService,
+  })
+
+  const bootstrapResponse = await bootstrapApp.request("/v1/workspaces/bootstrap", {
+    body: JSON.stringify({
+      user: {
+        email: "selection-access@pulsenote.dev",
+        fullName: "Selection Access User",
+      },
+      workspace: {
+        name: "Primary workspace",
+        slug: "selection-access-primary",
+      },
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "POST",
+  })
+
+  const bootstrapBody = await bootstrapResponse.json()
+  const foreignWorkspace = await store.createWorkspace({
+    name: "Foreign workspace",
+    slug: "selection-access-foreign",
+  })
+
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(bootstrapBody.memberships[0].userId)),
+    foundationService,
+  })
+
+  const response = await app.request("/v1/workspaces/current", {
+    body: JSON.stringify({
+      workspaceId: foreignWorkspace.id,
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "PUT",
+  })
+
+  assert.equal(response.status, 403)
+  assert.deepEqual(await response.json(), {
+    message: "Workspace access is not allowed",
+    status: 403,
   })
 })

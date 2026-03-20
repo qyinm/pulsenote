@@ -3,6 +3,7 @@ import { and, asc, desc, eq, inArray } from "drizzle-orm"
 import {
   claimCandidateEvidenceBlocks,
   claimCandidates,
+  currentWorkspaceSelections,
   evidenceBlocks,
   integrationAccounts,
   integrationConnections,
@@ -18,6 +19,7 @@ import {
 import type { DatabaseClient } from "../db/client.js"
 import {
   type ClaimCandidate,
+  type CurrentWorkspaceSelection,
   type EvidenceBlock,
   type IntegrationAccount,
   type IntegrationConnection,
@@ -103,6 +105,57 @@ export function createPostgresFoundationStore(
   }
 
   return {
+    async bootstrapAuthenticatedWorkspace(input) {
+      return db.transaction(async (tx) => {
+        const [user] = await tx
+          .insert(users)
+          .values({
+            createdAt: nowIso(),
+            email: input.user.email,
+            fullName: input.user.fullName,
+            id: input.user.id,
+            updatedAt: nowIso(),
+          })
+          .onConflictDoUpdate({
+            set: {
+              email: input.user.email,
+              fullName: input.user.fullName,
+              updatedAt: nowIso(),
+            },
+            target: users.id,
+          })
+          .returning()
+
+        const [workspace] = await tx
+          .insert(workspaces)
+          .values({
+            createdAt: nowIso(),
+            id: createId(),
+            name: input.workspace.name,
+            slug: input.workspace.slug,
+            updatedAt: nowIso(),
+          })
+          .returning()
+
+        const [membership] = await tx
+          .insert(workspaceMemberships)
+          .values({
+            createdAt: nowIso(),
+            id: createId(),
+            role: "owner",
+            userId: user.id,
+            workspaceId: workspace.id,
+          })
+          .returning()
+
+        return {
+          membership: membership satisfies WorkspaceMembership,
+          user: user satisfies User,
+          workspace: workspace satisfies Workspace,
+        }
+      })
+    },
+
     async bootstrapWorkspace(input) {
       return db.transaction(async (tx) => {
         const [user] = await tx
@@ -355,6 +408,29 @@ export function createPostgresFoundationStore(
       return workspaceMembership satisfies WorkspaceMembership
     },
 
+    async syncAuthenticatedUser(input) {
+      const [user] = await db
+        .insert(users)
+        .values({
+          createdAt: nowIso(),
+          email: input.email,
+          fullName: input.fullName,
+          id: input.id,
+          updatedAt: nowIso(),
+        })
+        .onConflictDoUpdate({
+          set: {
+            email: input.email,
+            fullName: input.fullName,
+            updatedAt: nowIso(),
+          },
+          target: users.id,
+        })
+        .returning()
+
+      return user satisfies User
+    },
+
     async findWorkspaceMembership(workspaceId, userId) {
       const workspaceMembership = await db.query.workspaceMemberships.findFirst({
         where: and(
@@ -381,6 +457,14 @@ export function createPostgresFoundationStore(
       return integrationConnection ?? null
     },
 
+    async getCurrentWorkspaceSelection(userId) {
+      const selection = await db.query.currentWorkspaceSelections.findFirst({
+        where: eq(currentWorkspaceSelections.userId, userId),
+      })
+
+      return selection ?? null
+    },
+
     async getReleaseRecordSnapshot(releaseRecordId) {
       return buildReleaseRecordSnapshot(releaseRecordId)
     },
@@ -391,6 +475,14 @@ export function createPostgresFoundationStore(
       })
 
       return syncRun ?? null
+    },
+
+    async getUser(userId) {
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, userId),
+      })
+
+      return user ?? null
     },
 
     async getWorkspace(workspaceId) {
@@ -468,6 +560,27 @@ export function createPostgresFoundationStore(
       )
 
       return snapshots.filter((snapshot): snapshot is ReleaseRecordSnapshot => snapshot !== null)
+    },
+
+    async setCurrentWorkspaceSelection(input) {
+      const [selection] = await db
+        .insert(currentWorkspaceSelections)
+        .values({
+          createdAt: nowIso(),
+          updatedAt: nowIso(),
+          userId: input.userId,
+          workspaceId: input.workspaceId,
+        })
+        .onConflictDoUpdate({
+          set: {
+            updatedAt: nowIso(),
+            workspaceId: input.workspaceId,
+          },
+          target: currentWorkspaceSelections.userId,
+        })
+        .returning()
+
+      return selection satisfies CurrentWorkspaceSelection
     },
 
     async updateSyncRun(input) {
