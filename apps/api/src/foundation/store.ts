@@ -3,7 +3,6 @@ import {
   type EvidenceBlock,
   type IntegrationAccount,
   type IntegrationConnection,
-  type IntegrationProvider,
   type ReleaseRecord,
   type ReviewStatus,
   type SourceCursor,
@@ -329,12 +328,18 @@ export function createInMemoryFoundationStore(): FoundationStore {
     },
 
     async createSyncRun(input) {
+      const connection = state.integrationConnections.get(input.connectionId)
+
+      if (!connection) {
+        throw new Error(`Integration connection ${input.connectionId} was not found`)
+      }
+
       const syncRun: SyncRun = {
         connectionId: input.connectionId,
         errorMessage: null,
         finishedAt: null,
         id: createId(),
-        provider: (state.integrationConnections.get(input.connectionId)?.provider ?? "github") as IntegrationProvider,
+        provider: connection.provider,
         scope: input.scope,
         startedAt: nowIso(),
         status: "queued",
