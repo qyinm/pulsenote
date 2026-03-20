@@ -271,6 +271,60 @@ test("github compare sync route rejects development-only ingest in production", 
   })
 })
 
+test("github compare sync route rejects unsupported auth strategies", async () => {
+  const { bootstrap, connection, foundationService, store } = await bootstrapWorkspace()
+  const githubSyncService = createGitHubSyncService({
+    githubClient: {
+      async compareCommits() {
+        throw new Error("should not be called")
+      },
+      async getPullRequests() {
+        throw new Error("should not be called")
+      },
+      async getRelease() {
+        throw new Error("should not be called")
+      },
+    },
+    runtimeEnv,
+    store,
+  })
+
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(bootstrap.user.id)),
+    foundationService,
+    githubSyncService,
+  })
+
+  const response = await app.request(`/v1/workspaces/${bootstrap.workspace.id}/github/sync/compare`, {
+    body: JSON.stringify({
+      auth: {
+        strategy: "bearer_token",
+        token: "ghp_dev_token",
+      },
+      compare: {
+        base: "main",
+        head: "feat/api-foundation",
+      },
+      connectionId: connection.id,
+      repository: {
+        owner: "qyinm",
+        repo: "pulsenote",
+      },
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "POST",
+  })
+
+  assert.equal(response.status, 400)
+  assert.deepEqual(await response.json(), {
+    message:
+      "connectionId, auth.token, auth.strategy, compare.base, compare.head, repository.owner, and repository.repo are required",
+    status: 400,
+  })
+})
+
 test("github merged PR sync route returns persisted counts for workspace members", async () => {
   const { bootstrap, connection, foundationService, store } = await bootstrapWorkspace()
   const githubSyncService = createGitHubSyncService({

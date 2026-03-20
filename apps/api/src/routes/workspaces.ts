@@ -1,5 +1,6 @@
 import { Hono } from "hono"
 
+import { integrationProviders, type IntegrationProvider } from "../domain/models.js"
 import type { FoundationService } from "../foundation/service.js"
 import type { GitHubSyncService } from "../github/service.js"
 import { createGitHubSyncRoute } from "./github-sync.js"
@@ -11,6 +12,12 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 
 function asString(value: unknown): string | null {
   return typeof value === "string" ? value : null
+}
+
+function asIntegrationProvider(value: unknown): IntegrationProvider | null {
+  return typeof value === "string" && integrationProviders.includes(value as IntegrationProvider)
+    ? (value as IntegrationProvider)
+    : null
 }
 
 function badRequest(message: string) {
@@ -153,7 +160,7 @@ export function createWorkspacesRoute(
   route.post("/:workspaceId/integrations", async (context) => {
     const body = await context.req.json().catch(() => null)
     const payload = asRecord(body)
-    const provider = asString(payload?.provider)
+    const provider = asIntegrationProvider(payload?.provider)
     const externalAccountId = asString(payload?.externalAccountId)
 
     if (!provider || !externalAccountId) {
@@ -163,7 +170,7 @@ export function createWorkspacesRoute(
     try {
       const integration = await foundationService.createIntegrationConnection({
         externalAccountId,
-        provider: provider as "github" | "linear",
+        provider,
         workspaceId: context.req.param("workspaceId"),
       })
 

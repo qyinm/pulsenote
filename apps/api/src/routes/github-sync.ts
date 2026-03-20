@@ -1,5 +1,6 @@
 import { Hono } from "hono"
 
+import { githubTokenStrategies, type GitHubTokenStrategy } from "../github/models.js"
 import type { GitHubSyncService } from "../github/service.js"
 import type { AppBindings } from "../types.js"
 
@@ -25,6 +26,12 @@ function asPositiveInteger(value: unknown): number | null {
   return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null
 }
 
+function asGitHubTokenStrategy(value: unknown): GitHubTokenStrategy | null {
+  return typeof value === "string" && githubTokenStrategies.includes(value as GitHubTokenStrategy)
+    ? (value as GitHubTokenStrategy)
+    : null
+}
+
 export function createGitHubSyncRoute(githubSyncService: GitHubSyncService) {
   const route = new Hono<AppBindings>()
 
@@ -38,7 +45,7 @@ export function createGitHubSyncRoute(githubSyncService: GitHubSyncService) {
 
     const connectionId = asString(payload?.connectionId)
     const token = asString(auth?.token)
-    const strategy = asString(auth?.strategy)
+    const strategy = asGitHubTokenStrategy(auth?.strategy)
     const base = asString(compare?.base)
     const head = asString(compare?.head)
     const owner = asString(repository?.owner)
@@ -69,7 +76,7 @@ export function createGitHubSyncRoute(githubSyncService: GitHubSyncService) {
     try {
       const result = await githubSyncService.syncCompareRange({
         auth: {
-          strategy: strategy as "personal_access_token" | "installation_token",
+          strategy,
           token,
         },
         compare: {
@@ -112,7 +119,7 @@ export function createGitHubSyncRoute(githubSyncService: GitHubSyncService) {
 
     const connectionId = asString(payload?.connectionId)
     const token = asString(auth?.token)
-    const strategy = asString(auth?.strategy)
+    const strategy = asGitHubTokenStrategy(auth?.strategy)
     const owner = asString(repository?.owner)
     const repo = asString(repository?.repo)
     const installationId = asString(repository?.installationId)
@@ -142,7 +149,7 @@ export function createGitHubSyncRoute(githubSyncService: GitHubSyncService) {
     try {
       const result = await githubSyncService.syncMergedPullRequests({
         auth: {
-          strategy: strategy as "personal_access_token" | "installation_token",
+          strategy,
           token,
         },
         connectionId,
@@ -183,7 +190,7 @@ export function createGitHubSyncRoute(githubSyncService: GitHubSyncService) {
 
     const connectionId = asString(payload?.connectionId)
     const token = asString(auth?.token)
-    const strategy = asString(auth?.strategy)
+    const strategy = asGitHubTokenStrategy(auth?.strategy)
     const owner = asString(repository?.owner)
     const repo = asString(repository?.repo)
     const installationId = asString(repository?.installationId)
@@ -216,7 +223,7 @@ export function createGitHubSyncRoute(githubSyncService: GitHubSyncService) {
     try {
       const result = await githubSyncService.syncRelease({
         auth: {
-          strategy: strategy as "personal_access_token" | "installation_token",
+          strategy,
           token,
         },
         connectionId,

@@ -161,3 +161,54 @@ test("workspace routes create integrations and sync runs", async () => {
   assert.equal(snapshotBody.syncRuns.length, 1)
   assert.equal(snapshotBody.syncRuns[0]?.scope, "repo:qyinm/pulsenote compare:main...HEAD")
 })
+
+test("workspace routes reject unsupported integration providers", async () => {
+  const foundationService = createFoundationService(createInMemoryFoundationStore())
+  const bootstrapApp = createApp(runtimeEnv, {
+    authService: createAuthService(null),
+    foundationService,
+  })
+
+  const bootstrapResponse = await bootstrapApp.request("/v1/workspaces/bootstrap", {
+    body: JSON.stringify({
+      user: {
+        email: "invalid-provider@pulsenote.dev",
+        fullName: "Ops User",
+      },
+      workspace: {
+        name: "Validation workspace",
+        slug: "validation-workspace",
+      },
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "POST",
+  })
+
+  const bootstrapBody = await bootstrapResponse.json()
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(bootstrapBody.memberships[0].userId)),
+    foundationService,
+  })
+
+  const integrationResponse = await app.request(
+    `/v1/workspaces/${bootstrapBody.workspace.id}/integrations`,
+    {
+      body: JSON.stringify({
+        externalAccountId: "invalid-provider-installation",
+        provider: "jira",
+      }),
+      headers: {
+        "content-type": "application/json",
+      },
+      method: "POST",
+    },
+  )
+
+  assert.equal(integrationResponse.status, 400)
+  assert.deepEqual(await integrationResponse.json(), {
+    message: "provider and externalAccountId are required",
+    status: 400,
+  })
+})
