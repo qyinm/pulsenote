@@ -22,6 +22,13 @@
       "when": 1773936773839,
       "tag": "0002_messy_sunspot",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1773981699488,
+      "tag": "0003_powerful_silver_samurai",
+      "breakpoints": true
     }
   ]
 }

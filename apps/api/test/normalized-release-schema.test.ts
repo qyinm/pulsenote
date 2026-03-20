@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import test from "node:test"
 
 import { getTableColumns, getTableName } from "drizzle-orm"
+import { getTableConfig } from "drizzle-orm/pg-core"
 
 import {
   claimCandidateEvidenceBlocks,
@@ -9,10 +10,14 @@ import {
   claimStatusEnum,
   evidenceBlocks,
   evidenceSourceTypeEnum,
+  integrationConnections,
   releaseRecords,
   reviewStateEnum,
   reviewStatuses,
+  sourceCursors,
   sourceLinks,
+  syncRuns,
+  workspaceMemberships,
 } from "../src/db/schema.js"
 
 test("normalized release schema exports the core release workflow tables", () => {
@@ -52,4 +57,50 @@ test("claim candidates use explicit status values and join to evidence blocks", 
   const joinColumns = getTableColumns(claimCandidateEvidenceBlocks)
   assert.ok(joinColumns.claimCandidateId)
   assert.ok(joinColumns.evidenceBlockId)
+})
+
+test("workspace and review workflow tables enforce idempotent uniqueness constraints", () => {
+  const workspaceMembershipConfig = getTableConfig(workspaceMemberships)
+  const sourceCursorConfig = getTableConfig(sourceCursors)
+  const reviewStatusConfig = getTableConfig(reviewStatuses)
+  const integrationConnectionConfig = getTableConfig(integrationConnections)
+
+  assert.ok(
+    workspaceMembershipConfig.uniqueConstraints.some(
+      (constraint) => constraint.getName() === "workspace_memberships_workspace_id_user_id_unique",
+    ),
+  )
+  assert.ok(
+    sourceCursorConfig.uniqueConstraints.some(
+      (constraint) => constraint.getName() === "source_cursors_connection_id_key_unique",
+    ),
+  )
+  assert.ok(
+    reviewStatusConfig.uniqueConstraints.some(
+      (constraint) => constraint.getName() === "review_statuses_release_record_id_stage_unique",
+    ),
+  )
+  assert.ok(
+    integrationConnectionConfig.uniqueConstraints.some(
+      (constraint) => constraint.getName() === "integration_connections_id_workspace_id_unique",
+    ),
+  )
+})
+
+test("sync and release records keep workspace and connection tenant boundaries aligned", () => {
+  const syncRunConfig = getTableConfig(syncRuns)
+  const releaseRecordConfig = getTableConfig(releaseRecords)
+
+  assert.ok(
+    syncRunConfig.foreignKeys.some(
+      (constraint) =>
+        constraint.getName() === "sync_runs_connection_id_workspace_id_integration_connections_fk",
+    ),
+  )
+  assert.ok(
+    releaseRecordConfig.foreignKeys.some(
+      (constraint) =>
+        constraint.getName() === "release_records_connection_id_workspace_id_integration_connections_fk",
+    ),
+  )
 })

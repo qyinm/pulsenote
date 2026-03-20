@@ -11,12 +11,14 @@ import {
 } from "../domain/models.js"
 
 import {
+  foreignKey,
   boolean,
   pgEnum,
   pgTable,
   primaryKey,
   text,
   timestamp,
+  unique,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core"
@@ -101,29 +103,39 @@ export const workspaces = pgTable("workspaces", {
   updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
 })
 
-export const workspaceMemberships = pgTable("workspace_memberships", {
-  createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
-  id: uuid("id").defaultRandom().primaryKey(),
-  role: workspaceMembershipRoleEnum("role").notNull(),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  workspaceId: uuid("workspace_id")
-    .notNull()
-    .references(() => workspaces.id, { onDelete: "cascade" }),
-})
+export const workspaceMemberships = pgTable(
+  "workspace_memberships",
+  {
+    createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
+    id: uuid("id").defaultRandom().primaryKey(),
+    role: workspaceMembershipRoleEnum("role").notNull(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    unique("workspace_memberships_workspace_id_user_id_unique").on(table.workspaceId, table.userId),
+  ],
+)
 
-export const integrationConnections = pgTable("integration_connections", {
-  connectedAt: timestamp("connected_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
-  externalAccountId: varchar("external_account_id", { length: 255 }).notNull(),
-  id: uuid("id").defaultRandom().primaryKey(),
-  lastSyncedAt: timestamp("last_synced_at", { mode: "string", withTimezone: true }),
-  provider: integrationProviderEnum("provider").notNull(),
-  status: integrationConnectionStatusEnum("status").notNull(),
-  workspaceId: uuid("workspace_id")
-    .notNull()
-    .references(() => workspaces.id, { onDelete: "cascade" }),
-})
+export const integrationConnections = pgTable(
+  "integration_connections",
+  {
+    connectedAt: timestamp("connected_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
+    externalAccountId: varchar("external_account_id", { length: 255 }).notNull(),
+    id: uuid("id").defaultRandom().primaryKey(),
+    lastSyncedAt: timestamp("last_synced_at", { mode: "string", withTimezone: true }),
+    provider: integrationProviderEnum("provider").notNull(),
+    status: integrationConnectionStatusEnum("status").notNull(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+  },
+  (table) => [unique("integration_connections_id_workspace_id_unique").on(table.id, table.workspaceId)],
+)
 
 export const integrationAccounts = pgTable("integration_accounts", {
   accountLabel: varchar("account_label", { length: 255 }).notNull(),
@@ -136,47 +148,71 @@ export const integrationAccounts = pgTable("integration_accounts", {
   provider: integrationProviderEnum("provider").notNull(),
 })
 
-export const syncRuns = pgTable("sync_runs", {
-  connectionId: uuid("connection_id")
-    .notNull()
-    .references(() => integrationConnections.id, { onDelete: "cascade" }),
-  errorMessage: text("error_message"),
-  finishedAt: timestamp("finished_at", { mode: "string", withTimezone: true }),
-  id: uuid("id").defaultRandom().primaryKey(),
-  provider: integrationProviderEnum("provider").notNull(),
-  scope: text("scope").notNull(),
-  startedAt: timestamp("started_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
-  status: syncRunStatusEnum("status").notNull(),
-  workspaceId: uuid("workspace_id")
-    .notNull()
-    .references(() => workspaces.id, { onDelete: "cascade" }),
-})
+export const syncRuns = pgTable(
+  "sync_runs",
+  {
+    connectionId: uuid("connection_id")
+      .notNull()
+      .references(() => integrationConnections.id, { onDelete: "cascade" }),
+    errorMessage: text("error_message"),
+    finishedAt: timestamp("finished_at", { mode: "string", withTimezone: true }),
+    id: uuid("id").defaultRandom().primaryKey(),
+    provider: integrationProviderEnum("provider").notNull(),
+    scope: text("scope").notNull(),
+    startedAt: timestamp("started_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
+    status: syncRunStatusEnum("status").notNull(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.connectionId, table.workspaceId],
+      foreignColumns: [integrationConnections.id, integrationConnections.workspaceId],
+      name: "sync_runs_connection_id_workspace_id_integration_connections_fk",
+    }).onDelete("cascade"),
+  ],
+)
 
-export const sourceCursors = pgTable("source_cursors", {
-  connectionId: uuid("connection_id")
-    .notNull()
-    .references(() => integrationConnections.id, { onDelete: "cascade" }),
-  id: uuid("id").defaultRandom().primaryKey(),
-  key: varchar("key", { length: 255 }).notNull(),
-  updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
-  value: text("value").notNull(),
-})
+export const sourceCursors = pgTable(
+  "source_cursors",
+  {
+    connectionId: uuid("connection_id")
+      .notNull()
+      .references(() => integrationConnections.id, { onDelete: "cascade" }),
+    id: uuid("id").defaultRandom().primaryKey(),
+    key: varchar("key", { length: 255 }).notNull(),
+    updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
+    value: text("value").notNull(),
+  },
+  (table) => [unique("source_cursors_connection_id_key_unique").on(table.connectionId, table.key)],
+)
 
-export const releaseRecords = pgTable("release_records", {
-  compareRange: text("compare_range"),
-  connectionId: uuid("connection_id")
-    .notNull()
-    .references(() => integrationConnections.id, { onDelete: "cascade" }),
-  createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
-  id: uuid("id").defaultRandom().primaryKey(),
-  stage: reviewStageEnum("stage").notNull(),
-  summary: text("summary"),
-  title: text("title").notNull(),
-  updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
-  workspaceId: uuid("workspace_id")
-    .notNull()
-    .references(() => workspaces.id, { onDelete: "cascade" }),
-})
+export const releaseRecords = pgTable(
+  "release_records",
+  {
+    compareRange: text("compare_range"),
+    connectionId: uuid("connection_id")
+      .notNull()
+      .references(() => integrationConnections.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
+    id: uuid("id").defaultRandom().primaryKey(),
+    stage: reviewStageEnum("stage").notNull(),
+    summary: text("summary"),
+    title: text("title").notNull(),
+    updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.connectionId, table.workspaceId],
+      foreignColumns: [integrationConnections.id, integrationConnections.workspaceId],
+      name: "release_records_connection_id_workspace_id_integration_connections_fk",
+    }).onDelete("cascade"),
+  ],
+)
 
 export const evidenceBlocks = pgTable("evidence_blocks", {
   body: text("body"),
@@ -229,14 +265,20 @@ export const sourceLinks = pgTable("source_links", {
   url: text("url").notNull(),
 })
 
-export const reviewStatuses = pgTable("review_statuses", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  note: text("note"),
-  ownerUserId: uuid("owner_user_id").references(() => users.id, { onDelete: "set null" }),
-  releaseRecordId: uuid("release_record_id")
-    .notNull()
-    .references(() => releaseRecords.id, { onDelete: "cascade" }),
-  stage: reviewStageEnum("stage").notNull(),
-  state: reviewStateEnum("state").notNull(),
-  updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
-})
+export const reviewStatuses = pgTable(
+  "review_statuses",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    note: text("note"),
+    ownerUserId: uuid("owner_user_id").references(() => users.id, { onDelete: "set null" }),
+    releaseRecordId: uuid("release_record_id")
+      .notNull()
+      .references(() => releaseRecords.id, { onDelete: "cascade" }),
+    stage: reviewStageEnum("stage").notNull(),
+    state: reviewStateEnum("state").notNull(),
+    updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique("review_statuses_release_record_id_stage_unique").on(table.releaseRecordId, table.stage),
+  ],
+)
