@@ -81,6 +81,11 @@ test("session route returns the authenticated session", async () => {
   const body = await response.json()
   assert.equal(body.user.email, "owner@pulsenote.dev")
   assert.equal(body.session.userId, "user_1")
+  assert.equal(body.session.id, "session_1")
+  assert.equal(body.session.expiresAt, "2026-03-27T00:00:00.000Z")
+  assert.equal("token" in body.session, false)
+  assert.equal("ipAddress" in body.session, false)
+  assert.equal("userAgent" in body.session, false)
 })
 
 test("session route rejects anonymous requests", async () => {
