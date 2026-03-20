@@ -25,3 +25,4 @@ export function createPulseNoteAuthClient(
 }
 
 export const authClient = createPulseNoteAuthClient()
+export type AuthClientType = typeof authClient

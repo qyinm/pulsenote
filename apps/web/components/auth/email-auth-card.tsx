@@ -8,7 +8,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-import { type EmailAuthMode, getEmailAuthContent, submitEmailAuthForm } from "@/lib/auth/email-auth"
+import {
+  type EmailAuthMode,
+  getEmailAuthContent,
+  submitEmailAuthForm,
+  validateEmailAuthName,
+} from "@/lib/auth/email-auth"
 
 type EmailAuthCardProps = {
   callbackURL: string
@@ -41,6 +46,12 @@ export function EmailAuthCard({ callbackURL, mode }: EmailAuthCardProps) {
           const email = String(formData.get("email") ?? "")
           const password = String(formData.get("password") ?? "")
           const name = String(formData.get("name") ?? "")
+          const nameError = validateEmailAuthName(mode, name)
+
+          if (nameError) {
+            setErrorMessage(nameError)
+            return
+          }
 
           startTransition(async () => {
             try {
