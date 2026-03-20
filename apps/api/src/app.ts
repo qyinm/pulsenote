@@ -39,7 +39,22 @@ export function createApp(runtimeEnv: AppRuntimeEnv = getRuntimeEnv(), options: 
 
   app.use("*", requestContext(runtimeEnv))
   app.use("*", async (context, next) => {
-    const session = await authService.getSession(context.req.raw.headers)
+    let session = null
+
+    try {
+      session = await authService.getSession(context.req.raw.headers)
+    } catch (error) {
+      console.warn(
+        JSON.stringify({
+          error: error instanceof Error ? error.message : String(error),
+          event: "auth.session.lookup_failed",
+          path: context.req.path,
+          requestId: context.get("requestId"),
+          service: runtimeEnv.appName,
+          timestamp: new Date().toISOString(),
+        }),
+      )
+    }
 
     context.set("authSession", session?.session ?? null)
     context.set("authUser", session?.user ?? null)

@@ -78,3 +78,49 @@ test("createApp rejects github sync injection without a matching foundation serv
     /foundationService is required when githubSyncService is injected/,
   )
 })
+
+test("createApp degrades to anonymous access when session lookup fails", async () => {
+  const foundationService = createFoundationService(createInMemoryFoundationStore())
+  const logged: string[] = []
+  const originalConsoleWarn = console.warn
+  console.warn = (message?: unknown) => {
+    logged.push(String(message))
+  }
+
+  const app = createApp(runtimeEnv, {
+    authService: {
+      async getSession() {
+        throw new Error("session store unavailable")
+      },
+      async handler() {
+        return Response.json({ ok: true })
+      },
+      isConfigured: true,
+    },
+    foundationService,
+  })
+
+  try {
+    const [healthResponse, authResponse, sessionResponse] = await Promise.all([
+      app.request("/health"),
+      app.request("/api/auth/ok"),
+      app.request("/v1/session"),
+    ])
+
+    assert.equal(healthResponse.status, 200)
+    assert.equal(authResponse.status, 200)
+    assert.equal(sessionResponse.status, 401)
+  } finally {
+    console.warn = originalConsoleWarn
+  }
+
+  assert.equal(logged.length, 3)
+
+  for (const entry of logged) {
+    const payload = JSON.parse(entry)
+    assert.equal(payload.error, "session store unavailable")
+    assert.equal(payload.event, "auth.session.lookup_failed")
+    assert.equal(payload.service, runtimeEnv.appName)
+    assert.match(payload.requestId, /.+/)
+  }
+})
