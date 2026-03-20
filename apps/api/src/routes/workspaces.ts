@@ -6,6 +6,7 @@ import {
   CurrentWorkspaceSelectionRequiredError,
   type FoundationService,
   WorkspaceAccessDeniedError,
+  WorkspaceSlugConflictError,
 } from "../foundation/service.js"
 import type { GitHubSyncService } from "../github/service.js"
 import { createGitHubSyncRoute } from "./github-sync.js"
@@ -98,20 +99,28 @@ export function createWorkspacesRoute(
       return context.json(badRequest("workspace.name and workspace.slug are required"), 400)
     }
 
-    const bootstrap = await foundationService.bootstrapCurrentUserWorkspace({
-      user: {
-        email: authUser.email,
-        fullName: authUser.name,
-        id: authUser.id,
-      },
-      workspace: {
-        name: workspaceName,
-        slug: workspaceSlug,
-      },
-    })
-    const snapshot = await foundationService.getWorkspaceSnapshot(bootstrap.workspace.id)
+    try {
+      const bootstrap = await foundationService.bootstrapCurrentUserWorkspace({
+        user: {
+          email: authUser.email,
+          fullName: authUser.name,
+          id: authUser.id,
+        },
+        workspace: {
+          name: workspaceName,
+          slug: workspaceSlug,
+        },
+      })
+      const snapshot = await foundationService.getWorkspaceSnapshot(bootstrap.workspace.id)
 
-    return context.json(snapshot, 201)
+      return context.json(snapshot, 201)
+    } catch (error) {
+      if (error instanceof WorkspaceSlugConflictError) {
+        return context.json({ message: error.message, status: 409 }, 409)
+      }
+
+      throw error
+    }
   })
 
   route.get("/choices", async (context) => {

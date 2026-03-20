@@ -299,6 +299,48 @@ test("workspace routes bootstrap a workspace for the authenticated current user"
   assert.equal(currentWorkspaceBody.workspace.id, body.workspace.id)
 })
 
+test("workspace routes return 409 when the authenticated current user reuses a workspace slug", async () => {
+  const foundationService = createFoundationService(createInMemoryFoundationStore())
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession("auth_user_1")),
+    foundationService,
+  })
+
+  const firstResponse = await app.request("/v1/workspaces/bootstrap-current-user", {
+    body: JSON.stringify({
+      workspace: {
+        name: "Auth workspace",
+        slug: "auth-workspace",
+      },
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "POST",
+  })
+
+  assert.equal(firstResponse.status, 201)
+
+  const secondResponse = await app.request("/v1/workspaces/bootstrap-current-user", {
+    body: JSON.stringify({
+      workspace: {
+        name: "Duplicate auth workspace",
+        slug: "auth-workspace",
+      },
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "POST",
+  })
+
+  assert.equal(secondResponse.status, 409)
+  assert.deepEqual(await secondResponse.json(), {
+    message: 'Workspace slug "auth-workspace" is already in use',
+    status: 409,
+  })
+})
+
 test("workspace routes return 404 when the authenticated user has no current workspace", async () => {
   const foundationService = createFoundationService(createInMemoryFoundationStore())
   const app = createApp(runtimeEnv, {

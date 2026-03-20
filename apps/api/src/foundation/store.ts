@@ -28,6 +28,10 @@ type BootstrapWorkspaceResult = {
   user: User
   workspace: Workspace
 }
+type BootstrapAuthenticatedWorkspaceInput = {
+  user: SyncAuthenticatedUserInput
+  workspace: CreateWorkspaceInput
+}
 type CreateIntegrationConnectionInput = Pick<
   IntegrationConnection,
   "externalAccountId" | "provider" | "workspaceId"
@@ -83,6 +87,7 @@ export type WorkspaceChoice = {
 }
 
 export type FoundationStore = {
+  bootstrapAuthenticatedWorkspace(input: BootstrapAuthenticatedWorkspaceInput): Promise<BootstrapWorkspaceResult>
   bootstrapWorkspace(input: BootstrapWorkspaceInput): Promise<BootstrapWorkspaceResult>
   createClaimCandidate(input: CreateClaimCandidateInput): Promise<ClaimCandidate>
   createEvidenceBlock(input: CreateEvidenceBlockInput): Promise<EvidenceBlock>
@@ -201,6 +206,57 @@ export function createInMemoryFoundationStore(): FoundationStore {
   }
 
   return {
+    async bootstrapAuthenticatedWorkspace(input) {
+      const previousUser = state.users.get(input.user.id) ?? null
+      let createdWorkspace: Workspace | null = null
+      let createdMembership: WorkspaceMembership | null = null
+
+      try {
+        if (Array.from(state.workspaces.values()).some((workspace) => workspace.slug === input.workspace.slug)) {
+          throw new Error("Workspace slug is already in use")
+        }
+
+        const user = await this.syncAuthenticatedUser({
+          email: input.user.email,
+          fullName: input.user.fullName,
+          id: input.user.id,
+        })
+        const workspace = await this.createWorkspace({
+          name: input.workspace.name,
+          slug: input.workspace.slug,
+        })
+        createdWorkspace = workspace
+        const membership = await this.createWorkspaceMembership({
+          role: "owner",
+          userId: user.id,
+          workspaceId: workspace.id,
+        })
+        createdMembership = membership
+
+        return {
+          membership,
+          user,
+          workspace,
+        }
+      } catch (error) {
+        if (createdMembership) {
+          state.workspaceMemberships.delete(createdMembership.id)
+        }
+
+        if (createdWorkspace) {
+          state.workspaces.delete(createdWorkspace.id)
+        }
+
+        if (previousUser) {
+          state.users.set(previousUser.id, previousUser)
+        } else {
+          state.users.delete(input.user.id)
+        }
+
+        throw error
+      }
+    },
+
     async bootstrapWorkspace(input) {
       const user = await this.createUser({
         email: input.user.email,

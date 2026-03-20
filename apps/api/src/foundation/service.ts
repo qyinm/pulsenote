@@ -88,6 +88,27 @@ export class WorkspaceAccessDeniedError extends Error {
   }
 }
 
+export class WorkspaceSlugConflictError extends Error {
+  constructor(slug: string) {
+    super(`Workspace slug "${slug}" is already in use`)
+    this.name = "WorkspaceSlugConflictError"
+  }
+}
+
+function isWorkspaceSlugConflictError(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return false
+  }
+
+  const cause = error as { code?: string; message?: string }
+
+  return (
+    cause.code === "23505" ||
+    cause.message === "Workspace slug is already in use" ||
+    cause.message?.includes("workspaces_slug_unique") === true
+  )
+}
+
 function requireNonEmpty(value: string, fieldName: string) {
   if (!value.trim()) {
     throw new Error(`${fieldName} is required`)
@@ -126,26 +147,26 @@ export function createFoundationService(store: FoundationStore) {
       requireNonEmpty(input.user.email, "user.email")
       requireNonEmpty(input.workspace.name, "workspace.name")
       requireNonEmpty(input.workspace.slug, "workspace.slug")
+      const normalizedSlug = input.workspace.slug.trim()
 
-      const user = await store.syncAuthenticatedUser({
-        email: input.user.email.trim().toLowerCase(),
-        fullName: input.user.fullName,
-        id: input.user.id.trim(),
-      })
-      const workspace = await store.createWorkspace({
-        name: input.workspace.name.trim(),
-        slug: input.workspace.slug.trim(),
-      })
-      const membership = await store.createWorkspaceMembership({
-        role: "owner",
-        userId: user.id,
-        workspaceId: workspace.id,
-      })
+      try {
+        return await store.bootstrapAuthenticatedWorkspace({
+          user: {
+            email: input.user.email.trim().toLowerCase(),
+            fullName: input.user.fullName,
+            id: input.user.id.trim(),
+          },
+          workspace: {
+            name: input.workspace.name.trim(),
+            slug: normalizedSlug,
+          },
+        })
+      } catch (error) {
+        if (isWorkspaceSlugConflictError(error)) {
+          throw new WorkspaceSlugConflictError(normalizedSlug)
+        }
 
-      return {
-        membership,
-        user,
-        workspace,
+        throw error
       }
     },
 
