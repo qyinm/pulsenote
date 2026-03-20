@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { readFileSync } from "node:fs"
 import test from "node:test"
 
 import { runDatabaseMigrationsForRuntime } from "../src/db/migrate.js"
@@ -148,4 +149,27 @@ test("runDatabaseMigrationsForRuntime closes the pool even if advisory lock acqu
   )
 
   assert.deepEqual(calls, ['select pg_advisory_lock($1) :: [730021]', "pool.end"])
+})
+
+test("0003 migration creates composite uniqueness before dependent integration connection foreign keys", () => {
+  const migrationSql = readFileSync(
+    new URL("../drizzle/0003_powerful_silver_samurai.sql", import.meta.url),
+    "utf8",
+  )
+
+  const uniqueConstraintIndex = migrationSql.indexOf(
+    'ALTER TABLE "integration_connections" ADD CONSTRAINT "integration_connections_id_workspace_id_unique" UNIQUE("id","workspace_id");',
+  )
+  const releaseRecordsConstraintIndex = migrationSql.indexOf(
+    'ALTER TABLE "release_records" ADD CONSTRAINT "release_records_connection_id_workspace_id_integration_connections_fk" FOREIGN KEY ("connection_id","workspace_id") REFERENCES "public"."integration_connections"("id","workspace_id") ON DELETE cascade ON UPDATE no action;',
+  )
+  const syncRunsConstraintIndex = migrationSql.indexOf(
+    'ALTER TABLE "sync_runs" ADD CONSTRAINT "sync_runs_connection_id_workspace_id_integration_connections_fk" FOREIGN KEY ("connection_id","workspace_id") REFERENCES "public"."integration_connections"("id","workspace_id") ON DELETE cascade ON UPDATE no action;',
+  )
+
+  assert.notEqual(uniqueConstraintIndex, -1)
+  assert.notEqual(releaseRecordsConstraintIndex, -1)
+  assert.notEqual(syncRunsConstraintIndex, -1)
+  assert.ok(uniqueConstraintIndex < releaseRecordsConstraintIndex)
+  assert.ok(uniqueConstraintIndex < syncRunsConstraintIndex)
 })

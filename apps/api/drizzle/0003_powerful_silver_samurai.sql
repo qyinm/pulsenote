@@ -57,9 +57,9 @@ WHERE NOT EXISTS (
   WHERE integration_connections.id = release_records.connection_id
     AND integration_connections.workspace_id = release_records.workspace_id
 );--> statement-breakpoint
+ALTER TABLE "integration_connections" ADD CONSTRAINT "integration_connections_id_workspace_id_unique" UNIQUE("id","workspace_id");--> statement-breakpoint
 ALTER TABLE "release_records" ADD CONSTRAINT "release_records_connection_id_workspace_id_integration_connections_fk" FOREIGN KEY ("connection_id","workspace_id") REFERENCES "public"."integration_connections"("id","workspace_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sync_runs" ADD CONSTRAINT "sync_runs_connection_id_workspace_id_integration_connections_fk" FOREIGN KEY ("connection_id","workspace_id") REFERENCES "public"."integration_connections"("id","workspace_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "integration_connections" ADD CONSTRAINT "integration_connections_id_workspace_id_unique" UNIQUE("id","workspace_id");--> statement-breakpoint
 ALTER TABLE "review_statuses" ADD CONSTRAINT "review_statuses_release_record_id_stage_unique" UNIQUE("release_record_id","stage");--> statement-breakpoint
 ALTER TABLE "source_cursors" ADD CONSTRAINT "source_cursors_connection_id_key_unique" UNIQUE("connection_id","key");--> statement-breakpoint
 ALTER TABLE "workspace_memberships" ADD CONSTRAINT "workspace_memberships_workspace_id_user_id_unique" UNIQUE("workspace_id","user_id");
