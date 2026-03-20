@@ -15,7 +15,9 @@ function createReleaseRecordSnapshot(
 ): ReleaseRecordSnapshot {
   const releaseRecordOverrides: Partial<ReleaseRecordSnapshot["releaseRecord"]> =
     overrides.releaseRecord ?? {}
-  const { releaseRecord: _releaseRecord, ...snapshotOverrides } = overrides
+  const snapshotOverrides = Object.fromEntries(
+    Object.entries(overrides).filter(([key]) => key !== "releaseRecord"),
+  ) as Omit<Partial<ReleaseRecordSnapshot>, "releaseRecord">
 
   return {
     ...snapshotOverrides,

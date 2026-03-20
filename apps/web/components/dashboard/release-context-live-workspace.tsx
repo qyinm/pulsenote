@@ -109,9 +109,7 @@ export function ReleaseContextLiveWorkspace({
     ? buildReleaseContextReviewNotes(selectedReleaseRecord)
     : ["Select a release record to inspect its review state."]
   const selectedReadiness = selectedQueueItem ? readinessBadge(selectedQueueItem.readiness) : "Unknown"
-  const selectedStage = selectedReleaseRecord
-    ? buildReleaseContextQueueItem(selectedReleaseRecord).stageLabel
-    : "Unknown"
+  const selectedStage = selectedQueueItem?.stageLabel ?? "Unknown"
   const selectedFreshness = selectedQueueItem?.freshness ?? "Unknown"
 
   return (

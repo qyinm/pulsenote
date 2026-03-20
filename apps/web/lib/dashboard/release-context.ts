@@ -57,19 +57,16 @@ function summarizeSourceTypes(snapshot: ReleaseRecordSnapshot) {
     new Set(snapshot.evidenceBlocks.map((evidenceBlock) => sourceTypeLabels[evidenceBlock.sourceType])),
   )
 
-  if (uniqueSourceTypes.length === 0) {
-    return snapshot.sourceLinks.length > 0 ? `${snapshot.sourceLinks.length} links` : "No sources"
+  switch (uniqueSourceTypes.length) {
+    case 0:
+      return snapshot.sourceLinks.length > 0 ? `${snapshot.sourceLinks.length} links` : "No sources"
+    case 1:
+      return uniqueSourceTypes[0] as string
+    case 2:
+      return uniqueSourceTypes.join(" + ")
+    default:
+      return `${uniqueSourceTypes[0]} + ${uniqueSourceTypes.length - 1} more`
   }
-
-  if (uniqueSourceTypes.length === 1) {
-    return uniqueSourceTypes[0] ?? "No sources"
-  }
-
-  if (uniqueSourceTypes.length === 2) {
-    return `${uniqueSourceTypes[0]} + ${uniqueSourceTypes[1]}`
-  }
-
-  return `${uniqueSourceTypes[0]} + ${uniqueSourceTypes.length - 1} more`
 }
 
 function getWorstEvidenceState(snapshot: ReleaseRecordSnapshot) {
