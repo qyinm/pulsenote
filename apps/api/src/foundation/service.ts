@@ -1,5 +1,5 @@
 import type { IntegrationConnection, SyncRun, User, Workspace, WorkspaceMembership } from "../domain/models.js"
-import type { FoundationStore, WorkspaceSnapshot } from "./store.js"
+import type { FoundationStore, ReleaseRecordSnapshot, WorkspaceSnapshot } from "./store.js"
 
 type BootstrapWorkspaceInput = {
   user: {
@@ -141,6 +141,34 @@ export function createFoundationService(store: FoundationStore) {
       }
 
       return snapshot
+    },
+
+    async getReleaseRecordSnapshot(
+      workspaceId: string,
+      releaseRecordId: string,
+    ): Promise<ReleaseRecordSnapshot> {
+      requireNonEmpty(workspaceId, "workspaceId")
+      requireNonEmpty(releaseRecordId, "releaseRecordId")
+
+      const snapshot = await store.getReleaseRecordSnapshot(releaseRecordId)
+
+      if (!snapshot || snapshot.releaseRecord.workspaceId !== workspaceId) {
+        throw new Error(`Release record ${releaseRecordId} was not found in workspace`)
+      }
+
+      return snapshot
+    },
+
+    async listReleaseRecordSnapshots(workspaceId: string): Promise<ReleaseRecordSnapshot[]> {
+      requireNonEmpty(workspaceId, "workspaceId")
+
+      const workspace = await store.getWorkspace(workspaceId)
+
+      if (!workspace) {
+        throw new Error(`Workspace ${workspaceId} was not found`)
+      }
+
+      return store.listReleaseRecordSnapshots(workspaceId)
     },
   }
 }

@@ -50,6 +50,7 @@ Rule:
 
 ## Web app integration
 
+- [x] Add release record list and detail routes for stored intake data.
 - [ ] Replace sample release context data with stored records.
 - [ ] Replace sample claim check data with stored claim candidates and evidence blocks.
 - [ ] Replace sample approval data with stored review state.

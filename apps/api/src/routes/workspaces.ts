@@ -125,6 +125,31 @@ export function createWorkspacesRoute(
     }
   })
 
+  route.get("/:workspaceId/release-records", async (context) => {
+    try {
+      const releaseRecords = await foundationService.listReleaseRecordSnapshots(
+        context.req.param("workspaceId"),
+      )
+      return context.json(releaseRecords)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Workspace was not found"
+      return context.json(notFound(message), 404)
+    }
+  })
+
+  route.get("/:workspaceId/release-records/:releaseRecordId", async (context) => {
+    try {
+      const releaseRecord = await foundationService.getReleaseRecordSnapshot(
+        context.req.param("workspaceId"),
+        context.req.param("releaseRecordId"),
+      )
+      return context.json(releaseRecord)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Release record was not found"
+      return context.json(notFound(message), 404)
+    }
+  })
+
   route.post("/:workspaceId/integrations", async (context) => {
     const body = await context.req.json().catch(() => null)
     const payload = asRecord(body)
