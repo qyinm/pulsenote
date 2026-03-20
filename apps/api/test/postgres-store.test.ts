@@ -81,3 +81,152 @@ test("postgres bootstrapWorkspace uses a transaction so failed bootstraps do not
   assert.equal(transactionCalls, 1)
   assert.deepEqual(committedTables, [])
 })
+
+test("postgres getReleaseRecordSnapshot scopes claim-evidence link queries to release claim candidates", async () => {
+  let claimLinkArgs: Record<string, unknown> | undefined
+
+  const db = {
+    query: {
+      claimCandidates: {
+        async findMany() {
+          return [
+            {
+              createdAt: "2026-03-20T00:00:00.000Z",
+              id: "claim_1",
+              releaseRecordId: "release_1",
+              sentence: "Add release intake routes",
+              status: "pending",
+              updatedAt: "2026-03-20T00:00:00.000Z",
+            },
+          ]
+        },
+      },
+      claimCandidateEvidenceBlocks: {
+        async findMany(args: Record<string, unknown>) {
+          claimLinkArgs = args
+          return [
+            {
+              claimCandidateId: "claim_1",
+              createdAt: "2026-03-20T00:00:00.000Z",
+              evidenceBlockId: "evidence_1",
+            },
+          ]
+        },
+      },
+      evidenceBlocks: {
+        async findMany() {
+          return [
+            {
+              body: "Release notes",
+              capturedAt: "2026-03-20T00:00:00.000Z",
+              evidenceState: "fresh",
+              id: "evidence_1",
+              provider: "github",
+              releaseRecordId: "release_1",
+              sourceRef: "9001",
+              sourceType: "release",
+              title: "Release v1.4.0",
+            },
+          ]
+        },
+      },
+      releaseRecords: {
+        async findFirst() {
+          return {
+            compareRange: null,
+            connectionId: "connection_1",
+            createdAt: "2026-03-20T00:00:00.000Z",
+            id: "release_1",
+            stage: "intake",
+            summary: "summary",
+            title: "title",
+            updatedAt: "2026-03-20T00:00:00.000Z",
+            workspaceId: "workspace_1",
+          }
+        },
+      },
+      reviewStatuses: {
+        async findMany() {
+          return []
+        },
+      },
+      sourceLinks: {
+        async findMany() {
+          return []
+        },
+      },
+    },
+  }
+
+  const store = createPostgresFoundationStore(db as never)
+  const snapshot = await store.getReleaseRecordSnapshot("release_1")
+
+  assert.ok(snapshot)
+  assert.ok(claimLinkArgs)
+  assert.ok(claimLinkArgs?.where)
+})
+
+test("postgres getWorkspaceSnapshot scopes account and cursor queries to workspace integrations", async () => {
+  let integrationAccountArgs: Record<string, unknown> | undefined
+  let sourceCursorArgs: Record<string, unknown> | undefined
+
+  const db = {
+    query: {
+      integrationAccounts: {
+        async findMany(args: Record<string, unknown>) {
+          integrationAccountArgs = args
+          return []
+        },
+      },
+      integrationConnections: {
+        async findMany() {
+          return [
+            {
+              connectedAt: "2026-03-20T00:00:00.000Z",
+              externalAccountId: "github-installation-42",
+              id: "connection_1",
+              lastSyncedAt: null,
+              provider: "github",
+              status: "active",
+              workspaceId: "workspace_1",
+            },
+          ]
+        },
+      },
+      sourceCursors: {
+        async findMany(args: Record<string, unknown>) {
+          sourceCursorArgs = args
+          return []
+        },
+      },
+      syncRuns: {
+        async findMany() {
+          return []
+        },
+      },
+      workspaceMemberships: {
+        async findMany() {
+          return []
+        },
+      },
+      workspaces: {
+        async findFirst() {
+          return {
+            createdAt: "2026-03-20T00:00:00.000Z",
+            id: "workspace_1",
+            name: "PulseNote",
+            slug: "pulsenote",
+            updatedAt: "2026-03-20T00:00:00.000Z",
+          }
+        },
+      },
+    },
+  }
+
+  const store = createPostgresFoundationStore(db as never)
+  const snapshot = await store.getWorkspaceSnapshot("workspace_1")
+
+  assert.ok(snapshot)
+  assert.ok(integrationAccountArgs?.where)
+  assert.ok(sourceCursorArgs?.where)
+})

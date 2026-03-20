@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm"
+import { and, desc, eq, inArray } from "drizzle-orm"
 
 import {
   claimCandidateEvidenceBlocks,
@@ -58,22 +58,27 @@ export function createPostgresFoundationStore(
       return null
     }
 
-    const [evidenceBlockRows, claimCandidateRows, sourceLinkRows, reviewStatusRows, claimLinks] =
-      await Promise.all([
-        db.query.evidenceBlocks.findMany({
-          where: eq(evidenceBlocks.releaseRecordId, releaseRecordId),
-        }),
-        db.query.claimCandidates.findMany({
-          where: eq(claimCandidates.releaseRecordId, releaseRecordId),
-        }),
-        db.query.sourceLinks.findMany({
-          where: eq(sourceLinks.releaseRecordId, releaseRecordId),
-        }),
-        db.query.reviewStatuses.findMany({
-          where: eq(reviewStatuses.releaseRecordId, releaseRecordId),
-        }),
-        db.query.claimCandidateEvidenceBlocks.findMany(),
-      ])
+    const [evidenceBlockRows, claimCandidateRows, sourceLinkRows, reviewStatusRows] = await Promise.all([
+      db.query.evidenceBlocks.findMany({
+        where: eq(evidenceBlocks.releaseRecordId, releaseRecordId),
+      }),
+      db.query.claimCandidates.findMany({
+        where: eq(claimCandidates.releaseRecordId, releaseRecordId),
+      }),
+      db.query.sourceLinks.findMany({
+        where: eq(sourceLinks.releaseRecordId, releaseRecordId),
+      }),
+      db.query.reviewStatuses.findMany({
+        where: eq(reviewStatuses.releaseRecordId, releaseRecordId),
+      }),
+    ])
+    const claimCandidateIds = claimCandidateRows.map((claimCandidate) => claimCandidate.id)
+    const claimLinks =
+      claimCandidateIds.length > 0
+        ? await db.query.claimCandidateEvidenceBlocks.findMany({
+            where: inArray(claimCandidateEvidenceBlocks.claimCandidateId, claimCandidateIds),
+          })
+        : []
 
     const evidenceBlockIdsByClaimCandidateId = new Map<string, string[]>()
 
@@ -417,15 +422,14 @@ export function createPostgresFoundationStore(
       let sourceCursorRows: SourceCursor[] = []
 
       if (integrationIds.length > 0) {
-        integrationAccountRows = await db.query.integrationAccounts.findMany()
-        sourceCursorRows = await db.query.sourceCursors.findMany()
-
-        integrationAccountRows = integrationAccountRows.filter((account) =>
-          integrationIds.includes(account.connectionId),
-        )
-        sourceCursorRows = sourceCursorRows.filter((cursor) =>
-          integrationIds.includes(cursor.connectionId),
-        )
+        ;[integrationAccountRows, sourceCursorRows] = await Promise.all([
+          db.query.integrationAccounts.findMany({
+            where: inArray(integrationAccounts.connectionId, integrationIds),
+          }),
+          db.query.sourceCursors.findMany({
+            where: inArray(sourceCursors.connectionId, integrationIds),
+          }),
+        ])
       }
 
       return {
