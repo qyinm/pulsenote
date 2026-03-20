@@ -98,6 +98,49 @@ export function createPostgresFoundationStore(
   }
 
   return {
+    async bootstrapWorkspace(input) {
+      return db.transaction(async (tx) => {
+        const [user] = await tx
+          .insert(users)
+          .values({
+            createdAt: nowIso(),
+            email: input.user.email,
+            fullName: input.user.fullName,
+            id: createId(),
+            updatedAt: nowIso(),
+          })
+          .returning()
+
+        const [workspace] = await tx
+          .insert(workspaces)
+          .values({
+            createdAt: nowIso(),
+            id: createId(),
+            name: input.workspace.name,
+            slug: input.workspace.slug,
+            updatedAt: nowIso(),
+          })
+          .returning()
+
+        const [membership] = await tx
+          .insert(workspaceMemberships)
+          .values({
+            createdAt: nowIso(),
+            id: createId(),
+            role: "owner",
+            userId: user.id,
+            workspaceId: workspace.id,
+          })
+          .returning()
+
+        return {
+          membership: membership satisfies WorkspaceMembership,
+          user: user satisfies User,
+          workspace: workspace satisfies Workspace,
+        }
+      })
+    },
+
     async createClaimCandidate(input) {
       const [claimCandidate] = await db
         .insert(claimCandidates)

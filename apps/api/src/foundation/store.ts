@@ -17,6 +17,15 @@ import {
 type CreateUserInput = Pick<User, "email" | "fullName">
 type CreateWorkspaceInput = Pick<Workspace, "name" | "slug">
 type CreateWorkspaceMembershipInput = Pick<WorkspaceMembership, "role" | "userId" | "workspaceId">
+type BootstrapWorkspaceInput = {
+  user: CreateUserInput
+  workspace: CreateWorkspaceInput
+}
+type BootstrapWorkspaceResult = {
+  membership: WorkspaceMembership
+  user: User
+  workspace: Workspace
+}
 type CreateIntegrationConnectionInput = Pick<
   IntegrationConnection,
   "externalAccountId" | "provider" | "workspaceId"
@@ -67,6 +76,7 @@ export type ReleaseRecordSnapshot = {
 }
 
 export type FoundationStore = {
+  bootstrapWorkspace(input: BootstrapWorkspaceInput): Promise<BootstrapWorkspaceResult>
   createClaimCandidate(input: CreateClaimCandidateInput): Promise<ClaimCandidate>
   createEvidenceBlock(input: CreateEvidenceBlockInput): Promise<EvidenceBlock>
   createIntegrationAccount(input: CreateIntegrationAccountInput): Promise<IntegrationAccount>
@@ -177,6 +187,28 @@ export function createInMemoryFoundationStore(): FoundationStore {
   }
 
   return {
+    async bootstrapWorkspace(input) {
+      const user = await this.createUser({
+        email: input.user.email,
+        fullName: input.user.fullName,
+      })
+      const workspace = await this.createWorkspace({
+        name: input.workspace.name,
+        slug: input.workspace.slug,
+      })
+      const membership = await this.createWorkspaceMembership({
+        role: "owner",
+        userId: user.id,
+        workspaceId: workspace.id,
+      })
+
+      return {
+        membership,
+        user,
+        workspace,
+      }
+    },
+
     async createClaimCandidate(input) {
       const claimCandidate: ClaimCandidate = {
         createdAt: nowIso(),

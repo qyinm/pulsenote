@@ -50,25 +50,16 @@ export function createFoundationService(store: FoundationStore) {
       requireNonEmpty(input.workspace.name, "workspace.name")
       requireNonEmpty(input.workspace.slug, "workspace.slug")
 
-      const user = await store.createUser({
-        email: input.user.email.trim().toLowerCase(),
-        fullName: input.user.fullName,
+      return store.bootstrapWorkspace({
+        user: {
+          email: input.user.email.trim().toLowerCase(),
+          fullName: input.user.fullName,
+        },
+        workspace: {
+          name: input.workspace.name.trim(),
+          slug: input.workspace.slug.trim(),
+        },
       })
-      const workspace = await store.createWorkspace({
-        name: input.workspace.name.trim(),
-        slug: input.workspace.slug.trim(),
-      })
-      const membership = await store.createWorkspaceMembership({
-        role: "owner",
-        userId: user.id,
-        workspaceId: workspace.id,
-      })
-
-      return {
-        membership,
-        user,
-        workspace,
-      }
     },
 
     async createIntegrationConnection(input: CreateIntegrationConnectionInput): Promise<IntegrationConnection> {
