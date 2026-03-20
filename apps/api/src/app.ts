@@ -52,6 +52,30 @@ export function createApp(runtimeEnv: AppRuntimeEnv = getRuntimeEnv(), options: 
     return true
   }
 
+  const appendAuthCorsHeaders = (
+    context: Context<AppBindings>,
+    response: Response,
+  ) => {
+    const origin = context.req.header("origin")
+
+    if (!origin || !runtimeEnv.trustedOrigins.includes(origin)) {
+      return response
+    }
+
+    const headers = new Headers(response.headers)
+    headers.set("Access-Control-Allow-Credentials", "true")
+    headers.set("Access-Control-Allow-Headers", "Content-Type")
+    headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
+    headers.set("Access-Control-Allow-Origin", origin)
+    headers.set("Vary", "Origin")
+
+    return new Response(response.body, {
+      headers,
+      status: response.status,
+      statusText: response.statusText,
+    })
+  }
+
   app.use("*", requestContext(runtimeEnv))
   const trustedOriginCorsMiddleware = async (
     context: Context<AppBindings>,
@@ -121,7 +145,10 @@ export function createApp(runtimeEnv: AppRuntimeEnv = getRuntimeEnv(), options: 
     })
   })
 
-  app.on(["GET", "POST"], "/api/auth/*", (context) => authService.handler(context.req.raw))
+  app.on(["GET", "POST"], "/api/auth/*", async (context) => {
+    const response = await authService.handler(context.req.raw)
+    return appendAuthCorsHeaders(context, response)
+  })
   app.route("/health", healthRoute)
   app.route("/v1/foundation", foundationRoute)
   app.route("/v1/session", sessionRoute)

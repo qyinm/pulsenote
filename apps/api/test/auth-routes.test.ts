@@ -77,6 +77,47 @@ test("auth routes allow trusted-origin preflight requests with credentials", asy
   assert.equal(response.headers.get("access-control-allow-methods"), "GET, POST, PUT, OPTIONS")
 })
 
+test("auth routes include CORS headers on trusted-origin handler responses", async () => {
+  const foundationService = createFoundationService(createInMemoryFoundationStore())
+  const app = createApp(
+    {
+      ...runtimeEnv,
+      trustedOrigins: ["https://app.pulsenotes.xyz"],
+    },
+    {
+      authService: {
+        ...createAuthService(null),
+        async handler() {
+          return Response.json(
+            {
+              code: "EMAIL_ALREADY_EXISTS",
+              message: "Email already exists",
+            },
+            { status: 400 },
+          )
+        },
+      },
+      foundationService,
+    },
+  )
+
+  const response = await app.request("/api/auth/sign-up/email", {
+    headers: {
+      origin: "https://app.pulsenotes.xyz",
+    },
+    method: "POST",
+  })
+
+  assert.equal(response.status, 400)
+  assert.equal(response.headers.get("access-control-allow-origin"), "https://app.pulsenotes.xyz")
+  assert.equal(response.headers.get("access-control-allow-credentials"), "true")
+  assert.equal(response.headers.get("vary"), "Origin")
+  assert.deepEqual(await response.json(), {
+    code: "EMAIL_ALREADY_EXISTS",
+    message: "Email already exists",
+  })
+})
+
 test("auth routes reject untrusted-origin preflight requests", async () => {
   const foundationService = createFoundationService(createInMemoryFoundationStore())
   const app = createApp(
