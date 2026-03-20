@@ -118,3 +118,48 @@ test("createIntegrationConnection rejects unsupported providers before persisten
     /provider must be one of: github, linear/,
   )
 })
+
+test("getCurrentWorkspaceSnapshotForUser returns the current workspace when the user has one membership", async () => {
+  const store = createInMemoryFoundationStore()
+  const service = createFoundationService(store)
+
+  const first = await service.bootstrapWorkspace({
+    user: { email: "owner@pulsenote.dev", fullName: "Owner User" },
+    workspace: { name: "PulseNote", slug: "pulsenote" },
+  })
+
+  await service.bootstrapWorkspace({
+    user: { email: "member@pulsenote.dev", fullName: "Member User" },
+    workspace: { name: "Secondary", slug: "secondary-workspace" },
+  })
+
+  const currentWorkspace = await service.getCurrentWorkspaceSnapshotForUser(first.user.id)
+
+  assert.equal(currentWorkspace.workspace.id, first.workspace.id)
+  assert.equal(currentWorkspace.memberships[0]?.userId, first.user.id)
+})
+
+test("getCurrentWorkspaceSnapshotForUser rejects ambiguous workspace membership state", async () => {
+  const store = createInMemoryFoundationStore()
+  const service = createFoundationService(store)
+
+  const bootstrap = await service.bootstrapWorkspace({
+    user: { email: "owner@pulsenote.dev", fullName: "Owner User" },
+    workspace: { name: "PulseNote", slug: "pulsenote" },
+  })
+  const secondWorkspace = await store.createWorkspace({
+    name: "Operations",
+    slug: "operations",
+  })
+
+  await store.createWorkspaceMembership({
+    role: "member",
+    userId: bootstrap.user.id,
+    workspaceId: secondWorkspace.id,
+  })
+
+  await assert.rejects(
+    () => service.getCurrentWorkspaceSnapshotForUser(bootstrap.user.id),
+    /Multiple workspaces found; specify the current workspace before loading the dashboard/,
+  )
+})

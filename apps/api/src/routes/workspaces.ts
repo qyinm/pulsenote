@@ -1,7 +1,11 @@
 import { Hono } from "hono"
 
 import { integrationProviders, type IntegrationProvider } from "../domain/models.js"
-import type { FoundationService } from "../foundation/service.js"
+import {
+  CurrentWorkspaceNotFoundError,
+  CurrentWorkspaceSelectionRequiredError,
+  type FoundationService,
+} from "../foundation/service.js"
 import type { GitHubSyncService } from "../github/service.js"
 import { createGitHubSyncRoute } from "./github-sync.js"
 import type { AppBindings } from "../types.js"
@@ -68,6 +72,41 @@ export function createWorkspacesRoute(
     const snapshot = await foundationService.getWorkspaceSnapshot(bootstrap.workspace.id)
 
     return context.json(snapshot, 201)
+  })
+
+  route.get("/current", async (context) => {
+    const user = context.get("authUser")
+
+    if (!user) {
+      return context.json(
+        {
+          message: "Authentication is required",
+          status: 401,
+        },
+        401,
+      )
+    }
+
+    try {
+      const snapshot = await foundationService.getCurrentWorkspaceSnapshotForUser(user.id)
+      return context.json(snapshot)
+    } catch (error) {
+      if (error instanceof CurrentWorkspaceSelectionRequiredError) {
+        return context.json(
+          {
+            message: error.message,
+            status: 409,
+          },
+          409,
+        )
+      }
+
+      const message =
+        error instanceof CurrentWorkspaceNotFoundError
+          ? error.message
+          : "Current workspace was not found"
+      return context.json(notFound(message), 404)
+    }
   })
 
   route.use("/:workspaceId", async (context, next) => {

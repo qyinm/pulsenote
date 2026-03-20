@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm"
+import { and, asc, desc, eq, inArray } from "drizzle-orm"
 
 import {
   claimCandidateEvidenceBlocks,
@@ -364,6 +364,13 @@ export function createPostgresFoundationStore(
       })
 
       return workspaceMembership ?? null
+    },
+
+    async listWorkspaceMembershipsForUser(userId) {
+      return db.query.workspaceMemberships.findMany({
+        orderBy: asc(workspaceMemberships.createdAt),
+        where: eq(workspaceMemberships.userId, userId),
+      })
     },
 
     async getIntegrationConnection(connectionId) {

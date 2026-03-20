@@ -95,6 +95,7 @@ export type FoundationStore = {
   getWorkspace(workspaceId: string): Promise<Workspace | null>
   getWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnapshot | null>
   linkClaimCandidateEvidenceBlock(input: LinkClaimCandidateEvidenceBlockInput): Promise<void>
+  listWorkspaceMembershipsForUser(userId: string): Promise<WorkspaceMembership[]>
   listReleaseRecordSnapshots(workspaceId: string): Promise<ReleaseRecordSnapshot[]>
   updateSyncRun(input: UpdateSyncRunInput): Promise<SyncRun>
 }
@@ -445,6 +446,12 @@ export function createInMemoryFoundationStore(): FoundationStore {
         syncRuns,
         workspace,
       }
+    },
+
+    async listWorkspaceMembershipsForUser(userId) {
+      return Array.from(state.workspaceMemberships.values())
+        .filter((membership) => membership.userId === userId)
+        .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
     },
 
     async linkClaimCandidateEvidenceBlock(input) {

@@ -10,7 +10,11 @@ import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
 
-export function SiteHeader() {
+export function SiteHeader({
+  workspaceLabel,
+}: {
+  workspaceLabel?: string | null
+}) {
   const pathname = usePathname()
   const route = getDashboardRoute(pathname)
 
@@ -30,7 +34,7 @@ export function SiteHeader() {
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-base font-medium">{route.title}</h1>
-              <Badge variant="outline">Sample workspace</Badge>
+              {workspaceLabel ? <Badge variant="outline">{workspaceLabel}</Badge> : null}
             </div>
             <p className="hidden truncate text-sm text-muted-foreground md:block">
               {route.description}

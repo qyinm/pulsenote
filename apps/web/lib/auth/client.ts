@@ -1,0 +1,24 @@
+import { createAuthClient } from "better-auth/react"
+
+import { getApiBaseUrl } from "../api/client"
+
+type AuthRuntimeEnv = {
+  NEXT_PUBLIC_API_BASE_URL?: string | undefined
+}
+
+type CreateAuthClientImplementation = typeof createAuthClient
+
+export function getAuthClientBaseUrl(env: AuthRuntimeEnv | NodeJS.ProcessEnv = process.env) {
+  return getApiBaseUrl(env)
+}
+
+export function createPulseNoteAuthClient(
+  createAuthClientImplementation: CreateAuthClientImplementation = createAuthClient,
+  env: AuthRuntimeEnv | NodeJS.ProcessEnv = process.env,
+) {
+  return createAuthClientImplementation({
+    baseURL: getAuthClientBaseUrl(env),
+  })
+}
+
+export const authClient = createPulseNoteAuthClient()
