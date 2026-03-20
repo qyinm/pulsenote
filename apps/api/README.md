@@ -1,8 +1,8 @@
 # PulseNote API
 
-Backend foundation for PulseNote.
+Backend runtime for PulseNote's release communication workflow.
 
-This package starts with a small Hono + Node runtime so the product can move from sample dashboard data to real release intake, persisted workflow state, and reviewable agent inputs.
+This package ingests release context from GitHub, persists reviewable release state, and serves the API surfaces that support claim check, approval, and publish-pack workflows.
 
 ## Scripts
 
@@ -15,9 +15,11 @@ pnpm --dir apps/api typecheck
 
 ## Current scope
 
-- Hono runtime and Node entry point
-- health endpoint
-- request logging and request IDs
-- initial backend domain model types for workspace, integration, sync, and release records
+- Hono + Node runtime for the hosted PulseNote API
+- health endpoint, request IDs, and structured request logging
+- workspace, membership, integration, sync-run, and release-record persistence
+- Better Auth session handling for hosted workspace access
+- GitHub intake routes for compare ranges, merged pull requests, and releases
+- stored release records, evidence blocks, claim candidates, source links, and review status snapshots
 
-Persistence, authentication, GitHub ingest, and Linear enrichment come next.
+The API currently focuses on evidence-first release context intake so downstream draft, claim-check, approval, and publish-pack surfaces can stay reviewable.
