@@ -13,7 +13,7 @@ test("getApiBaseUrl prefers NEXT_PUBLIC_API_BASE_URL when configured", () => {
 })
 
 test("getApiBaseUrl falls back to the local API origin for development", () => {
-  assert.equal(getApiBaseUrl({}), "http://127.0.0.1:8787")
+  assert.equal(getApiBaseUrl({}), "http://localhost:8787")
 })
 
 test("api client sends credentialed requests to session, workspace, and release record routes", async () => {
