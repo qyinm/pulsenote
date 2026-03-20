@@ -1,7 +1,11 @@
 import { Hono } from "hono"
 
 import { integrationProviders, type IntegrationProvider } from "../domain/models.js"
-import type { FoundationService } from "../foundation/service.js"
+import {
+  CurrentWorkspaceNotFoundError,
+  CurrentWorkspaceSelectionRequiredError,
+  type FoundationService,
+} from "../foundation/service.js"
 import type { GitHubSyncService } from "../github/service.js"
 import { createGitHubSyncRoute } from "./github-sync.js"
 import type { AppBindings } from "../types.js"
@@ -87,7 +91,20 @@ export function createWorkspacesRoute(
       const snapshot = await foundationService.getCurrentWorkspaceSnapshotForUser(user.id)
       return context.json(snapshot)
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Current workspace was not found"
+      if (error instanceof CurrentWorkspaceSelectionRequiredError) {
+        return context.json(
+          {
+            message: error.message,
+            status: 409,
+          },
+          409,
+        )
+      }
+
+      const message =
+        error instanceof CurrentWorkspaceNotFoundError
+          ? error.message
+          : "Current workspace was not found"
       return context.json(notFound(message), 404)
     }
   })

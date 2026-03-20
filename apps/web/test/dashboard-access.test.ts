@@ -87,6 +87,23 @@ test("getServerCurrentWorkspace degrades missing-workspace responses to null", a
   assert.equal(workspace, null)
 })
 
+test("getServerCurrentWorkspace marks ambiguous workspace membership as selection-required", async () => {
+  const workspace = await getServerCurrentWorkspace(new Headers(), {
+    async getCurrentWorkspace() {
+      throw new ApiError(
+        "Multiple workspaces found; specify the current workspace before loading the dashboard",
+        409,
+        {
+          message: "Multiple workspaces found; specify the current workspace before loading the dashboard",
+          status: 409,
+        },
+      )
+    },
+  })
+
+  assert.equal(workspace, "selection-required")
+})
+
 test("resolveDashboardAccessState returns a signed-out state when no session is present", async () => {
   const accessState = await resolveDashboardAccessState(new Headers(), {
     getCurrentWorkspace: async () => {
@@ -124,5 +141,19 @@ test("resolveDashboardAccessState returns the current workspace for authorized m
     kind: "ready",
     session,
     workspace,
+  })
+})
+
+test("resolveDashboardAccessState requires explicit workspace selection when multiple memberships exist", async () => {
+  const session = createSession("user_1")
+
+  const accessState = await resolveDashboardAccessState(new Headers(), {
+    getCurrentWorkspace: async () => "selection-required",
+    getSession: async () => session,
+  })
+
+  assert.deepEqual(accessState, {
+    kind: "workspace-selection-required",
+    session,
   })
 })

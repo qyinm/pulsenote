@@ -19,6 +19,8 @@ export default async function DashboardLayout({
       ? accessState.workspace.workspace.name
       : accessState.kind === "no-workspace"
         ? "No workspace"
+        : accessState.kind === "workspace-selection-required"
+          ? "Select workspace"
         : null
 
   return (

@@ -45,6 +45,20 @@ type WorkspaceAccessInput = {
 
 export type FoundationService = ReturnType<typeof createFoundationService>
 
+export class CurrentWorkspaceNotFoundError extends Error {
+  constructor() {
+    super("Current workspace was not found")
+    this.name = "CurrentWorkspaceNotFoundError"
+  }
+}
+
+export class CurrentWorkspaceSelectionRequiredError extends Error {
+  constructor() {
+    super("Multiple workspaces found; specify the current workspace before loading the dashboard")
+    this.name = "CurrentWorkspaceSelectionRequiredError"
+  }
+}
+
 function requireNonEmpty(value: string, fieldName: string) {
   if (!value.trim()) {
     throw new Error(`${fieldName} is required`)
@@ -157,11 +171,16 @@ export function createFoundationService(store: FoundationStore) {
       requireNonEmpty(userId, "userId")
 
       const memberships = await store.listWorkspaceMembershipsForUser(userId)
-      const currentMembership = memberships[0]
 
-      if (!currentMembership) {
-        throw new Error(`Current workspace was not found for user ${userId}`)
+      if (memberships.length === 0) {
+        throw new CurrentWorkspaceNotFoundError()
       }
+
+      if (memberships.length > 1) {
+        throw new CurrentWorkspaceSelectionRequiredError()
+      }
+
+      const currentMembership = memberships[0]
 
       return this.getWorkspaceSnapshot(currentMembership.workspaceId)
     },

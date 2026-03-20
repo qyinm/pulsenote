@@ -277,7 +277,58 @@ test("workspace routes return 404 when the authenticated user has no current wor
 
   assert.equal(response.status, 404)
   assert.deepEqual(await response.json(), {
-    message: "Current workspace was not found for user orphan-user",
+    message: "Current workspace was not found",
     status: 404,
+  })
+})
+
+test("workspace routes return 409 when the authenticated user belongs to multiple workspaces", async () => {
+  const store = createInMemoryFoundationStore()
+  const foundationService = createFoundationService(store)
+  const bootstrapApp = createApp(runtimeEnv, {
+    authService: createAuthService(null),
+    foundationService,
+  })
+
+  const bootstrapResponse = await bootstrapApp.request("/v1/workspaces/bootstrap", {
+    body: JSON.stringify({
+      user: {
+        email: "multi-workspace@pulsenote.dev",
+        fullName: "Multi Workspace User",
+      },
+      workspace: {
+        name: "Current workspace",
+        slug: "current-workspace",
+      },
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "POST",
+  })
+
+  const bootstrapBody = await bootstrapResponse.json()
+  const secondWorkspace = await store.createWorkspace({
+    name: "Operations",
+    slug: "operations",
+  })
+
+  await store.createWorkspaceMembership({
+    role: "member",
+    userId: bootstrapBody.memberships[0].userId,
+    workspaceId: secondWorkspace.id,
+  })
+
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(bootstrapBody.memberships[0].userId)),
+    foundationService,
+  })
+
+  const response = await app.request("/v1/workspaces/current")
+
+  assert.equal(response.status, 409)
+  assert.deepEqual(await response.json(), {
+    message: "Multiple workspaces found; specify the current workspace before loading the dashboard",
+    status: 409,
   })
 })

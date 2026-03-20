@@ -1,7 +1,7 @@
 import { DashboardPage, SurfaceCard } from "@/components/dashboard/surfaces"
 
 type DashboardAccessStateProps = {
-  state: "signed-out" | "no-workspace"
+  state: "signed-out" | "no-workspace" | "workspace-selection-required"
 }
 
 const accessCopy = {
@@ -18,6 +18,13 @@ const accessCopy = {
     detail:
       "PulseNote only shows release context after the current session and workspace membership are both resolved.",
     title: "Sign in to open the dashboard",
+  },
+  "workspace-selection-required": {
+    description:
+      "This account belongs to more than one PulseNote workspace, so the dashboard needs an explicit workspace selection before it can load release context safely.",
+    detail:
+      "Choose the current workspace first so release records, evidence links, and review state never mix across tenants.",
+    title: "Select a workspace before opening the dashboard",
   },
 } satisfies Record<DashboardAccessStateProps["state"], { description: string; detail: string; title: string }>
 
