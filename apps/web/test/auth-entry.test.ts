@@ -12,10 +12,13 @@ import {
 
 test("sign-in page renders the release-scoped auth copy", async () => {
   const markup = renderToStaticMarkup(
-    React.createElement(EmailAuthShell, {
-      children: React.createElement("div", null, "Sign-in form"),
-      mode: "sign-in",
-    }),
+    React.createElement(
+      EmailAuthShell,
+      {
+        mode: "sign-in",
+      },
+      React.createElement("div", null, "Sign-in form"),
+    ),
   )
 
   assert.match(markup, /Sign in to PulseNote/i)
@@ -25,10 +28,13 @@ test("sign-in page renders the release-scoped auth copy", async () => {
 
 test("sign-up page renders the workspace bootstrap auth copy", async () => {
   const markup = renderToStaticMarkup(
-    React.createElement(EmailAuthShell, {
-      children: React.createElement("div", null, "Sign-up form"),
-      mode: "sign-up",
-    }),
+    React.createElement(
+      EmailAuthShell,
+      {
+        mode: "sign-up",
+      },
+      React.createElement("div", null, "Sign-up form"),
+    ),
   )
 
   assert.match(markup, /Create your PulseNote account/i)

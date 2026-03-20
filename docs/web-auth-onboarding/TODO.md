@@ -17,10 +17,10 @@
 - [x] Route successful onboarding back into the release workflow, starting with `release-context`.
 
 ## Validation
-- [ ] `pnpm --dir apps/api test`
-- [ ] `pnpm --dir apps/api typecheck`
-- [ ] `pnpm --dir apps/api build`
-- [ ] `pnpm --dir apps/web test`
-- [ ] `pnpm --dir apps/web typecheck`
-- [ ] `pnpm --dir apps/web lint`
-- [ ] `pnpm --dir apps/web build`
+- [x] `pnpm --dir apps/api test`
+- [x] `pnpm --dir apps/api typecheck`
+- [x] `pnpm --dir apps/api build`
+- [x] `pnpm --dir apps/web test`
+- [x] `pnpm --dir apps/web typecheck`
+- [x] `pnpm --dir apps/web lint`
+- [x] `pnpm --dir apps/web build`

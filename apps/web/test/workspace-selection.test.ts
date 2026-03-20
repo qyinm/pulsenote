@@ -9,9 +9,11 @@ import { selectCurrentWorkspace } from "../lib/onboarding/workspace-selection.js
 
 test("WorkspaceSelectionShell explains why explicit current workspace selection matters", () => {
   const markup = renderToStaticMarkup(
-    React.createElement(WorkspaceSelectionShell, {
-      children: React.createElement("div", null, "Selection form"),
-    }),
+    React.createElement(
+      WorkspaceSelectionShell,
+      null,
+      React.createElement("div", null, "Selection form"),
+    ),
   )
 
   assert.match(markup, /Choose the current PulseNote workspace/i)

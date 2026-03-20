@@ -1,7 +1,7 @@
 import type { ReactNode } from "react"
 
 type WorkspaceSelectionShellProps = {
-  children: ReactNode
+  children?: ReactNode
 }
 
 export function WorkspaceSelectionShell({ children }: WorkspaceSelectionShellProps) {

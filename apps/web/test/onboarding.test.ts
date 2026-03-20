@@ -12,9 +12,11 @@ import {
 
 test("WorkspaceOnboardingShell renders release-scoped onboarding copy", () => {
   const markup = renderToStaticMarkup(
-    React.createElement(WorkspaceOnboardingShell, {
-      children: React.createElement("div", null, "Onboarding form"),
-    }),
+    React.createElement(
+      WorkspaceOnboardingShell,
+      null,
+      React.createElement("div", null, "Onboarding form"),
+    ),
   )
 
   assert.match(markup, /Create your first PulseNote workspace/i)

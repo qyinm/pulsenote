@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils"
 import { type EmailAuthMode, getEmailAuthContent } from "@/lib/auth/email-auth"
 
 type EmailAuthShellProps = {
-  children: ReactNode
+  children?: ReactNode
   mode: EmailAuthMode
 }
 

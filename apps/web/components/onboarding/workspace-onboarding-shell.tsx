@@ -1,7 +1,7 @@
 import type { ReactNode } from "react"
 
 type WorkspaceOnboardingShellProps = {
-  children: ReactNode
+  children?: ReactNode
 }
 
 export function WorkspaceOnboardingShell({ children }: WorkspaceOnboardingShellProps) {
