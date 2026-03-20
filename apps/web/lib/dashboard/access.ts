@@ -1,22 +1,11 @@
 import { ApiError, type ApiSession, type WorkspaceSnapshot, createApiClient } from "../api/client"
+import { getForwardedAuthHeaders } from "../auth/headers"
 import { getServerSession } from "../auth/session"
 
 type CurrentWorkspaceApiClient = Pick<ReturnType<typeof createApiClient>, "getCurrentWorkspace">
 type DashboardAccessDependencies = {
   getCurrentWorkspace: (requestHeaders: Headers) => Promise<WorkspaceSnapshot | null>
   getSession: (requestHeaders: Headers) => Promise<ApiSession | null>
-}
-
-function getForwardedAuthHeaders(requestHeaders: Headers): HeadersInit | undefined {
-  const cookie = requestHeaders.get("cookie")
-
-  if (!cookie) {
-    return undefined
-  }
-
-  return {
-    cookie,
-  }
 }
 
 export type DashboardAccessState =

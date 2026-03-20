@@ -1,18 +1,7 @@
 import { ApiError, type ApiSession, createApiClient } from "../api/client"
+import { getForwardedAuthHeaders } from "./headers"
 
 type SessionApiClient = Pick<ReturnType<typeof createApiClient>, "getSession">
-
-function getForwardedSessionHeaders(requestHeaders: Headers): HeadersInit | undefined {
-  const cookie = requestHeaders.get("cookie")
-
-  if (!cookie) {
-    return undefined
-  }
-
-  return {
-    cookie,
-  }
-}
 
 export async function getServerSession(
   requestHeaders: Headers,
@@ -20,7 +9,7 @@ export async function getServerSession(
 ): Promise<ApiSession | null> {
   try {
     return await apiClient.getSession({
-      headers: getForwardedSessionHeaders(requestHeaders),
+      headers: getForwardedAuthHeaders(requestHeaders),
     })
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
