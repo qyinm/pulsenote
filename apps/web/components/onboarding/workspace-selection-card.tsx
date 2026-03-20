@@ -1,12 +1,16 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useState, useTransition } from "react"
+import { useEffect, useState, useTransition } from "react"
 
 import { Button } from "@/components/ui/button"
 import type { WorkspaceChoice } from "@/lib/api/client"
-import { selectCurrentWorkspace } from "@/lib/onboarding/workspace-selection"
+import {
+  resolveWorkspaceSelectionState,
+  selectCurrentWorkspace,
+} from "@/lib/onboarding/workspace-selection"
 
+import { WorkspaceSelectionEmptyState } from "./workspace-selection-empty-state"
 import { WorkspaceSelectionShell } from "./workspace-selection-shell"
 
 function getErrorMessage(error: unknown) {
@@ -19,13 +23,34 @@ function getErrorMessage(error: unknown) {
 
 type WorkspaceSelectionCardProps = {
   choices: WorkspaceChoice[]
+  initialSelectedWorkspaceId?: string
 }
 
-export function WorkspaceSelectionCard({ choices }: WorkspaceSelectionCardProps) {
+export function WorkspaceSelectionCard({
+  choices,
+  initialSelectedWorkspaceId,
+}: WorkspaceSelectionCardProps) {
   const router = useRouter()
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(choices[0]?.workspace.id ?? "")
+  const selectionState = resolveWorkspaceSelectionState(choices, initialSelectedWorkspaceId)
+  const resolvedSelectedWorkspaceId =
+    selectionState.kind === "ready" ? selectionState.selectedWorkspaceId : ""
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(
+    resolvedSelectedWorkspaceId,
+  )
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+
+  useEffect(() => {
+    setSelectedWorkspaceId(resolvedSelectedWorkspaceId)
+  }, [resolvedSelectedWorkspaceId])
+
+  if (selectionState.kind === "empty") {
+    return (
+      <WorkspaceSelectionShell>
+        <WorkspaceSelectionEmptyState />
+      </WorkspaceSelectionShell>
+    )
+  }
 
   return (
     <WorkspaceSelectionShell>

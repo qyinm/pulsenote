@@ -23,9 +23,16 @@ export default async function SelectWorkspacePage() {
     headers: getForwardedAuthHeaders(requestHeaders),
   })
 
-  if (choices.length <= 1) {
+  if (choices.length === 1) {
     redirect("/dashboard/release-context")
   }
 
-  return <WorkspaceSelectionCard choices={choices} />
+  return (
+    <WorkspaceSelectionCard
+      choices={choices}
+      initialSelectedWorkspaceId={
+        accessState.kind === "ready" ? accessState.workspace.workspace.id : undefined
+      }
+    />
+  )
 }

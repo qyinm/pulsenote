@@ -4,8 +4,12 @@ import React from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 
 import { DashboardAccessState } from "../components/dashboard/dashboard-access-state.js"
+import { WorkspaceSelectionEmptyState } from "../components/onboarding/workspace-selection-empty-state.js"
 import { WorkspaceSelectionShell } from "../components/onboarding/workspace-selection-shell.js"
-import { selectCurrentWorkspace } from "../lib/onboarding/workspace-selection.js"
+import {
+  resolveWorkspaceSelectionState,
+  selectCurrentWorkspace,
+} from "../lib/onboarding/workspace-selection.js"
 
 test("WorkspaceSelectionShell explains why explicit current workspace selection matters", () => {
   const markup = renderToStaticMarkup(
@@ -61,4 +65,78 @@ test("selectCurrentWorkspace persists the chosen workspace through the API", asy
       workspaceId: "workspace_2",
     },
   ])
+})
+
+test("selectCurrentWorkspace rejects blank workspace selections before calling the API", async () => {
+  let called = false
+
+  await assert.rejects(
+    () =>
+      selectCurrentWorkspace(
+        {
+          workspaceId: "   ",
+        },
+        {
+          setCurrentWorkspace() {
+            called = true
+            return Promise.reject(new Error("setCurrentWorkspace should not run"))
+          },
+        },
+      ),
+    /Choose a workspace before continuing\./,
+  )
+
+  assert.equal(called, false)
+})
+
+test("resolveWorkspaceSelectionState preserves the saved current workspace selection", () => {
+  const state = resolveWorkspaceSelectionState(
+    [
+      {
+        membership: { role: "owner" },
+        workspace: { id: "workspace_1", name: "Alpha", slug: "alpha" },
+      },
+      {
+        membership: { role: "editor" },
+        workspace: { id: "workspace_2", name: "Bravo", slug: "bravo" },
+      },
+    ],
+    "workspace_2",
+  )
+
+  assert.deepEqual(state, {
+    kind: "ready",
+    selectedWorkspaceId: "workspace_2",
+  })
+})
+
+test("resolveWorkspaceSelectionState falls back to the first choice when no saved selection exists", () => {
+  const state = resolveWorkspaceSelectionState([
+    {
+      membership: { role: "owner" },
+      workspace: { id: "workspace_1", name: "Alpha", slug: "alpha" },
+    },
+    {
+      membership: { role: "editor" },
+      workspace: { id: "workspace_2", name: "Bravo", slug: "bravo" },
+    },
+  ])
+
+  assert.deepEqual(state, {
+    kind: "ready",
+    selectedWorkspaceId: "workspace_1",
+  })
+})
+
+test("resolveWorkspaceSelectionState returns an empty state when no choices are available", () => {
+  assert.deepEqual(resolveWorkspaceSelectionState([]), {
+    kind: "empty",
+  })
+})
+
+test("WorkspaceSelectionEmptyState sends users back to onboarding", () => {
+  const markup = renderToStaticMarkup(React.createElement(WorkspaceSelectionEmptyState))
+
+  assert.match(markup, /No workspace memberships are available yet/i)
+  assert.match(markup, /href="\/onboarding"/i)
 })
