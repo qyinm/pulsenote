@@ -121,6 +121,18 @@ export const workspaceMemberships = pgTable(
   ],
 )
 
+export const currentWorkspaceSelections = pgTable("current_workspace_selections", {
+  createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
+  userId: uuid("user_id")
+    .notNull()
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  workspaceId: uuid("workspace_id")
+    .notNull()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+})
+
 export const integrationConnections = pgTable(
   "integration_connections",
   {

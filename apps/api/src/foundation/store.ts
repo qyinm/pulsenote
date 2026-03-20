@@ -1,5 +1,6 @@
 import {
   type ClaimCandidate,
+  type CurrentWorkspaceSelection,
   type EvidenceBlock,
   type IntegrationAccount,
   type IntegrationConnection,
@@ -15,6 +16,7 @@ import {
 
 type CreateUserInput = Pick<User, "email" | "fullName">
 type SyncAuthenticatedUserInput = Pick<User, "email" | "fullName" | "id">
+type SetCurrentWorkspaceSelectionInput = Pick<CurrentWorkspaceSelection, "userId" | "workspaceId">
 type CreateWorkspaceInput = Pick<Workspace, "name" | "slug">
 type CreateWorkspaceMembershipInput = Pick<WorkspaceMembership, "role" | "userId" | "workspaceId">
 type BootstrapWorkspaceInput = {
@@ -75,6 +77,11 @@ export type ReleaseRecordSnapshot = {
   sourceLinks: SourceLink[]
 }
 
+export type WorkspaceChoice = {
+  membership: WorkspaceMembership
+  workspace: Workspace
+}
+
 export type FoundationStore = {
   bootstrapWorkspace(input: BootstrapWorkspaceInput): Promise<BootstrapWorkspaceResult>
   createClaimCandidate(input: CreateClaimCandidateInput): Promise<ClaimCandidate>
@@ -91,6 +98,7 @@ export type FoundationStore = {
   createWorkspaceMembership(input: CreateWorkspaceMembershipInput): Promise<WorkspaceMembership>
   findWorkspaceMembership(workspaceId: string, userId: string): Promise<WorkspaceMembership | null>
   getIntegrationConnection(connectionId: string): Promise<IntegrationConnection | null>
+  getCurrentWorkspaceSelection(userId: string): Promise<CurrentWorkspaceSelection | null>
   getReleaseRecordSnapshot(releaseRecordId: string): Promise<ReleaseRecordSnapshot | null>
   getSyncRun(syncRunId: string): Promise<SyncRun | null>
   getUser(userId: string): Promise<User | null>
@@ -99,6 +107,7 @@ export type FoundationStore = {
   linkClaimCandidateEvidenceBlock(input: LinkClaimCandidateEvidenceBlockInput): Promise<void>
   listWorkspaceMembershipsForUser(userId: string): Promise<WorkspaceMembership[]>
   listReleaseRecordSnapshots(workspaceId: string): Promise<ReleaseRecordSnapshot[]>
+  setCurrentWorkspaceSelection(input: SetCurrentWorkspaceSelectionInput): Promise<CurrentWorkspaceSelection>
   syncAuthenticatedUser(input: SyncAuthenticatedUserInput): Promise<User>
   updateSyncRun(input: UpdateSyncRunInput): Promise<SyncRun>
 }
@@ -109,6 +118,7 @@ type ClaimCandidateEvidenceLink = {
 }
 
 type InMemoryState = {
+  currentWorkspaceSelections: Map<string, CurrentWorkspaceSelection>
   claimCandidateEvidenceLinks: ClaimCandidateEvidenceLink[]
   claimCandidates: Map<string, ClaimCandidate>
   evidenceBlocks: Map<string, EvidenceBlock>
@@ -134,6 +144,7 @@ function createId() {
 
 export function createInMemoryFoundationStore(): FoundationStore {
   const state: InMemoryState = {
+    currentWorkspaceSelections: new Map(),
     claimCandidateEvidenceLinks: [],
     claimCandidates: new Map(),
     evidenceBlocks: new Map(),
@@ -419,6 +430,10 @@ export function createInMemoryFoundationStore(): FoundationStore {
       return state.integrationConnections.get(connectionId) ?? null
     },
 
+    async getCurrentWorkspaceSelection(userId) {
+      return state.currentWorkspaceSelections.get(userId) ?? null
+    },
+
     async getReleaseRecordSnapshot(releaseRecordId) {
       return buildReleaseRecordSnapshot(releaseRecordId)
     },
@@ -490,6 +505,19 @@ export function createInMemoryFoundationStore(): FoundationStore {
       const snapshots = releaseRecords.map((releaseRecord) => buildReleaseRecordSnapshot(releaseRecord.id))
 
       return snapshots.filter((snapshot): snapshot is ReleaseRecordSnapshot => snapshot !== null)
+    },
+
+    async setCurrentWorkspaceSelection(input) {
+      const existingSelection = state.currentWorkspaceSelections.get(input.userId)
+      const selection: CurrentWorkspaceSelection = {
+        createdAt: existingSelection?.createdAt ?? nowIso(),
+        updatedAt: nowIso(),
+        userId: input.userId,
+        workspaceId: input.workspaceId,
+      }
+
+      state.currentWorkspaceSelections.set(input.userId, selection)
+      return selection
     },
 
     async updateSyncRun(input) {

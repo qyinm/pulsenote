@@ -156,8 +156,26 @@ const workspaceSnapshotSchema = z.object({
   }),
 })
 
+const workspaceChoiceSchema = z.object({
+  membership: z.object({
+    createdAt: z.string(),
+    id: z.string(),
+    role: workspaceMembershipRoleSchema,
+    userId: z.string(),
+    workspaceId: z.string(),
+  }),
+  workspace: z.object({
+    createdAt: z.string(),
+    id: z.string(),
+    name: z.string(),
+    slug: z.string(),
+    updatedAt: z.string(),
+  }),
+})
+
 export type ApiSession = z.infer<typeof apiSessionSchema>
 export type ReleaseRecordSnapshot = z.infer<typeof releaseRecordSnapshotSchema>
+export type WorkspaceChoice = z.infer<typeof workspaceChoiceSchema>
 export type WorkspaceSnapshot = z.infer<typeof workspaceSnapshotSchema>
 
 type CreateApiClientOptions = {
@@ -254,6 +272,9 @@ export function createApiClient(options: CreateApiClientOptions = {}) {
     getCurrentWorkspace(init?: RequestInit) {
       return request("/v1/workspaces/current", workspaceSnapshotSchema, init)
     },
+    listWorkspaceChoices(init?: RequestInit) {
+      return request("/v1/workspaces/choices", z.array(workspaceChoiceSchema), init)
+    },
     getSession(init?: RequestInit) {
       return request("/v1/session", apiSessionSchema, init)
     },
@@ -270,6 +291,18 @@ export function createApiClient(options: CreateApiClientOptions = {}) {
         z.array(releaseRecordSnapshotSchema),
         init,
       )
+    },
+    setCurrentWorkspace(
+      payload: {
+        workspaceId: string
+      },
+      init?: RequestInit,
+    ) {
+      return request("/v1/workspaces/current", workspaceSnapshotSchema, {
+        ...init,
+        body: JSON.stringify(payload),
+        method: "PUT",
+      })
     },
   }
 }

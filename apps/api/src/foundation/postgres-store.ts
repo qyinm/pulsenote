@@ -3,6 +3,7 @@ import { and, asc, desc, eq, inArray } from "drizzle-orm"
 import {
   claimCandidateEvidenceBlocks,
   claimCandidates,
+  currentWorkspaceSelections,
   evidenceBlocks,
   integrationAccounts,
   integrationConnections,
@@ -18,6 +19,7 @@ import {
 import type { DatabaseClient } from "../db/client.js"
 import {
   type ClaimCandidate,
+  type CurrentWorkspaceSelection,
   type EvidenceBlock,
   type IntegrationAccount,
   type IntegrationConnection,
@@ -404,6 +406,14 @@ export function createPostgresFoundationStore(
       return integrationConnection ?? null
     },
 
+    async getCurrentWorkspaceSelection(userId) {
+      const selection = await db.query.currentWorkspaceSelections.findFirst({
+        where: eq(currentWorkspaceSelections.userId, userId),
+      })
+
+      return selection ?? null
+    },
+
     async getReleaseRecordSnapshot(releaseRecordId) {
       return buildReleaseRecordSnapshot(releaseRecordId)
     },
@@ -499,6 +509,27 @@ export function createPostgresFoundationStore(
       )
 
       return snapshots.filter((snapshot): snapshot is ReleaseRecordSnapshot => snapshot !== null)
+    },
+
+    async setCurrentWorkspaceSelection(input) {
+      const [selection] = await db
+        .insert(currentWorkspaceSelections)
+        .values({
+          createdAt: nowIso(),
+          updatedAt: nowIso(),
+          userId: input.userId,
+          workspaceId: input.workspaceId,
+        })
+        .onConflictDoUpdate({
+          set: {
+            updatedAt: nowIso(),
+            workspaceId: input.workspaceId,
+          },
+          target: currentWorkspaceSelections.userId,
+        })
+        .returning()
+
+      return selection satisfies CurrentWorkspaceSelection
     },
 
     async updateSyncRun(input) {

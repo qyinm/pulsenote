@@ -7,7 +7,12 @@ import {
   type Workspace,
   type WorkspaceMembership,
 } from "../domain/models.js"
-import type { FoundationStore, ReleaseRecordSnapshot, WorkspaceSnapshot } from "./store.js"
+import type {
+  FoundationStore,
+  ReleaseRecordSnapshot,
+  WorkspaceChoice,
+  WorkspaceSnapshot,
+} from "./store.js"
 
 type BootstrapWorkspaceInput = {
   user: {
@@ -51,6 +56,11 @@ type CreateSyncRunInput = {
 }
 
 type WorkspaceAccessInput = {
+  userId: string
+  workspaceId: string
+}
+
+type SelectCurrentWorkspaceInput = {
   userId: string
   workspaceId: string
 }
@@ -219,12 +229,67 @@ export function createFoundationService(store: FoundationStore) {
       }
 
       if (memberships.length > 1) {
-        throw new CurrentWorkspaceSelectionRequiredError()
+        const selection = await store.getCurrentWorkspaceSelection(userId)
+
+        if (!selection) {
+          throw new CurrentWorkspaceSelectionRequiredError()
+        }
+
+        const currentMembership = memberships.find(
+          (membership) => membership.workspaceId === selection.workspaceId,
+        )
+
+        if (!currentMembership) {
+          throw new CurrentWorkspaceSelectionRequiredError()
+        }
+
+        return this.getWorkspaceSnapshot(currentMembership.workspaceId)
       }
 
       const currentMembership = memberships[0]
 
       return this.getWorkspaceSnapshot(currentMembership.workspaceId)
+    },
+
+    async listWorkspaceChoicesForUser(userId: string): Promise<WorkspaceChoice[]> {
+      requireNonEmpty(userId, "userId")
+
+      const memberships = await store.listWorkspaceMembershipsForUser(userId)
+
+      const choices = await Promise.all(
+        memberships.map(async (membership) => {
+          const workspace = await store.getWorkspace(membership.workspaceId)
+
+          if (!workspace) {
+            return null
+          }
+
+          return {
+            membership,
+            workspace,
+          } satisfies WorkspaceChoice
+        }),
+      )
+
+      return choices.filter((choice): choice is WorkspaceChoice => choice !== null)
+    },
+
+    async selectCurrentWorkspaceForUser(input: SelectCurrentWorkspaceInput): Promise<WorkspaceSnapshot> {
+      requireNonEmpty(input.userId, "userId")
+      requireNonEmpty(input.workspaceId, "workspaceId")
+
+      const membership = await store.findWorkspaceMembership(input.workspaceId, input.userId)
+
+      if (!membership) {
+        throw new Error("Workspace access is not allowed")
+      }
+
+      await store.setCurrentWorkspaceSelection({
+        userId: input.userId,
+        workspaceId: input.workspaceId,
+      })
+
+      return this.getWorkspaceSnapshot(input.workspaceId)
     },
 
     async getReleaseRecordSnapshot(

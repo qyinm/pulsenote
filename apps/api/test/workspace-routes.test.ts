@@ -365,3 +365,71 @@ test("workspace routes return 409 when the authenticated user belongs to multipl
     status: 409,
   })
 })
+
+test("workspace routes list workspace choices and persist the current workspace selection", async () => {
+  const store = createInMemoryFoundationStore()
+  const foundationService = createFoundationService(store)
+  const bootstrapApp = createApp(runtimeEnv, {
+    authService: createAuthService(null),
+    foundationService,
+  })
+
+  const bootstrapResponse = await bootstrapApp.request("/v1/workspaces/bootstrap", {
+    body: JSON.stringify({
+      user: {
+        email: "workspace-choice@pulsenote.dev",
+        fullName: "Workspace Choice User",
+      },
+      workspace: {
+        name: "Primary workspace",
+        slug: "primary-workspace",
+      },
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "POST",
+  })
+
+  const bootstrapBody = await bootstrapResponse.json()
+  const secondWorkspace = await store.createWorkspace({
+    name: "Second workspace",
+    slug: "second-workspace",
+  })
+
+  await store.createWorkspaceMembership({
+    role: "member",
+    userId: bootstrapBody.memberships[0].userId,
+    workspaceId: secondWorkspace.id,
+  })
+
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(bootstrapBody.memberships[0].userId)),
+    foundationService,
+  })
+
+  const choicesResponse = await app.request("/v1/workspaces/choices")
+  assert.equal(choicesResponse.status, 200)
+
+  const choicesBody = await choicesResponse.json()
+  assert.equal(choicesBody.length, 2)
+  assert.equal(choicesBody[1]?.workspace.id, secondWorkspace.id)
+
+  const selectionResponse = await app.request("/v1/workspaces/current", {
+    body: JSON.stringify({
+      workspaceId: secondWorkspace.id,
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "PUT",
+  })
+
+  assert.equal(selectionResponse.status, 200)
+
+  const currentWorkspaceResponse = await app.request("/v1/workspaces/current")
+  assert.equal(currentWorkspaceResponse.status, 200)
+
+  const currentWorkspaceBody = await currentWorkspaceResponse.json()
+  assert.equal(currentWorkspaceBody.workspace.id, secondWorkspace.id)
+})

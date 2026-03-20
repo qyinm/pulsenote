@@ -53,6 +53,12 @@ export function DashboardAccessState({ state }: DashboardAccessStateProps) {
           Create workspace
         </Link>
       </div>
+    ) : state === "workspace-selection-required" ? (
+      <div className="flex flex-wrap items-center gap-2">
+        <Link href="/select-workspace" className={buttonVariants({ size: "sm" })}>
+          Choose workspace
+        </Link>
+      </div>
     ) : undefined
 
   return (

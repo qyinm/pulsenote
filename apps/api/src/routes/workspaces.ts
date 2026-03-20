@@ -113,6 +113,23 @@ export function createWorkspacesRoute(
     return context.json(snapshot, 201)
   })
 
+  route.get("/choices", async (context) => {
+    const user = context.get("authUser")
+
+    if (!user) {
+      return context.json(
+        {
+          message: "Authentication is required",
+          status: 401,
+        },
+        401,
+      )
+    }
+
+    const choices = await foundationService.listWorkspaceChoicesForUser(user.id)
+    return context.json(choices)
+  })
+
   route.get("/current", async (context) => {
     const user = context.get("authUser")
 
@@ -145,6 +162,40 @@ export function createWorkspacesRoute(
           ? error.message
           : "Current workspace was not found"
       return context.json(notFound(message), 404)
+    }
+  })
+
+  route.put("/current", async (context) => {
+    const user = context.get("authUser")
+
+    if (!user) {
+      return context.json(
+        {
+          message: "Authentication is required",
+          status: 401,
+        },
+        401,
+      )
+    }
+
+    const body = await context.req.json().catch(() => null)
+    const payload = asRecord(body)
+    const workspaceId = asString(payload?.workspaceId)
+
+    if (!workspaceId) {
+      return context.json(badRequest("workspaceId is required"), 400)
+    }
+
+    try {
+      const snapshot = await foundationService.selectCurrentWorkspaceForUser({
+        userId: user.id,
+        workspaceId,
+      })
+      return context.json(snapshot)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Workspace access is not allowed"
+      const status = message === "Workspace access is not allowed" ? 403 : 400
+      return context.json({ message, status }, status)
     }
   })
 
