@@ -18,6 +18,9 @@ export function createPulseNoteAuthClient(
 ) {
   return createAuthClientImplementation({
     baseURL: getAuthClientBaseUrl(env),
+    fetchOptions: {
+      credentials: "include",
+    },
   })
 }
 

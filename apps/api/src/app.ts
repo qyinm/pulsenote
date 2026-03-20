@@ -1,4 +1,4 @@
-import { Hono } from "hono"
+import { Hono, type Context } from "hono"
 
 import { createAuthServiceForRuntime } from "./auth/service.js"
 import { createGitHubClient, type GitHubClient } from "./github/client.js"
@@ -37,7 +37,31 @@ export function createApp(runtimeEnv: AppRuntimeEnv = getRuntimeEnv(), options: 
       store: foundationStore,
     })
 
+  const applyAuthCorsHeaders = (context: Context<AppBindings>) => {
+    const origin = context.req.header("origin")
+
+    if (!origin || !runtimeEnv.trustedOrigins.includes(origin)) {
+      return false
+    }
+
+    context.header("Access-Control-Allow-Credentials", "true")
+    context.header("Access-Control-Allow-Headers", "Content-Type")
+    context.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+    context.header("Access-Control-Allow-Origin", origin)
+    context.header("Vary", "Origin")
+    return true
+  }
+
   app.use("*", requestContext(runtimeEnv))
+  app.use("/api/auth/*", async (context, next) => {
+    applyAuthCorsHeaders(context)
+
+    if (context.req.method === "OPTIONS") {
+      return context.body(null, 204)
+    }
+
+    await next()
+  })
   app.use("*", async (context, next) => {
     let session = null
 

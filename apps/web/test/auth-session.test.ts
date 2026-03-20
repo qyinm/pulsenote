@@ -20,6 +20,9 @@ test("createPulseNoteAuthClient points Better Auth at the API origin", () => {
 
   assert.deepEqual(receivedOptions, {
     baseURL: "https://api.pulsenote.dev",
+    fetchOptions: {
+      credentials: "include",
+    },
   })
   assert.deepEqual(client, { kind: "auth-client" })
 })

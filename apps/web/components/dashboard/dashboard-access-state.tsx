@@ -1,4 +1,8 @@
+import Link from "next/link"
+
 import { DashboardPage, SurfaceCard } from "@/components/dashboard/surfaces"
+import { buttonVariants } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 type DashboardAccessStateProps = {
   state: "signed-out" | "no-workspace" | "workspace-selection-required"
@@ -30,10 +34,24 @@ const accessCopy = {
 
 export function DashboardAccessState({ state }: DashboardAccessStateProps) {
   const copy = accessCopy[state]
+  const action =
+    state === "signed-out" ? (
+      <div className="flex flex-wrap items-center gap-2">
+        <Link href="/auth/sign-in" className={buttonVariants({ size: "sm" })}>
+          Sign in
+        </Link>
+        <Link
+          href="/auth/sign-up"
+          className={cn(buttonVariants({ size: "sm", variant: "outline" }))}
+        >
+          Create account
+        </Link>
+      </div>
+    ) : undefined
 
   return (
     <DashboardPage>
-      <SurfaceCard title={copy.title} description={copy.description}>
+      <SurfaceCard title={copy.title} description={copy.description} action={action}>
         <p className="text-sm text-muted-foreground">{copy.detail}</p>
       </SurfaceCard>
     </DashboardPage>
