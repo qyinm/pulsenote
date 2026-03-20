@@ -170,6 +170,12 @@ async function persistMergedPullReleaseRecord(
   pullRequests: GitHubPullRequestSummary[],
   scope: string,
 ) {
+  for (const pullRequest of pullRequests) {
+    if (!pullRequest.mergedAt) {
+      throw new Error(`Pull request #${pullRequest.number} is not merged`)
+    }
+  }
+
   const releaseRecord = await store.createReleaseRecord({
     compareRange: null,
     connectionId: input.connectionId,
@@ -184,13 +190,11 @@ async function persistMergedPullReleaseRecord(
   const persistedClaimCandidates = []
 
   for (const pullRequest of pullRequests) {
-    if (!pullRequest.mergedAt) {
-      throw new Error(`Pull request #${pullRequest.number} is not merged`)
-    }
+    const mergedAt = pullRequest.mergedAt!
 
     const evidenceBlock = await store.createEvidenceBlock({
       body: buildPullRequestEvidenceBody(pullRequest),
-      capturedAt: pullRequest.mergedAt,
+      capturedAt: mergedAt,
       evidenceState: "fresh",
       provider: "github",
       releaseRecordId: releaseRecord.id,

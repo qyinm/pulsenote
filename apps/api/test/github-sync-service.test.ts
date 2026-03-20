@@ -302,6 +302,61 @@ test("syncMergedPullRequests marks the sync run as failed when GitHub pull fetch
   assert.equal(releaseSnapshots.length, 0)
 })
 
+test("syncMergedPullRequests rejects unmerged pulls before persisting release records", async () => {
+  const { connection, store, workspace } = await createWorkspaceContext()
+  const service = createGitHubSyncService({
+    githubClient: {
+      async compareCommits() {
+        throw new Error("compare should not be called")
+      },
+      async getPullRequests() {
+        return [
+          {
+            baseRefName: "main",
+            body: "Not merged yet.",
+            htmlUrl: "https://github.com/qyinm/pulsenote/pull/105",
+            mergedAt: null,
+            number: 105,
+            title: "Unmerged pull request",
+          },
+        ]
+      },
+      async getRelease() {
+        throw new Error("release sync should not be called")
+      },
+    },
+    runtimeEnv,
+    store,
+  })
+
+  await assert.rejects(
+    () =>
+      service.syncMergedPullRequests({
+        auth: {
+          strategy: "personal_access_token",
+          token: "ghp_test_token",
+        },
+        connectionId: connection.id,
+        pullNumbers: [105],
+        repository: {
+          owner: "qyinm",
+          provider: "github",
+          repo: "pulsenote",
+        },
+        workspaceId: workspace.id,
+      }),
+    /Pull request #105 is not merged/,
+  )
+
+  const snapshot = await store.getWorkspaceSnapshot(workspace.id)
+  assert.equal(snapshot?.syncRuns.length, 1)
+  assert.equal(snapshot?.syncRuns[0]?.status, "failed")
+  assert.equal(snapshot?.syncRuns[0]?.errorMessage, "Pull request #105 is not merged")
+
+  const releaseSnapshots = await store.listReleaseRecordSnapshots(workspace.id)
+  assert.equal(releaseSnapshots.length, 0)
+})
+
 test("syncRelease marks the sync run as succeeded and persists release intake data", async () => {
   const { connection, store, workspace } = await createWorkspaceContext()
   const service = createGitHubSyncService({
