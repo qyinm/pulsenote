@@ -13,7 +13,7 @@ const accessCopy = {
     description:
       "This account does not belong to a PulseNote workspace yet, so no release records can be reviewed.",
     detail:
-      "Add this user to a workspace membership before using release context, claim check, approval, or publish pack.",
+      "Create the first workspace for this user before using release context, claim check, approval, or publish pack.",
     title: "No workspace membership found",
   },
   "signed-out": {
@@ -45,6 +45,12 @@ export function DashboardAccessState({ state }: DashboardAccessStateProps) {
           className={cn(buttonVariants({ size: "sm", variant: "outline" }))}
         >
           Create account
+        </Link>
+      </div>
+    ) : state === "no-workspace" ? (
+      <div className="flex flex-wrap items-center gap-2">
+        <Link href="/onboarding" className={buttonVariants({ size: "sm" })}>
+          Create workspace
         </Link>
       </div>
     ) : undefined

@@ -20,6 +20,18 @@ type BootstrapWorkspaceInput = {
   }
 }
 
+type BootstrapCurrentUserWorkspaceInput = {
+  user: {
+    email: string
+    fullName: string | null
+    id: string
+  }
+  workspace: {
+    name: string
+    slug: string
+  }
+}
+
 type BootstrapWorkspaceResult = {
   membership: WorkspaceMembership
   user: User
@@ -88,6 +100,36 @@ export function createFoundationService(store: FoundationStore) {
           slug: input.workspace.slug.trim(),
         },
       })
+    },
+
+    async bootstrapCurrentUserWorkspace(
+      input: BootstrapCurrentUserWorkspaceInput,
+    ): Promise<BootstrapWorkspaceResult> {
+      requireNonEmpty(input.user.id, "user.id")
+      requireNonEmpty(input.user.email, "user.email")
+      requireNonEmpty(input.workspace.name, "workspace.name")
+      requireNonEmpty(input.workspace.slug, "workspace.slug")
+
+      const user = await store.syncAuthenticatedUser({
+        email: input.user.email.trim().toLowerCase(),
+        fullName: input.user.fullName,
+        id: input.user.id.trim(),
+      })
+      const workspace = await store.createWorkspace({
+        name: input.workspace.name.trim(),
+        slug: input.workspace.slug.trim(),
+      })
+      const membership = await store.createWorkspaceMembership({
+        role: "owner",
+        userId: user.id,
+        workspaceId: workspace.id,
+      })
+
+      return {
+        membership,
+        user,
+        workspace,
+      }
     },
 
     async createIntegrationConnection(input: CreateIntegrationConnectionInput): Promise<IntegrationConnection> {

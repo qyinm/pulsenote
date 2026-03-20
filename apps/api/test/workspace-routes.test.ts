@@ -266,6 +266,39 @@ test("workspace routes reject anonymous current workspace lookups", async () => 
   })
 })
 
+test("workspace routes bootstrap a workspace for the authenticated current user", async () => {
+  const foundationService = createFoundationService(createInMemoryFoundationStore())
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession("auth_user_1")),
+    foundationService,
+  })
+
+  const response = await app.request("/v1/workspaces/bootstrap-current-user", {
+    body: JSON.stringify({
+      workspace: {
+        name: "Auth workspace",
+        slug: "auth-workspace",
+      },
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "POST",
+  })
+
+  assert.equal(response.status, 201)
+
+  const body = await response.json()
+  assert.equal(body.workspace.slug, "auth-workspace")
+  assert.equal(body.memberships[0]?.userId, "auth_user_1")
+
+  const currentWorkspaceResponse = await app.request("/v1/workspaces/current")
+  assert.equal(currentWorkspaceResponse.status, 200)
+
+  const currentWorkspaceBody = await currentWorkspaceResponse.json()
+  assert.equal(currentWorkspaceBody.workspace.id, body.workspace.id)
+})
+
 test("workspace routes return 404 when the authenticated user has no current workspace", async () => {
   const foundationService = createFoundationService(createInMemoryFoundationStore())
   const app = createApp(runtimeEnv, {

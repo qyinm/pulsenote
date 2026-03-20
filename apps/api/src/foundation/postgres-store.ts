@@ -355,6 +355,29 @@ export function createPostgresFoundationStore(
       return workspaceMembership satisfies WorkspaceMembership
     },
 
+    async syncAuthenticatedUser(input) {
+      const [user] = await db
+        .insert(users)
+        .values({
+          createdAt: nowIso(),
+          email: input.email,
+          fullName: input.fullName,
+          id: input.id,
+          updatedAt: nowIso(),
+        })
+        .onConflictDoUpdate({
+          set: {
+            email: input.email,
+            fullName: input.fullName,
+            updatedAt: nowIso(),
+          },
+          target: users.id,
+        })
+        .returning()
+
+      return user satisfies User
+    },
+
     async findWorkspaceMembership(workspaceId, userId) {
       const workspaceMembership = await db.query.workspaceMemberships.findFirst({
         where: and(
@@ -391,6 +414,14 @@ export function createPostgresFoundationStore(
       })
 
       return syncRun ?? null
+    },
+
+    async getUser(userId) {
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, userId),
+      })
+
+      return user ?? null
     },
 
     async getWorkspace(workspaceId) {

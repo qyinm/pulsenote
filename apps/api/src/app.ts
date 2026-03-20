@@ -53,7 +53,10 @@ export function createApp(runtimeEnv: AppRuntimeEnv = getRuntimeEnv(), options: 
   }
 
   app.use("*", requestContext(runtimeEnv))
-  app.use("/api/auth/*", async (context, next) => {
+  const trustedOriginCorsMiddleware = async (
+    context: Context<AppBindings>,
+    next: () => Promise<void>,
+  ) => {
     applyAuthCorsHeaders(context)
 
     if (context.req.method === "OPTIONS") {
@@ -61,7 +64,9 @@ export function createApp(runtimeEnv: AppRuntimeEnv = getRuntimeEnv(), options: 
     }
 
     await next()
-  })
+  }
+  app.use("/api/auth/*", trustedOriginCorsMiddleware)
+  app.use("/v1/*", trustedOriginCorsMiddleware)
   app.use("*", async (context, next) => {
     let session = null
 

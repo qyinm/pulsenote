@@ -74,6 +74,45 @@ export function createWorkspacesRoute(
     return context.json(snapshot, 201)
   })
 
+  route.post("/bootstrap-current-user", async (context) => {
+    const authUser = context.get("authUser")
+
+    if (!authUser) {
+      return context.json(
+        {
+          message: "Authentication is required",
+          status: 401,
+        },
+        401,
+      )
+    }
+
+    const body = await context.req.json().catch(() => null)
+    const payload = asRecord(body)
+    const workspace = asRecord(payload?.workspace)
+    const workspaceName = asString(workspace?.name)
+    const workspaceSlug = asString(workspace?.slug)
+
+    if (!workspaceName || !workspaceSlug) {
+      return context.json(badRequest("workspace.name and workspace.slug are required"), 400)
+    }
+
+    const bootstrap = await foundationService.bootstrapCurrentUserWorkspace({
+      user: {
+        email: authUser.email,
+        fullName: authUser.name,
+        id: authUser.id,
+      },
+      workspace: {
+        name: workspaceName,
+        slug: workspaceSlug,
+      },
+    })
+    const snapshot = await foundationService.getWorkspaceSnapshot(bootstrap.workspace.id)
+
+    return context.json(snapshot, 201)
+  })
+
   route.get("/current", async (context) => {
     const user = context.get("authUser")
 

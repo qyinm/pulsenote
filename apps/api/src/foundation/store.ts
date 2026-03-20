@@ -14,6 +14,7 @@ import {
 } from "../domain/models.js"
 
 type CreateUserInput = Pick<User, "email" | "fullName">
+type SyncAuthenticatedUserInput = Pick<User, "email" | "fullName" | "id">
 type CreateWorkspaceInput = Pick<Workspace, "name" | "slug">
 type CreateWorkspaceMembershipInput = Pick<WorkspaceMembership, "role" | "userId" | "workspaceId">
 type BootstrapWorkspaceInput = {
@@ -92,11 +93,13 @@ export type FoundationStore = {
   getIntegrationConnection(connectionId: string): Promise<IntegrationConnection | null>
   getReleaseRecordSnapshot(releaseRecordId: string): Promise<ReleaseRecordSnapshot | null>
   getSyncRun(syncRunId: string): Promise<SyncRun | null>
+  getUser(userId: string): Promise<User | null>
   getWorkspace(workspaceId: string): Promise<Workspace | null>
   getWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnapshot | null>
   linkClaimCandidateEvidenceBlock(input: LinkClaimCandidateEvidenceBlockInput): Promise<void>
   listWorkspaceMembershipsForUser(userId: string): Promise<WorkspaceMembership[]>
   listReleaseRecordSnapshots(workspaceId: string): Promise<ReleaseRecordSnapshot[]>
+  syncAuthenticatedUser(input: SyncAuthenticatedUserInput): Promise<User>
   updateSyncRun(input: UpdateSyncRunInput): Promise<SyncRun>
 }
 
@@ -390,6 +393,20 @@ export function createInMemoryFoundationStore(): FoundationStore {
       return workspaceMembership
     },
 
+    async syncAuthenticatedUser(input) {
+      const existingUser = state.users.get(input.id)
+      const user: User = {
+        createdAt: existingUser?.createdAt ?? nowIso(),
+        email: input.email,
+        fullName: input.fullName,
+        id: input.id,
+        updatedAt: nowIso(),
+      }
+
+      state.users.set(user.id, user)
+      return user
+    },
+
     async findWorkspaceMembership(workspaceId, userId) {
       return (
         Array.from(state.workspaceMemberships.values()).find(
@@ -408,6 +425,10 @@ export function createInMemoryFoundationStore(): FoundationStore {
 
     async getSyncRun(syncRunId) {
       return state.syncRuns.get(syncRunId) ?? null
+    },
+
+    async getUser(userId) {
+      return state.users.get(userId) ?? null
     },
 
     async getWorkspace(workspaceId) {

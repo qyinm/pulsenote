@@ -236,6 +236,21 @@ export function createApiClient(options: CreateApiClientOptions = {}) {
   }
 
   return {
+    bootstrapCurrentUserWorkspace(
+      payload: {
+        workspace: {
+          name: string
+          slug: string
+        }
+      },
+      init?: RequestInit,
+    ) {
+      return request("/v1/workspaces/bootstrap-current-user", workspaceSnapshotSchema, {
+        ...init,
+        body: JSON.stringify(payload),
+        method: "POST",
+      })
+    },
     getCurrentWorkspace(init?: RequestInit) {
       return request("/v1/workspaces/current", workspaceSnapshotSchema, init)
     },
