@@ -187,3 +187,100 @@ test("release workflow service supports the founder happy path end to end", asyn
   assert.equal(exported.latestPublishPackSummary.draftRevisionId, draft.currentDraft!.id)
   assert.deepEqual(exported.allowedActions, ["reopen_draft"])
 })
+
+test("release workflow service treats approved events as newer than approval requests when timestamps tie", async () => {
+  const fixedCreatedAt = "2026-03-21T00:00:00.000Z"
+  const fixture = await seedReleaseWorkflowFixture({
+    async composeDraft() {
+      return {
+        changelogBody: "- Adds founder release workflow and approval checkpoints",
+        releaseNotesBody: "- Adds founder release workflow and approval checkpoints",
+      }
+    },
+    async runClaimCheck(releaseSnapshot, draftRevision) {
+      return [
+        {
+          evidenceBlockIds: releaseSnapshot.claimCandidates[0]?.evidenceBlockIds ?? [],
+          note: null,
+          sentence: draftRevision.releaseNotesBody.replace(/^- /, ""),
+          status: "approved" as const,
+        },
+      ]
+    },
+  })
+  const tiedTimestampStore = {
+    ...fixture.workflowStore,
+    async transaction<T>(callback: (store: typeof fixture.workflowStore) => Promise<T>) {
+      return fixture.workflowStore.transaction((transactionStore) =>
+        callback({
+          ...transactionStore,
+          async createWorkflowEvent(input) {
+            const workflowEvent = await transactionStore.createWorkflowEvent(input)
+            workflowEvent.createdAt = fixedCreatedAt
+            return workflowEvent
+          },
+        }),
+      )
+    },
+  }
+  const tiedTimestampService = createReleaseWorkflowService(tiedTimestampStore, {
+    async composeDraft() {
+      return {
+        changelogBody: "- Adds founder release workflow and approval checkpoints",
+        releaseNotesBody: "- Adds founder release workflow and approval checkpoints",
+      }
+    },
+    async runClaimCheck(releaseSnapshot, draftRevision) {
+      return [
+        {
+          evidenceBlockIds: releaseSnapshot.claimCandidates[0]?.evidenceBlockIds ?? [],
+          note: null,
+          sentence: draftRevision.releaseNotesBody.replace(/^- /, ""),
+          status: "approved" as const,
+        },
+      ]
+    },
+  })
+
+  const draft = await tiedTimestampService.createDraft({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedLatestDraftRevisionId: null,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  await tiedTimestampService.runClaimCheck({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  await tiedTimestampService.requestApproval({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  await tiedTimestampService.approveDraft({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  const detail = await tiedTimestampService.getReleaseWorkflowDetail(
+    fixture.bootstrap.workspace.id,
+    fixture.releaseRecord.id,
+  )
+  const exported = await tiedTimestampService.createPublishPack({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  assert.equal(detail.approvalSummary.state, "approved")
+  assert.equal(exported.latestPublishPackSummary.state, "exported")
+})

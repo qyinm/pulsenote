@@ -242,13 +242,29 @@ function getLatestApprovalEventForDraft(workflowEvents: WorkflowEvent[], draftRe
   }
 
   const approvalEventTypes = new Set(["approval_requested", "draft_approved", "draft_reopened"])
+  const approvalEventPriority: Record<
+    Extract<WorkflowEvent["type"], "approval_requested" | "draft_approved" | "draft_reopened">,
+    number
+  > = {
+    approval_requested: 1,
+    draft_approved: 2,
+    draft_reopened: 3,
+  }
 
   return [...workflowEvents]
     .filter(
       (workflowEvent) =>
         workflowEvent.draftRevisionId === draftRevisionId && approvalEventTypes.has(workflowEvent.type),
     )
-    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0] ?? null
+    .sort((left, right) => {
+      const createdAtComparison = right.createdAt.localeCompare(left.createdAt)
+
+      if (createdAtComparison !== 0) {
+        return createdAtComparison
+      }
+
+      return approvalEventPriority[right.type] - approvalEventPriority[left.type]
+    })[0] ?? null
 }
 
 function buildClaimCheckSummary(
