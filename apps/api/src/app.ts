@@ -1,14 +1,20 @@
 import { Hono, type Context } from "hono"
 
 import { createAuthServiceForRuntime } from "./auth/service.js"
+import { createDatabaseClient } from "./db/client.js"
 import { createGitHubClient, type GitHubClient } from "./github/client.js"
 import { createGitHubSyncService } from "./github/service.js"
 import { createFoundationService, type FoundationService } from "./foundation/service.js"
-import { createFoundationStoreForRuntime } from "./foundation/resolve-store.js"
+import { createInMemoryFoundationStore } from "./foundation/store.js"
+import { createPostgresFoundationStore } from "./foundation/postgres-store.js"
 import { getRuntimeEnv } from "./lib/env.js"
 import { requestContext } from "./middleware/request-context.js"
+import { createInMemoryReleaseWorkflowStore } from "./release-workflow/in-memory-store.js"
+import { createPostgresReleaseWorkflowStore } from "./release-workflow/postgres-store.js"
+import { createReleaseWorkflowService, type ReleaseWorkflowService } from "./release-workflow/service.js"
 import { foundationRoute } from "./routes/foundation.js"
 import { healthRoute } from "./routes/health.js"
+import { createReleaseWorkflowRoute } from "./routes/release-workflow.js"
 import { sessionRoute } from "./routes/session.js"
 import { createWorkspacesRoute } from "./routes/workspaces.js"
 import type { AppBindings, AppRuntimeEnv } from "./types.js"
@@ -18,6 +24,7 @@ type CreateAppOptions = {
   foundationService?: FoundationService
   githubClient?: GitHubClient
   githubSyncService?: ReturnType<typeof createGitHubSyncService>
+  releaseWorkflowService?: ReleaseWorkflowService
 }
 
 export function createApp(runtimeEnv: AppRuntimeEnv = getRuntimeEnv(), options: CreateAppOptions = {}) {
@@ -27,8 +34,34 @@ export function createApp(runtimeEnv: AppRuntimeEnv = getRuntimeEnv(), options: 
 
   const app = new Hono<AppBindings>()
   const authService = options.authService ?? createAuthServiceForRuntime(runtimeEnv)
-  const foundationStore = options.foundationService?.store ?? createFoundationStoreForRuntime(runtimeEnv)
+  let foundationStore = options.foundationService?.store
+  let releaseWorkflowStore = options.releaseWorkflowService?.store
+
+  if (!foundationStore) {
+    if (!runtimeEnv.databaseUrl) {
+      foundationStore = createInMemoryFoundationStore()
+    } else {
+      const { db } = createDatabaseClient(runtimeEnv.databaseUrl)
+      foundationStore = createPostgresFoundationStore(db)
+
+      if (!releaseWorkflowStore) {
+        releaseWorkflowStore = createPostgresReleaseWorkflowStore(db)
+      }
+    }
+  }
+
+  if (!releaseWorkflowStore) {
+    if (!runtimeEnv.databaseUrl) {
+      releaseWorkflowStore = createInMemoryReleaseWorkflowStore(foundationStore)
+    } else {
+      const { db } = createDatabaseClient(runtimeEnv.databaseUrl)
+      releaseWorkflowStore = createPostgresReleaseWorkflowStore(db)
+    }
+  }
+
   const foundationService = options.foundationService ?? createFoundationService(foundationStore)
+  const releaseWorkflowService =
+    options.releaseWorkflowService ?? createReleaseWorkflowService(releaseWorkflowStore)
   const githubSyncService =
     options.githubSyncService ??
     createGitHubSyncService({
@@ -152,7 +185,10 @@ export function createApp(runtimeEnv: AppRuntimeEnv = getRuntimeEnv(), options: 
   app.route("/health", healthRoute)
   app.route("/v1/foundation", foundationRoute)
   app.route("/v1/session", sessionRoute)
-  app.route("/v1/workspaces", createWorkspacesRoute(foundationService, githubSyncService))
+  app.route(
+    "/v1/workspaces",
+    createWorkspacesRoute(foundationService, githubSyncService, releaseWorkflowService),
+  )
 
   app.onError((error, context) => {
     const requestId = context.get("requestId")

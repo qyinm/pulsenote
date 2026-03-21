@@ -6,6 +6,7 @@ import {
   integrationProviders,
   reviewStates,
   reviewStages,
+  workflowEventTypes,
   syncRunStatuses,
   workspaceMembershipRoles,
 } from "../domain/models.js"
@@ -13,6 +14,7 @@ import {
 import {
   foreignKey,
   boolean,
+  integer,
   pgEnum,
   pgTable,
   primaryKey,
@@ -38,6 +40,7 @@ export const evidenceStateEnum = pgEnum("evidence_state", evidenceStates)
 export const claimStatusEnum = pgEnum("claim_status", claimStatuses)
 export const evidenceSourceTypeEnum = pgEnum("evidence_source_type", evidenceSourceTypes)
 export const reviewStateEnum = pgEnum("review_state", reviewStates)
+export const workflowEventTypeEnum = pgEnum("workflow_event_type", workflowEventTypes)
 
 export const users = pgTable("users", {
   createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
@@ -304,3 +307,74 @@ export const reviewStatuses = pgTable(
     unique("review_statuses_release_record_id_stage_unique").on(table.releaseRecordId, table.stage),
   ],
 )
+
+export const draftRevisions = pgTable(
+  "draft_revisions",
+  {
+    changelogBody: text("changelog_body").notNull(),
+    createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
+    createdByUserId: uuid("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    id: uuid("id").defaultRandom().primaryKey(),
+    releaseNotesBody: text("release_notes_body").notNull(),
+    releaseRecordId: uuid("release_record_id")
+      .notNull()
+      .references(() => releaseRecords.id, { onDelete: "cascade" }),
+    version: integer("version").notNull(),
+  },
+  (table) => [unique("draft_revisions_release_record_id_version_unique").on(table.releaseRecordId, table.version)],
+)
+
+export const draftClaimCheckResults = pgTable("draft_claim_check_results", {
+  createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
+  draftRevisionId: uuid("draft_revision_id")
+    .notNull()
+    .references(() => draftRevisions.id, { onDelete: "cascade" }),
+  id: uuid("id").defaultRandom().primaryKey(),
+  note: text("note"),
+  releaseRecordId: uuid("release_record_id")
+    .notNull()
+    .references(() => releaseRecords.id, { onDelete: "cascade" }),
+  sentence: text("sentence").notNull(),
+  status: claimStatusEnum("status").notNull(),
+  updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
+})
+
+export const draftClaimCheckResultEvidenceBlocks = pgTable(
+  "draft_claim_check_result_evidence_blocks",
+  {
+    draftClaimCheckResultId: uuid("draft_claim_check_result_id")
+      .notNull()
+      .references(() => draftClaimCheckResults.id, { onDelete: "cascade" }),
+    evidenceBlockId: uuid("evidence_block_id")
+      .notNull()
+      .references(() => evidenceBlocks.id, { onDelete: "cascade" }),
+  },
+  (table) => [primaryKey({ columns: [table.draftClaimCheckResultId, table.evidenceBlockId] })],
+)
+
+export const workflowEvents = pgTable("workflow_events", {
+  actorUserId: uuid("actor_user_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
+  draftRevisionId: uuid("draft_revision_id").references(() => draftRevisions.id, { onDelete: "set null" }),
+  id: uuid("id").defaultRandom().primaryKey(),
+  note: text("note"),
+  releaseRecordId: uuid("release_record_id")
+    .notNull()
+    .references(() => releaseRecords.id, { onDelete: "cascade" }),
+  stage: reviewStageEnum("stage").notNull(),
+  type: workflowEventTypeEnum("type").notNull(),
+})
+
+export const publishPackExports = pgTable("publish_pack_exports", {
+  changelogBody: text("changelog_body").notNull(),
+  createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
+  createdByUserId: uuid("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  draftRevisionId: uuid("draft_revision_id")
+    .notNull()
+    .references(() => draftRevisions.id, { onDelete: "cascade" }),
+  id: uuid("id").defaultRandom().primaryKey(),
+  releaseNotesBody: text("release_notes_body").notNull(),
+  releaseRecordId: uuid("release_record_id")
+    .notNull()
+    .references(() => releaseRecords.id, { onDelete: "cascade" }),
+})

@@ -31,6 +31,16 @@ export type EvidenceSourceType = (typeof evidenceSourceTypes)[number]
 export const reviewStates = ["pending", "blocked", "approved"] as const
 export type ReviewState = (typeof reviewStates)[number]
 
+export const workflowEventTypes = [
+  "draft_created",
+  "claim_check_completed",
+  "approval_requested",
+  "draft_approved",
+  "draft_reopened",
+  "publish_pack_created",
+] as const
+export type WorkflowEventType = (typeof workflowEventTypes)[number]
+
 export type User = {
   id: string
   email: string
@@ -153,6 +163,49 @@ export type ReviewStatus = {
   updatedAt: string
 }
 
+export type DraftRevision = {
+  id: string
+  releaseRecordId: string
+  version: number
+  changelogBody: string
+  createdAt: string
+  createdByUserId: string | null
+  releaseNotesBody: string
+}
+
+export type DraftClaimCheckResult = {
+  createdAt: string
+  draftRevisionId: string
+  evidenceBlockIds: string[]
+  id: string
+  note: string | null
+  releaseRecordId: string
+  sentence: string
+  status: ClaimStatus
+  updatedAt: string
+}
+
+export type WorkflowEvent = {
+  actorUserId: string | null
+  createdAt: string
+  draftRevisionId: string | null
+  id: string
+  note: string | null
+  releaseRecordId: string
+  stage: ReviewStage
+  type: WorkflowEventType
+}
+
+export type PublishPackExport = {
+  changelogBody: string
+  createdAt: string
+  createdByUserId: string | null
+  draftRevisionId: string
+  id: string
+  releaseNotesBody: string
+  releaseRecordId: string
+}
+
 export const foundationModelNames = [
   "user",
   "workspace",
@@ -167,4 +220,8 @@ export const foundationModelNames = [
   "claim_candidate",
   "source_link",
   "review_status",
+  "draft_revision",
+  "draft_claim_check_result",
+  "workflow_event",
+  "publish_pack_export",
 ] as const

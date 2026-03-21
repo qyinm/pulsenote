@@ -431,6 +431,29 @@ export function createPostgresFoundationStore(
       return user satisfies User
     },
 
+    async transaction(callback) {
+      return db.transaction(async (tx) =>
+        callback(createPostgresFoundationStore(tx as DatabaseClient)),
+      )
+    },
+
+    async updateReleaseRecordStage(releaseRecordId, stage) {
+      const [releaseRecord] = await db
+        .update(releaseRecords)
+        .set({
+          stage,
+          updatedAt: nowIso(),
+        })
+        .where(eq(releaseRecords.id, releaseRecordId))
+        .returning()
+
+      if (!releaseRecord) {
+        throw new Error(`Release record ${releaseRecordId} was not found`)
+      }
+
+      return releaseRecord satisfies ReleaseRecord
+    },
+
     async findWorkspaceMembership(workspaceId, userId) {
       const workspaceMembership = await db.query.workspaceMemberships.findFirst({
         where: and(
@@ -463,6 +486,14 @@ export function createPostgresFoundationStore(
       })
 
       return selection ?? null
+    },
+
+    async getReleaseRecord(releaseRecordId) {
+      const releaseRecord = await db.query.releaseRecords.findFirst({
+        where: eq(releaseRecords.id, releaseRecordId),
+      })
+
+      return releaseRecord ?? null
     },
 
     async getReleaseRecordSnapshot(releaseRecordId) {
@@ -603,6 +634,32 @@ export function createPostgresFoundationStore(
         .returning()
 
       return syncRun satisfies SyncRun
+    },
+
+    async upsertReviewStatus(input) {
+      const [reviewStatus] = await db
+        .insert(reviewStatuses)
+        .values({
+          id: createId(),
+          note: input.note,
+          ownerUserId: input.ownerUserId,
+          releaseRecordId: input.releaseRecordId,
+          stage: input.stage,
+          state: input.state,
+          updatedAt: nowIso(),
+        })
+        .onConflictDoUpdate({
+          set: {
+            note: input.note,
+            ownerUserId: input.ownerUserId,
+            state: input.state,
+            updatedAt: nowIso(),
+          },
+          target: [reviewStatuses.releaseRecordId, reviewStatuses.stage],
+        })
+        .returning()
+
+      return reviewStatus satisfies ReviewStatus
     },
   }
 }

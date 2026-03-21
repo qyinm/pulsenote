@@ -1,0 +1,996 @@
+import type {
+  ClaimCandidate,
+  DraftClaimCheckResult,
+  DraftRevision,
+  ReviewStatus,
+  WorkflowEvent,
+} from "../domain/models.js"
+import type { ReleaseRecordSnapshot } from "../foundation/store.js"
+import type {
+  ApprovalSummary,
+  ClaimCheckSummary,
+  CreateDraftInput,
+  DraftScopedCommandInput,
+  PublishPackSummary,
+  ReleaseWorkflowBaseRecord,
+  ReleaseWorkflowDetail,
+  ReleaseWorkflowListItem,
+  WorkflowAllowedAction,
+  WorkflowReadiness,
+} from "./models.js"
+import type { ReleaseWorkflowStore } from "./store.js"
+
+type DraftComposerResult = {
+  changelogBody: string
+  releaseNotesBody: string
+}
+
+type ClaimCheckCandidate = {
+  evidenceBlockIds: string[]
+  note: string | null
+  sentence: string
+  status: DraftClaimCheckResult["status"]
+}
+
+type ReleaseWorkflowServiceDependencies = {
+  composeDraft?: (releaseSnapshot: ReleaseRecordSnapshot) => Promise<DraftComposerResult>
+  runClaimCheck?: (
+    releaseSnapshot: ReleaseRecordSnapshot,
+    draftRevision: DraftRevision,
+  ) => Promise<ClaimCheckCandidate[]>
+}
+
+export type ReleaseWorkflowService = ReturnType<typeof createReleaseWorkflowService>
+
+export class ReleaseWorkflowNotFoundError extends Error {
+  constructor(releaseRecordId: string, workspaceId: string) {
+    super(`Release record ${releaseRecordId} was not found in workspace ${workspaceId}`)
+    this.name = "ReleaseWorkflowNotFoundError"
+  }
+}
+
+export class DraftRevisionNotFoundError extends Error {
+  constructor(draftRevisionId: string) {
+    super(`Draft revision ${draftRevisionId} was not found`)
+    this.name = "DraftRevisionNotFoundError"
+  }
+}
+
+export class StaleDraftRevisionError extends Error {
+  constructor() {
+    super("The release workflow changed since this page loaded. Refresh and try again.")
+    this.name = "StaleDraftRevisionError"
+  }
+}
+
+export class InvalidStageTransitionError extends Error {
+  constructor(stage: string, action: string) {
+    super(`Cannot ${action} while the release is in ${stage}`)
+    this.name = "InvalidStageTransitionError"
+  }
+}
+
+export class ClaimCheckRequiredError extends Error {
+  constructor() {
+    super("Run claim check before requesting approval")
+    this.name = "ClaimCheckRequiredError"
+  }
+}
+
+export class ClaimCheckBlockedError extends Error {
+  constructor() {
+    super("Resolve flagged claim checks before requesting approval")
+    this.name = "ClaimCheckBlockedError"
+  }
+}
+
+export class ApprovalRequestRequiredError extends Error {
+  constructor() {
+    super("Approval must be requested before this draft can be approved")
+    this.name = "ApprovalRequestRequiredError"
+  }
+}
+
+export class ApprovedDraftRequiredError extends Error {
+  constructor() {
+    super("An approved draft is required before creating a publish pack")
+    this.name = "ApprovedDraftRequiredError"
+  }
+}
+
+function normalizeText(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, " ")
+}
+
+function isHeadingLine(value: string) {
+  const trimmed = value.trim()
+
+  return (
+    trimmed.length === 0 ||
+    trimmed.startsWith("#") ||
+    trimmed.endsWith(":") ||
+    trimmed === "What changed" ||
+    trimmed === "Included changes"
+  )
+}
+
+function splitDraftSentences(text: string) {
+  return text
+    .split(/\n+/)
+    .flatMap((line) => line.split(/[.!?]\s+/))
+    .map((line) => line.replace(/^[*-]\s*/, "").trim())
+    .filter((line) => line.length > 0)
+    .filter((line) => !isHeadingLine(line))
+}
+
+function getDraftSentences(draftRevision: DraftRevision) {
+  const sentences = [...splitDraftSentences(draftRevision.releaseNotesBody), ...splitDraftSentences(draftRevision.changelogBody)]
+  const seen = new Set<string>()
+
+  return sentences.filter((sentence) => {
+    const normalizedSentence = normalizeText(sentence)
+
+    if (normalizedSentence.length === 0 || seen.has(normalizedSentence)) {
+      return false
+    }
+
+    seen.add(normalizedSentence)
+    return true
+  })
+}
+
+function buildDraftLines(releaseSnapshot: ReleaseRecordSnapshot) {
+  const claimLines = releaseSnapshot.claimCandidates.map((claimCandidate: ClaimCandidate) =>
+    claimCandidate.sentence.trim(),
+  )
+  const evidenceLines = releaseSnapshot.evidenceBlocks.map((evidenceBlock) => evidenceBlock.title.trim())
+  const lines = [...claimLines, ...evidenceLines].filter((line) => line.length > 0)
+  const uniqueLines = Array.from(new Set(lines))
+
+  return uniqueLines.slice(0, 5)
+}
+
+async function composeDraftFromReleaseSnapshot(releaseSnapshot: ReleaseRecordSnapshot) {
+  const lines = buildDraftLines(releaseSnapshot)
+  const summary = releaseSnapshot.releaseRecord.summary ?? "Release context is ready for review."
+
+  return {
+    changelogBody: [
+      `## ${releaseSnapshot.releaseRecord.title}`,
+      summary,
+      "",
+      "### Included changes",
+      ...(lines.length > 0 ? lines.map((line) => `- ${line}`) : ["- Review linked evidence before publishing."]),
+    ].join("\n"),
+    releaseNotesBody: [
+      releaseSnapshot.releaseRecord.title,
+      "",
+      summary,
+      "",
+      "What changed",
+      ...(lines.length > 0 ? lines.map((line) => `- ${line}`) : ["- Review linked evidence before publishing."]),
+    ].join("\n"),
+  } satisfies DraftComposerResult
+}
+
+function buildClaimSupportIndex(releaseSnapshot: ReleaseRecordSnapshot) {
+  const supportIndex = new Map<string, string[]>()
+  const defaultEvidenceIds = releaseSnapshot.evidenceBlocks.map((evidenceBlock) => evidenceBlock.id)
+
+  for (const claimCandidate of releaseSnapshot.claimCandidates) {
+    supportIndex.set(normalizeText(claimCandidate.sentence), claimCandidate.evidenceBlockIds)
+  }
+
+  for (const evidenceBlock of releaseSnapshot.evidenceBlocks) {
+    supportIndex.set(normalizeText(evidenceBlock.title), [evidenceBlock.id])
+  }
+
+  if (releaseSnapshot.releaseRecord.summary) {
+    supportIndex.set(normalizeText(releaseSnapshot.releaseRecord.summary), defaultEvidenceIds)
+  }
+
+  supportIndex.set(normalizeText(releaseSnapshot.releaseRecord.title), defaultEvidenceIds)
+
+  return supportIndex
+}
+
+function shouldFlagSentence(sentence: string) {
+  return /\b(faster|instant|seamless|best|reliable|improved|fully|automatic|automatically|secure)\b/i.test(
+    sentence,
+  )
+}
+
+async function runClaimCheckAgainstReleaseSnapshot(
+  releaseSnapshot: ReleaseRecordSnapshot,
+  draftRevision: DraftRevision,
+) {
+  const supportIndex = buildClaimSupportIndex(releaseSnapshot)
+
+  return getDraftSentences(draftRevision).map((sentence) => {
+    const normalizedSentence = normalizeText(sentence)
+    const matchingEvidenceBlockIds = supportIndex.get(normalizedSentence) ?? []
+
+    if (matchingEvidenceBlockIds.length > 0) {
+      return {
+        evidenceBlockIds: matchingEvidenceBlockIds,
+        note: null,
+        sentence,
+        status: "approved",
+      } satisfies ClaimCheckCandidate
+    }
+
+    return {
+      evidenceBlockIds: [],
+      note: shouldFlagSentence(sentence)
+        ? "This sentence sounds customer-facing but could not be traced to release evidence."
+        : "Add evidence or rewrite this sentence before review.",
+      sentence,
+      status: "flagged",
+    } satisfies ClaimCheckCandidate
+  })
+}
+
+function getReviewStatusMap(reviewStatuses: ReviewStatus[]) {
+  return Object.fromEntries(reviewStatuses.map((reviewStatus) => [reviewStatus.stage, reviewStatus])) as Partial<
+    Record<ReviewStatus["stage"], ReviewStatus>
+  >
+}
+
+function getLatestApprovalEventForDraft(workflowEvents: WorkflowEvent[], draftRevisionId: string | null) {
+  if (!draftRevisionId) {
+    return null
+  }
+
+  const approvalEventTypes = new Set(["approval_requested", "draft_approved", "draft_reopened"])
+
+  return [...workflowEvents]
+    .filter(
+      (workflowEvent) =>
+        workflowEvent.draftRevisionId === draftRevisionId && approvalEventTypes.has(workflowEvent.type),
+    )
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0] ?? null
+}
+
+function buildClaimCheckSummary(
+  currentDraft: Pick<DraftRevision, "id"> | null,
+  claimCheckResults: DraftClaimCheckResult[],
+): ClaimCheckSummary {
+  const currentDraftResults =
+    currentDraft === null
+      ? []
+      : claimCheckResults.filter((claimCheckResult) => claimCheckResult.draftRevisionId === currentDraft.id)
+  const flaggedClaims = currentDraftResults.filter((claimCheckResult) => claimCheckResult.status === "flagged").length
+
+  if (!currentDraft || currentDraftResults.length === 0) {
+    return {
+      blockerNotes: [],
+      draftRevisionId: currentDraft?.id ?? null,
+      flaggedClaims: 0,
+      items: [],
+      state: "not_started",
+      totalClaims: 0,
+    }
+  }
+
+  return {
+    blockerNotes: currentDraftResults
+      .filter((claimCheckResult) => claimCheckResult.status === "flagged" && claimCheckResult.note)
+      .map((claimCheckResult) => claimCheckResult.note!)
+      .filter((note, index, collection) => collection.indexOf(note) === index),
+    draftRevisionId: currentDraft.id,
+    flaggedClaims,
+    items: currentDraftResults,
+    state: flaggedClaims > 0 ? "blocked" : "cleared",
+    totalClaims: currentDraftResults.length,
+  }
+}
+
+function buildApprovalSummary(
+  currentDraft: Pick<DraftRevision, "id"> | null,
+  reviewStatusesByStage: Partial<Record<ReviewStatus["stage"], ReviewStatus>>,
+  workflowEvents: WorkflowEvent[],
+): ApprovalSummary {
+  if (!currentDraft) {
+    return {
+      draftRevisionId: null,
+      note: null,
+      ownerUserId: null,
+      state: "not_requested",
+      updatedAt: null,
+    }
+  }
+
+  const latestApprovalEvent = getLatestApprovalEventForDraft(workflowEvents, currentDraft.id)
+  const approvalReviewStatus = reviewStatusesByStage.approval ?? null
+
+  if (!latestApprovalEvent) {
+    return {
+      draftRevisionId: currentDraft.id,
+      note: null,
+      ownerUserId: null,
+      state: "not_requested",
+      updatedAt: null,
+    }
+  }
+
+  if (latestApprovalEvent.type === "draft_reopened") {
+    return {
+      draftRevisionId: currentDraft.id,
+      note: latestApprovalEvent.note,
+      ownerUserId: approvalReviewStatus?.ownerUserId ?? null,
+      state: "reopened",
+      updatedAt: latestApprovalEvent.createdAt,
+    }
+  }
+
+  if (latestApprovalEvent.type === "draft_approved") {
+    return {
+      draftRevisionId: currentDraft.id,
+      note: approvalReviewStatus?.note ?? latestApprovalEvent.note,
+      ownerUserId: approvalReviewStatus?.ownerUserId ?? null,
+      state: "approved",
+      updatedAt: approvalReviewStatus?.updatedAt ?? latestApprovalEvent.createdAt,
+    }
+  }
+
+  return {
+    draftRevisionId: currentDraft.id,
+    note: approvalReviewStatus?.note ?? latestApprovalEvent.note,
+    ownerUserId: approvalReviewStatus?.ownerUserId ?? null,
+    state: "pending",
+    updatedAt: approvalReviewStatus?.updatedAt ?? latestApprovalEvent.createdAt,
+  }
+}
+
+function buildPublishPackSummary(
+  currentDraft: Pick<DraftRevision, "id"> | null,
+  latestPublishPackExport: ReleaseWorkflowBaseRecord["latestPublishPackExport"],
+  approvalSummary: ApprovalSummary,
+): PublishPackSummary {
+  if (!currentDraft) {
+    return {
+      draftRevisionId: null,
+      exportId: null,
+      exportedAt: null,
+      state: "not_ready",
+    }
+  }
+
+  if (latestPublishPackExport && latestPublishPackExport.draftRevisionId === currentDraft.id) {
+    return {
+      draftRevisionId: currentDraft.id,
+      exportId: latestPublishPackExport.id,
+      exportedAt: latestPublishPackExport.createdAt,
+      state: "exported",
+    }
+  }
+
+  if (approvalSummary.state === "approved") {
+    return {
+      draftRevisionId: currentDraft.id,
+      exportId: null,
+      exportedAt: null,
+      state: "ready",
+    }
+  }
+
+  return {
+    draftRevisionId: currentDraft.id,
+    exportId: null,
+    exportedAt: null,
+    state: "not_ready",
+  }
+}
+
+function buildAllowedActions(input: {
+  approvalSummary: ApprovalSummary
+  claimCheckSummary: ClaimCheckSummary
+  currentDraft: Pick<DraftRevision, "id"> | null
+  publishPackSummary: PublishPackSummary
+  stage: ReleaseRecordSnapshot["releaseRecord"]["stage"]
+}): WorkflowAllowedAction[] {
+  const allowedActions: WorkflowAllowedAction[] = []
+
+  if (input.stage === "intake" || input.stage === "draft") {
+    allowedActions.push("create_draft")
+  }
+
+  if (input.stage === "draft" && input.currentDraft) {
+    allowedActions.push("run_claim_check")
+  }
+
+  if (input.stage === "claim_check" && input.currentDraft && input.claimCheckSummary.state === "cleared") {
+    allowedActions.push("request_approval")
+  }
+
+  if (
+    (input.stage === "claim_check" || input.stage === "approval" || input.stage === "publish_pack") &&
+    input.currentDraft
+  ) {
+    allowedActions.push("reopen_draft")
+  }
+
+  if (input.stage === "approval" && input.currentDraft && input.approvalSummary.state === "pending") {
+    allowedActions.push("approve_draft")
+  }
+
+  if (
+    input.stage === "publish_pack" &&
+    input.currentDraft &&
+    input.approvalSummary.state === "approved" &&
+    input.publishPackSummary.state !== "exported"
+  ) {
+    allowedActions.push("create_publish_pack")
+  }
+
+  return allowedActions
+}
+
+function buildReadiness(input: {
+  allowedActions: WorkflowAllowedAction[]
+  claimCheckSummary: ClaimCheckSummary
+  publishPackSummary: PublishPackSummary
+}): WorkflowReadiness {
+  if (input.claimCheckSummary.state === "blocked") {
+    return "blocked"
+  }
+
+  if (input.publishPackSummary.state === "exported" || input.allowedActions.length > 0) {
+    return "ready"
+  }
+
+  return "attention"
+}
+
+function buildBaseRecord(input: {
+  currentDraft: DraftRevision | null
+  latestPublishPackExport: ReleaseWorkflowBaseRecord["latestPublishPackExport"]
+  releaseSnapshot: ReleaseRecordSnapshot
+}): ReleaseWorkflowBaseRecord {
+  return {
+    currentDraft: input.currentDraft,
+    latestPublishPackExport: input.latestPublishPackExport,
+    releaseSnapshot: input.releaseSnapshot,
+    reviewStatusesByStage: getReviewStatusMap(input.releaseSnapshot.reviewStatuses),
+  }
+}
+
+function buildWorkflowDetailFromBaseRecord(
+  baseRecord: ReleaseWorkflowBaseRecord,
+  workflowEvents: WorkflowEvent[],
+): ReleaseWorkflowDetail {
+  const claimCheckSummary = buildClaimCheckSummary(
+    baseRecord.currentDraft,
+    [],
+  )
+  const approvalSummary = buildApprovalSummary(
+    baseRecord.currentDraft,
+    baseRecord.reviewStatusesByStage,
+    workflowEvents,
+  )
+  const publishPackSummary = buildPublishPackSummary(
+    baseRecord.currentDraft,
+    baseRecord.latestPublishPackExport,
+    approvalSummary,
+  )
+  const allowedActions = buildAllowedActions({
+    approvalSummary,
+    claimCheckSummary,
+    currentDraft: baseRecord.currentDraft,
+    publishPackSummary,
+    stage: baseRecord.releaseSnapshot.releaseRecord.stage,
+  })
+  const readiness = buildReadiness({
+    allowedActions,
+    claimCheckSummary,
+    publishPackSummary,
+  })
+
+  return {
+    allowedActions,
+    approvalSummary,
+    claimCheckSummary,
+    currentDraft:
+      baseRecord.currentDraft === null
+        ? null
+        : {
+            changelogBody: baseRecord.currentDraft.changelogBody,
+            createdAt: baseRecord.currentDraft.createdAt,
+            createdByUserId: baseRecord.currentDraft.createdByUserId,
+            id: baseRecord.currentDraft.id,
+            releaseNotesBody: baseRecord.currentDraft.releaseNotesBody,
+            version: baseRecord.currentDraft.version,
+          },
+    evidenceBlocks: baseRecord.releaseSnapshot.evidenceBlocks,
+    latestPublishPackSummary: publishPackSummary,
+    readiness,
+    releaseRecord: baseRecord.releaseSnapshot.releaseRecord,
+    reviewStatuses: baseRecord.releaseSnapshot.reviewStatuses,
+    sourceLinks: baseRecord.releaseSnapshot.sourceLinks,
+  }
+}
+
+function withClaimCheckItems(
+  detail: ReleaseWorkflowDetail,
+  claimCheckResults: DraftClaimCheckResult[],
+): ReleaseWorkflowDetail {
+  const claimCheckSummary = buildClaimCheckSummary(detail.currentDraft, claimCheckResults)
+  const allowedActions = buildAllowedActions({
+    approvalSummary: detail.approvalSummary,
+    claimCheckSummary,
+    currentDraft: detail.currentDraft,
+    publishPackSummary: detail.latestPublishPackSummary,
+    stage: detail.releaseRecord.stage,
+  })
+
+  return {
+    ...detail,
+    allowedActions,
+    claimCheckSummary,
+    readiness: buildReadiness({
+      allowedActions,
+      claimCheckSummary,
+      publishPackSummary: detail.latestPublishPackSummary,
+    }),
+  }
+}
+
+function detailToListItem(detail: ReleaseWorkflowDetail): ReleaseWorkflowListItem {
+  return {
+    allowedActions: detail.allowedActions,
+    approvalSummary: detail.approvalSummary,
+    claimCheckSummary: {
+      blockerNotes: detail.claimCheckSummary.blockerNotes,
+      draftRevisionId: detail.claimCheckSummary.draftRevisionId,
+      flaggedClaims: detail.claimCheckSummary.flaggedClaims,
+      state: detail.claimCheckSummary.state,
+      totalClaims: detail.claimCheckSummary.totalClaims,
+    },
+    currentDraft:
+      detail.currentDraft === null
+        ? null
+        : {
+            createdAt: detail.currentDraft.createdAt,
+            id: detail.currentDraft.id,
+            version: detail.currentDraft.version,
+          },
+    evidenceCount: detail.evidenceBlocks.length,
+    latestPublishPackSummary: detail.latestPublishPackSummary,
+    readiness: detail.readiness,
+    releaseRecord: {
+      compareRange: detail.releaseRecord.compareRange,
+      createdAt: detail.releaseRecord.createdAt,
+      id: detail.releaseRecord.id,
+      stage: detail.releaseRecord.stage,
+      summary: detail.releaseRecord.summary,
+      title: detail.releaseRecord.title,
+      updatedAt: detail.releaseRecord.updatedAt,
+      workspaceId: detail.releaseRecord.workspaceId,
+    },
+    sourceLinkCount: detail.sourceLinks.length,
+  }
+}
+
+function assertExpectedDraftRevision(
+  currentDraft: DraftRevision | null,
+  expectedDraftRevisionId: string | null,
+) {
+  if ((currentDraft?.id ?? null) !== expectedDraftRevisionId) {
+    throw new StaleDraftRevisionError()
+  }
+}
+
+export function createReleaseWorkflowService(
+  store: ReleaseWorkflowStore,
+  dependencies: ReleaseWorkflowServiceDependencies = {},
+) {
+  const composeDraft = dependencies.composeDraft ?? composeDraftFromReleaseSnapshot
+  const runClaimCheck = dependencies.runClaimCheck ?? runClaimCheckAgainstReleaseSnapshot
+
+  async function getWorkflowResources(
+    workflowStore: ReleaseWorkflowStore,
+    workspaceId: string,
+    releaseRecordId: string,
+  ) {
+    const releaseSnapshot = await workflowStore.getReleaseSnapshot(workspaceId, releaseRecordId)
+
+    if (!releaseSnapshot) {
+      throw new ReleaseWorkflowNotFoundError(releaseRecordId, workspaceId)
+    }
+
+    const currentDraft = await workflowStore.getLatestDraftRevision(releaseRecordId)
+    const latestPublishPackExport = (
+      await workflowStore.listLatestPublishPackExportsByReleaseRecordIds([releaseRecordId])
+    )[0] ?? null
+    const claimCheckResults =
+      currentDraft === null
+        ? []
+        : await workflowStore.listDraftClaimCheckResultsByDraftRevisionIds([currentDraft.id])
+    const workflowEvents = await workflowStore.listWorkflowEventsByReleaseRecordIds([releaseRecordId])
+
+    return {
+      baseRecord: buildBaseRecord({
+        currentDraft,
+        latestPublishPackExport,
+        releaseSnapshot,
+      }),
+      claimCheckResults,
+      currentDraft,
+      releaseSnapshot,
+      workflowEvents,
+    }
+  }
+
+  const service = {
+    store,
+
+    async listReleaseWorkflow(workspaceId: string): Promise<ReleaseWorkflowListItem[]> {
+      const releaseSnapshots = await store.listReleaseSnapshots(workspaceId)
+
+      if (releaseSnapshots.length === 0) {
+        return []
+      }
+
+      const releaseRecordIds = releaseSnapshots.map((releaseSnapshot) => releaseSnapshot.releaseRecord.id)
+      const [latestDrafts, latestPublishPackExports, workflowEvents] = await Promise.all([
+        store.listLatestDraftRevisionsByReleaseRecordIds(releaseRecordIds),
+        store.listLatestPublishPackExportsByReleaseRecordIds(releaseRecordIds),
+        store.listWorkflowEventsByReleaseRecordIds(releaseRecordIds),
+      ])
+      const latestDraftByReleaseRecordId = new Map(
+        latestDrafts.map((draftRevision) => [draftRevision.releaseRecordId, draftRevision]),
+      )
+      const latestPublishPackByReleaseRecordId = new Map(
+        latestPublishPackExports.map((publishPackExport) => [publishPackExport.releaseRecordId, publishPackExport]),
+      )
+      const workflowEventsByReleaseRecordId = new Map<string, WorkflowEvent[]>()
+
+      for (const workflowEvent of workflowEvents) {
+        const releaseWorkflowEvents = workflowEventsByReleaseRecordId.get(workflowEvent.releaseRecordId) ?? []
+        releaseWorkflowEvents.push(workflowEvent)
+        workflowEventsByReleaseRecordId.set(workflowEvent.releaseRecordId, releaseWorkflowEvents)
+      }
+
+      const currentDraftIds = latestDrafts.map((draftRevision) => draftRevision.id)
+      const claimCheckResults =
+        currentDraftIds.length > 0
+          ? await store.listDraftClaimCheckResultsByDraftRevisionIds(currentDraftIds)
+          : []
+      const claimCheckResultsByDraftRevisionId = new Map<string, DraftClaimCheckResult[]>()
+
+      for (const claimCheckResult of claimCheckResults) {
+        const draftClaimCheckResults =
+          claimCheckResultsByDraftRevisionId.get(claimCheckResult.draftRevisionId) ?? []
+        draftClaimCheckResults.push(claimCheckResult)
+        claimCheckResultsByDraftRevisionId.set(claimCheckResult.draftRevisionId, draftClaimCheckResults)
+      }
+
+      return releaseSnapshots.map((releaseSnapshot) => {
+        const currentDraft = latestDraftByReleaseRecordId.get(releaseSnapshot.releaseRecord.id) ?? null
+        const detail = buildWorkflowDetailFromBaseRecord(
+          buildBaseRecord({
+            currentDraft,
+            latestPublishPackExport:
+              latestPublishPackByReleaseRecordId.get(releaseSnapshot.releaseRecord.id) ?? null,
+            releaseSnapshot,
+          }),
+          workflowEventsByReleaseRecordId.get(releaseSnapshot.releaseRecord.id) ?? [],
+        )
+
+        return detailToListItem(
+          withClaimCheckItems(detail, currentDraft ? claimCheckResultsByDraftRevisionId.get(currentDraft.id) ?? [] : []),
+        )
+      })
+    },
+
+    async getReleaseWorkflowDetail(
+      workspaceId: string,
+      releaseRecordId: string,
+    ): Promise<ReleaseWorkflowDetail> {
+      const resources = await getWorkflowResources(store, workspaceId, releaseRecordId)
+      const detail = buildWorkflowDetailFromBaseRecord(resources.baseRecord, resources.workflowEvents)
+
+      return withClaimCheckItems(detail, resources.claimCheckResults)
+    },
+
+    async createDraft(input: CreateDraftInput): Promise<ReleaseWorkflowDetail> {
+      const resources = await getWorkflowResources(store, input.workspaceId, input.releaseRecordId)
+
+      if (
+        resources.releaseSnapshot.releaseRecord.stage !== "intake" &&
+        resources.releaseSnapshot.releaseRecord.stage !== "draft"
+      ) {
+        throw new InvalidStageTransitionError(resources.releaseSnapshot.releaseRecord.stage, "create a draft")
+      }
+
+      assertExpectedDraftRevision(resources.currentDraft, input.expectedLatestDraftRevisionId)
+
+      const draftContent =
+        input.changelogBody && input.releaseNotesBody
+          ? {
+              changelogBody: input.changelogBody,
+              releaseNotesBody: input.releaseNotesBody,
+            }
+          : await composeDraft(resources.releaseSnapshot)
+
+      await store.transaction(async (transactionStore) => {
+        const draftRevision = await transactionStore.createDraftRevision({
+          changelogBody: draftContent.changelogBody,
+          createdByUserId: input.actorUserId,
+          releaseNotesBody: draftContent.releaseNotesBody,
+          releaseRecordId: input.releaseRecordId,
+          version: (resources.currentDraft?.version ?? 0) + 1,
+        })
+
+        await transactionStore.updateReleaseRecordStage(input.releaseRecordId, "draft")
+        await transactionStore.createWorkflowEvent({
+          actorUserId: input.actorUserId,
+          draftRevisionId: draftRevision.id,
+          note: null,
+          releaseRecordId: input.releaseRecordId,
+          stage: "draft",
+          type: "draft_created",
+        })
+      })
+
+      return service.getReleaseWorkflowDetail(input.workspaceId, input.releaseRecordId)
+    },
+
+    async runClaimCheck(input: DraftScopedCommandInput): Promise<ReleaseWorkflowDetail> {
+      const resources = await getWorkflowResources(store, input.workspaceId, input.releaseRecordId)
+
+      if (resources.releaseSnapshot.releaseRecord.stage !== "draft") {
+        throw new InvalidStageTransitionError(resources.releaseSnapshot.releaseRecord.stage, "run claim check")
+      }
+
+      assertExpectedDraftRevision(resources.currentDraft, input.expectedDraftRevisionId)
+
+      if (!resources.currentDraft) {
+        throw new DraftRevisionNotFoundError(input.expectedDraftRevisionId)
+      }
+
+      const claimCheckCandidates = await runClaimCheck(resources.releaseSnapshot, resources.currentDraft)
+      const hasFlaggedClaims = claimCheckCandidates.some((claimCheckCandidate) => claimCheckCandidate.status === "flagged")
+
+      await store.transaction(async (transactionStore) => {
+        for (const claimCheckCandidate of claimCheckCandidates) {
+          const claimCheckResult = await transactionStore.createDraftClaimCheckResult({
+            draftRevisionId: resources.currentDraft!.id,
+            note: claimCheckCandidate.note,
+            releaseRecordId: input.releaseRecordId,
+            sentence: claimCheckCandidate.sentence,
+            status: claimCheckCandidate.status,
+          })
+
+          for (const evidenceBlockId of claimCheckCandidate.evidenceBlockIds) {
+            await transactionStore.linkDraftClaimCheckResultEvidenceBlock({
+              draftClaimCheckResultId: claimCheckResult.id,
+              evidenceBlockId,
+            })
+          }
+        }
+
+        await transactionStore.upsertReviewStatus({
+          note: hasFlaggedClaims
+            ? "Resolve flagged claims before requesting approval"
+            : "Claim check is clear for this draft",
+          ownerUserId: input.actorUserId,
+          releaseRecordId: input.releaseRecordId,
+          stage: "claim_check",
+          state: hasFlaggedClaims ? "blocked" : "approved",
+        })
+        await transactionStore.updateReleaseRecordStage(input.releaseRecordId, "claim_check")
+        await transactionStore.createWorkflowEvent({
+          actorUserId: input.actorUserId,
+          draftRevisionId: resources.currentDraft!.id,
+          note: input.note ?? null,
+          releaseRecordId: input.releaseRecordId,
+          stage: "claim_check",
+          type: "claim_check_completed",
+        })
+      })
+
+      return service.getReleaseWorkflowDetail(input.workspaceId, input.releaseRecordId)
+    },
+
+    async requestApproval(input: DraftScopedCommandInput): Promise<ReleaseWorkflowDetail> {
+      const resources = await getWorkflowResources(store, input.workspaceId, input.releaseRecordId)
+
+      if (resources.releaseSnapshot.releaseRecord.stage === "draft") {
+        assertExpectedDraftRevision(resources.currentDraft, input.expectedDraftRevisionId)
+
+        if (resources.currentDraft) {
+          throw new ClaimCheckRequiredError()
+        }
+      }
+
+      if (resources.releaseSnapshot.releaseRecord.stage !== "claim_check") {
+        throw new InvalidStageTransitionError(resources.releaseSnapshot.releaseRecord.stage, "request approval")
+      }
+
+      assertExpectedDraftRevision(resources.currentDraft, input.expectedDraftRevisionId)
+
+      if (!resources.currentDraft) {
+        throw new DraftRevisionNotFoundError(input.expectedDraftRevisionId)
+      }
+
+      const claimCheckSummary = buildClaimCheckSummary(resources.currentDraft, resources.claimCheckResults)
+
+      if (claimCheckSummary.state === "not_started") {
+        throw new ClaimCheckRequiredError()
+      }
+
+      if (claimCheckSummary.state === "blocked") {
+        throw new ClaimCheckBlockedError()
+      }
+
+      await store.transaction(async (transactionStore) => {
+        await transactionStore.upsertReviewStatus({
+          note: input.note ?? "Approval requested for the current draft",
+          ownerUserId: input.actorUserId,
+          releaseRecordId: input.releaseRecordId,
+          stage: "approval",
+          state: "pending",
+        })
+        await transactionStore.updateReleaseRecordStage(input.releaseRecordId, "approval")
+        await transactionStore.createWorkflowEvent({
+          actorUserId: input.actorUserId,
+          draftRevisionId: resources.currentDraft!.id,
+          note: input.note ?? null,
+          releaseRecordId: input.releaseRecordId,
+          stage: "approval",
+          type: "approval_requested",
+        })
+      })
+
+      return service.getReleaseWorkflowDetail(input.workspaceId, input.releaseRecordId)
+    },
+
+    async approveDraft(input: DraftScopedCommandInput): Promise<ReleaseWorkflowDetail> {
+      const resources = await getWorkflowResources(store, input.workspaceId, input.releaseRecordId)
+
+      if (resources.releaseSnapshot.releaseRecord.stage !== "approval") {
+        throw new InvalidStageTransitionError(resources.releaseSnapshot.releaseRecord.stage, "approve the draft")
+      }
+
+      assertExpectedDraftRevision(resources.currentDraft, input.expectedDraftRevisionId)
+
+      if (!resources.currentDraft) {
+        throw new DraftRevisionNotFoundError(input.expectedDraftRevisionId)
+      }
+
+      const approvalSummary = buildApprovalSummary(
+        resources.currentDraft,
+        resources.baseRecord.reviewStatusesByStage,
+        resources.workflowEvents,
+      )
+
+      if (approvalSummary.state !== "pending") {
+        throw new ApprovalRequestRequiredError()
+      }
+
+      await store.transaction(async (transactionStore) => {
+        await transactionStore.upsertReviewStatus({
+          note: input.note ?? "Draft approved and ready for publish pack export",
+          ownerUserId: input.actorUserId,
+          releaseRecordId: input.releaseRecordId,
+          stage: "approval",
+          state: "approved",
+        })
+        await transactionStore.updateReleaseRecordStage(input.releaseRecordId, "publish_pack")
+        await transactionStore.createWorkflowEvent({
+          actorUserId: input.actorUserId,
+          draftRevisionId: resources.currentDraft!.id,
+          note: input.note ?? null,
+          releaseRecordId: input.releaseRecordId,
+          stage: "approval",
+          type: "draft_approved",
+        })
+      })
+
+      return service.getReleaseWorkflowDetail(input.workspaceId, input.releaseRecordId)
+    },
+
+    async reopenDraft(input: DraftScopedCommandInput): Promise<ReleaseWorkflowDetail> {
+      const resources = await getWorkflowResources(store, input.workspaceId, input.releaseRecordId)
+
+      if (
+        resources.releaseSnapshot.releaseRecord.stage !== "claim_check" &&
+        resources.releaseSnapshot.releaseRecord.stage !== "approval" &&
+        resources.releaseSnapshot.releaseRecord.stage !== "publish_pack"
+      ) {
+        throw new InvalidStageTransitionError(resources.releaseSnapshot.releaseRecord.stage, "reopen the draft")
+      }
+
+      assertExpectedDraftRevision(resources.currentDraft, input.expectedDraftRevisionId)
+
+      if (!resources.currentDraft) {
+        throw new DraftRevisionNotFoundError(input.expectedDraftRevisionId)
+      }
+
+      await store.transaction(async (transactionStore) => {
+        await transactionStore.upsertReviewStatus({
+          note: input.note ?? "Draft reopened for edits",
+          ownerUserId: input.actorUserId,
+          releaseRecordId: input.releaseRecordId,
+          stage: "approval",
+          state: "blocked",
+        })
+        await transactionStore.updateReleaseRecordStage(input.releaseRecordId, "draft")
+        await transactionStore.createWorkflowEvent({
+          actorUserId: input.actorUserId,
+          draftRevisionId: resources.currentDraft!.id,
+          note: input.note ?? null,
+          releaseRecordId: input.releaseRecordId,
+          stage: resources.releaseSnapshot.releaseRecord.stage,
+          type: "draft_reopened",
+        })
+      })
+
+      return service.getReleaseWorkflowDetail(input.workspaceId, input.releaseRecordId)
+    },
+
+    async createPublishPack(input: DraftScopedCommandInput): Promise<ReleaseWorkflowDetail> {
+      const resources = await getWorkflowResources(store, input.workspaceId, input.releaseRecordId)
+
+      if (resources.releaseSnapshot.releaseRecord.stage !== "publish_pack") {
+        throw new InvalidStageTransitionError(resources.releaseSnapshot.releaseRecord.stage, "create a publish pack")
+      }
+
+      assertExpectedDraftRevision(resources.currentDraft, input.expectedDraftRevisionId)
+
+      if (!resources.currentDraft) {
+        throw new DraftRevisionNotFoundError(input.expectedDraftRevisionId)
+      }
+
+      const approvalSummary = buildApprovalSummary(
+        resources.currentDraft,
+        resources.baseRecord.reviewStatusesByStage,
+        resources.workflowEvents,
+      )
+
+      if (approvalSummary.state !== "approved") {
+        throw new ApprovedDraftRequiredError()
+      }
+
+      if (
+        resources.baseRecord.latestPublishPackExport &&
+        resources.baseRecord.latestPublishPackExport.draftRevisionId === resources.currentDraft.id
+      ) {
+        throw new InvalidStageTransitionError(
+          resources.releaseSnapshot.releaseRecord.stage,
+          "create another publish pack for the same draft",
+        )
+      }
+
+      await store.transaction(async (transactionStore) => {
+        await transactionStore.createPublishPackExport({
+          changelogBody: resources.currentDraft!.changelogBody,
+          createdByUserId: input.actorUserId,
+          draftRevisionId: resources.currentDraft!.id,
+          releaseNotesBody: resources.currentDraft!.releaseNotesBody,
+          releaseRecordId: input.releaseRecordId,
+        })
+        await transactionStore.upsertReviewStatus({
+          note: input.note ?? "Publish pack exported from the approved draft",
+          ownerUserId: input.actorUserId,
+          releaseRecordId: input.releaseRecordId,
+          stage: "publish_pack",
+          state: "approved",
+        })
+        await transactionStore.createWorkflowEvent({
+          actorUserId: input.actorUserId,
+          draftRevisionId: resources.currentDraft!.id,
+          note: input.note ?? null,
+          releaseRecordId: input.releaseRecordId,
+          stage: "publish_pack",
+          type: "publish_pack_created",
+        })
+      })
+
+      return service.getReleaseWorkflowDetail(input.workspaceId, input.releaseRecordId)
+    },
+  }
+
+  return service
+}

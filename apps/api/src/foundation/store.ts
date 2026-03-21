@@ -104,6 +104,7 @@ export type FoundationStore = {
   findWorkspaceMembership(workspaceId: string, userId: string): Promise<WorkspaceMembership | null>
   getIntegrationConnection(connectionId: string): Promise<IntegrationConnection | null>
   getCurrentWorkspaceSelection(userId: string): Promise<CurrentWorkspaceSelection | null>
+  getReleaseRecord(releaseRecordId: string): Promise<ReleaseRecord | null>
   getReleaseRecordSnapshot(releaseRecordId: string): Promise<ReleaseRecordSnapshot | null>
   getSyncRun(syncRunId: string): Promise<SyncRun | null>
   getUser(userId: string): Promise<User | null>
@@ -114,7 +115,10 @@ export type FoundationStore = {
   listReleaseRecordSnapshots(workspaceId: string): Promise<ReleaseRecordSnapshot[]>
   setCurrentWorkspaceSelection(input: SetCurrentWorkspaceSelectionInput): Promise<CurrentWorkspaceSelection>
   syncAuthenticatedUser(input: SyncAuthenticatedUserInput): Promise<User>
+  transaction<T>(callback: (store: FoundationStore) => Promise<T>): Promise<T>
+  updateReleaseRecordStage(releaseRecordId: string, stage: ReleaseRecord["stage"]): Promise<ReleaseRecord>
   updateSyncRun(input: UpdateSyncRunInput): Promise<SyncRun>
+  upsertReviewStatus(input: CreateReviewStatusInput): Promise<ReviewStatus>
 }
 
 type ClaimCandidateEvidenceLink = {
@@ -203,6 +207,66 @@ export function createInMemoryFoundationStore(): FoundationStore {
       reviewStatuses,
       sourceLinks,
     }
+  }
+
+  function cloneState(): InMemoryState {
+    return {
+      claimCandidateEvidenceLinks: state.claimCandidateEvidenceLinks.map((link) => ({ ...link })),
+      claimCandidates: new Map(
+        Array.from(state.claimCandidates.entries()).map(([key, value]) => [key, { ...value }]),
+      ),
+      currentWorkspaceSelections: new Map(
+        Array.from(state.currentWorkspaceSelections.entries()).map(([key, value]) => [key, { ...value }]),
+      ),
+      evidenceBlocks: new Map(
+        Array.from(state.evidenceBlocks.entries()).map(([key, value]) => [key, { ...value }]),
+      ),
+      integrationAccounts: new Map(
+        Array.from(state.integrationAccounts.entries()).map(([key, value]) => [key, { ...value }]),
+      ),
+      integrationConnections: new Map(
+        Array.from(state.integrationConnections.entries()).map(([key, value]) => [key, { ...value }]),
+      ),
+      releaseRecords: new Map(
+        Array.from(state.releaseRecords.entries()).map(([key, value]) => [key, { ...value }]),
+      ),
+      reviewStatuses: new Map(
+        Array.from(state.reviewStatuses.entries()).map(([key, value]) => [key, { ...value }]),
+      ),
+      sourceCursors: new Map(
+        Array.from(state.sourceCursors.entries()).map(([key, value]) => [key, { ...value }]),
+      ),
+      sourceLinks: new Map(
+        Array.from(state.sourceLinks.entries()).map(([key, value]) => [key, { ...value }]),
+      ),
+      syncRuns: new Map(
+        Array.from(state.syncRuns.entries()).map(([key, value]) => [key, { ...value }]),
+      ),
+      users: new Map(Array.from(state.users.entries()).map(([key, value]) => [key, { ...value }])),
+      workspaceMemberships: new Map(
+        Array.from(state.workspaceMemberships.entries()).map(([key, value]) => [key, { ...value }]),
+      ),
+      workspaces: new Map(
+        Array.from(state.workspaces.entries()).map(([key, value]) => [key, { ...value }]),
+      ),
+    }
+  }
+
+  function restoreState(snapshot: InMemoryState) {
+    state.claimCandidateEvidenceLinks = snapshot.claimCandidateEvidenceLinks
+    state.claimCandidates = snapshot.claimCandidates
+    state.currentWorkspaceSelections = snapshot.currentWorkspaceSelections
+    state.evidenceBlocks = snapshot.evidenceBlocks
+    state.integrationAccounts = snapshot.integrationAccounts
+    state.integrationConnections = snapshot.integrationConnections
+    state.releaseRecords = snapshot.releaseRecords
+    state.reviewStatuses = snapshot.reviewStatuses
+    state.sourceCursors = snapshot.sourceCursors
+    state.sourceLinks = snapshot.sourceLinks
+    state.syncRuns = snapshot.syncRuns
+    state.users = snapshot.users
+    state.workspaceMemberships = snapshot.workspaceMemberships
+    state.workspaces = snapshot.workspaces
   }
 
   return {
@@ -474,6 +538,34 @@ export function createInMemoryFoundationStore(): FoundationStore {
       return user
     },
 
+    async transaction(callback) {
+      const snapshot = cloneState()
+
+      try {
+        return await callback(this)
+      } catch (error) {
+        restoreState(snapshot)
+        throw error
+      }
+    },
+
+    async updateReleaseRecordStage(releaseRecordId, stage) {
+      const existingReleaseRecord = state.releaseRecords.get(releaseRecordId)
+
+      if (!existingReleaseRecord) {
+        throw new Error(`Release record ${releaseRecordId} was not found`)
+      }
+
+      const releaseRecord: ReleaseRecord = {
+        ...existingReleaseRecord,
+        stage,
+        updatedAt: nowIso(),
+      }
+
+      state.releaseRecords.set(releaseRecord.id, releaseRecord)
+      return releaseRecord
+    },
+
     async findWorkspaceMembership(workspaceId, userId) {
       return (
         Array.from(state.workspaceMemberships.values()).find(
@@ -488,6 +580,10 @@ export function createInMemoryFoundationStore(): FoundationStore {
 
     async getCurrentWorkspaceSelection(userId) {
       return state.currentWorkspaceSelections.get(userId) ?? null
+    },
+
+    async getReleaseRecord(releaseRecordId) {
+      return state.releaseRecords.get(releaseRecordId) ?? null
     },
 
     async getReleaseRecordSnapshot(releaseRecordId) {
@@ -592,6 +688,28 @@ export function createInMemoryFoundationStore(): FoundationStore {
 
       state.syncRuns.set(syncRun.id, syncRun)
       return syncRun
+    },
+
+    async upsertReviewStatus(input) {
+      const existingReviewStatus = Array.from(state.reviewStatuses.values()).find(
+        (reviewStatus) =>
+          reviewStatus.releaseRecordId === input.releaseRecordId && reviewStatus.stage === input.stage,
+      )
+
+      if (existingReviewStatus) {
+        const reviewStatus: ReviewStatus = {
+          ...existingReviewStatus,
+          note: input.note,
+          ownerUserId: input.ownerUserId,
+          state: input.state,
+          updatedAt: nowIso(),
+        }
+
+        state.reviewStatuses.set(reviewStatus.id, reviewStatus)
+        return reviewStatus
+      }
+
+      return this.createReviewStatus(input)
     },
   }
 }
