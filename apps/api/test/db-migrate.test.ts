@@ -184,9 +184,8 @@ test("0006 migration uses non-colliding constraint names for draft claim check e
     migrationSql,
     /CONSTRAINT "draft_claim_check_result_evidence_blocks_pk" PRIMARY KEY/,
   )
-  assert.ok(
-    !migrationSql.includes(
-      'CONSTRAINT "draft_claim_check_result_evidence_blocks_draft_claim_check_result_id_evidence_block_id_pk" PRIMARY KEY',
-    ),
+  assert.doesNotMatch(
+    migrationSql,
+    /CONSTRAINT "draft_claim_check_result_evidence_blocks_draft_claim_check_result_id_evidence_block_id_pk" PRIMARY KEY/,
   )
 })
