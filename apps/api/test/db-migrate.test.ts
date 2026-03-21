@@ -189,3 +189,31 @@ test("0006 migration uses non-colliding constraint names for draft claim check e
     /CONSTRAINT "draft_claim_check_result_evidence_blocks_draft_claim_check_result_id_evidence_block_id_pk" PRIMARY KEY/,
   )
 })
+
+test("0007 migration creates draft revision composite uniqueness before dependent workflow foreign keys", () => {
+  const migrationSql = readFileSync(
+    new URL("../drizzle/0007_wonderful_screwball.sql", import.meta.url),
+    "utf8",
+  )
+
+  const uniqueConstraintIndex = migrationSql.indexOf(
+    'ALTER TABLE "draft_revisions" ADD CONSTRAINT "draft_revisions_id_release_record_id_unique" UNIQUE("id","release_record_id");',
+  )
+  const draftClaimCheckConstraintIndex = migrationSql.indexOf(
+    'ALTER TABLE "draft_claim_check_results" ADD CONSTRAINT "draft_claim_check_results_draft_revision_id_release_record_id_draft_revisions_fk" FOREIGN KEY ("draft_revision_id","release_record_id") REFERENCES "public"."draft_revisions"("id","release_record_id") ON DELETE no action ON UPDATE no action;',
+  )
+  const publishPackConstraintIndex = migrationSql.indexOf(
+    'ALTER TABLE "publish_pack_exports" ADD CONSTRAINT "publish_pack_exports_draft_revision_id_release_record_id_draft_revisions_fk" FOREIGN KEY ("draft_revision_id","release_record_id") REFERENCES "public"."draft_revisions"("id","release_record_id") ON DELETE no action ON UPDATE no action;',
+  )
+  const workflowEventConstraintIndex = migrationSql.indexOf(
+    'ALTER TABLE "workflow_events" ADD CONSTRAINT "workflow_events_draft_revision_id_release_record_id_draft_revisions_fk" FOREIGN KEY ("draft_revision_id","release_record_id") REFERENCES "public"."draft_revisions"("id","release_record_id") ON DELETE no action ON UPDATE no action;',
+  )
+
+  assert.notEqual(uniqueConstraintIndex, -1)
+  assert.notEqual(draftClaimCheckConstraintIndex, -1)
+  assert.notEqual(publishPackConstraintIndex, -1)
+  assert.notEqual(workflowEventConstraintIndex, -1)
+  assert.ok(uniqueConstraintIndex < draftClaimCheckConstraintIndex)
+  assert.ok(uniqueConstraintIndex < publishPackConstraintIndex)
+  assert.ok(uniqueConstraintIndex < workflowEventConstraintIndex)
+})
