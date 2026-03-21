@@ -70,6 +70,58 @@ function createReleaseRecordSnapshotPayload() {
   }
 }
 
+function createReleaseWorkflowDetailPayload() {
+  return {
+    allowedActions: ["run_claim_check"],
+    approvalSummary: {
+      draftRevisionId: "draft_1",
+      note: null,
+      ownerUserId: null,
+      state: "not_requested",
+      updatedAt: null,
+    },
+    claimCheckSummary: {
+      blockerNotes: [],
+      draftRevisionId: "draft_1",
+      flaggedClaims: 0,
+      items: [
+        {
+          createdAt: "2026-03-20T00:00:00.000Z",
+          draftRevisionId: "draft_1",
+          evidenceBlockIds: ["evidence_1"],
+          id: "claim_check_1",
+          note: null,
+          releaseRecordId: "release_1",
+          sentence: "Retry logic now covers the rollout cohort already enabled.",
+          status: "approved",
+          updatedAt: "2026-03-20T00:00:00.000Z",
+        },
+      ],
+      state: "cleared",
+      totalClaims: 1,
+    },
+    currentDraft: {
+      changelogBody: "## SDK rollout v2.4",
+      createdAt: "2026-03-20T00:00:00.000Z",
+      createdByUserId: "user_1",
+      id: "draft_1",
+      releaseNotesBody: "SDK rollout v2.4",
+      version: 1,
+    },
+    evidenceBlocks: createReleaseRecordSnapshotPayload().evidenceBlocks,
+    latestPublishPackSummary: {
+      draftRevisionId: "draft_1",
+      exportId: null,
+      exportedAt: null,
+      state: "not_ready",
+    },
+    readiness: "ready",
+    releaseRecord: createReleaseRecordSnapshotPayload().releaseRecord,
+    reviewStatuses: createReleaseRecordSnapshotPayload().reviewStatuses,
+    sourceLinks: createReleaseRecordSnapshotPayload().sourceLinks,
+  }
+}
+
 test("getApiBaseUrl prefers NEXT_PUBLIC_API_BASE_URL when configured", () => {
   assert.equal(
     getApiBaseUrl({
@@ -142,6 +194,144 @@ test("api client sends credentialed requests to session, workspace, and release 
   for (const request of requests) {
     assert.equal(request.init?.credentials, "include")
     assert.equal(new Headers(request.init?.headers).has("content-type"), false)
+  }
+})
+
+test("api client sends workflow read requests to founder release workflow routes", async () => {
+  const requests: Array<{ init?: RequestInit; input: RequestInfo | URL }> = []
+  const detailPayload = createReleaseWorkflowDetailPayload()
+  const listPayload = {
+    allowedActions: detailPayload.allowedActions,
+    approvalSummary: detailPayload.approvalSummary,
+    claimCheckSummary: {
+      blockerNotes: detailPayload.claimCheckSummary.blockerNotes,
+      draftRevisionId: detailPayload.claimCheckSummary.draftRevisionId,
+      flaggedClaims: detailPayload.claimCheckSummary.flaggedClaims,
+      state: detailPayload.claimCheckSummary.state,
+      totalClaims: detailPayload.claimCheckSummary.totalClaims,
+    },
+    currentDraft: detailPayload.currentDraft
+      ? {
+          createdAt: detailPayload.currentDraft.createdAt,
+          id: detailPayload.currentDraft.id,
+          version: detailPayload.currentDraft.version,
+        }
+      : null,
+    evidenceCount: detailPayload.evidenceBlocks.length,
+    latestPublishPackSummary: detailPayload.latestPublishPackSummary,
+    readiness: detailPayload.readiness,
+    releaseRecord: detailPayload.releaseRecord,
+    sourceLinkCount: detailPayload.sourceLinks.length,
+  }
+  const client = createApiClient({
+    baseUrl: "https://api.pulsenotes.xyz",
+    fetch: async (input, init) => {
+      requests.push({ init, input })
+
+      if (String(input).includes("/release-workflow/")) {
+        return Response.json(detailPayload)
+      }
+
+      return Response.json([listPayload])
+    },
+  })
+
+  await client.listReleaseWorkflow("workspace 1")
+  await client.getReleaseWorkflowDetail("workspace 1", "release/2")
+
+  assert.deepEqual(
+    requests.map((request) => String(request.input)),
+    [
+      "https://api.pulsenotes.xyz/v1/workspaces/workspace%201/release-workflow",
+      "https://api.pulsenotes.xyz/v1/workspaces/workspace%201/release-workflow/release%2F2",
+    ],
+  )
+
+  for (const request of requests) {
+    assert.equal(request.init?.credentials, "include")
+    assert.equal(new Headers(request.init?.headers).has("content-type"), false)
+  }
+})
+
+test("api client sends workflow command requests with encoded payloads", async () => {
+  const requests: Array<{ init?: RequestInit; input: RequestInfo | URL }> = []
+  const client = createApiClient({
+    baseUrl: "https://api.pulsenotes.xyz",
+    fetch: async (input, init) => {
+      requests.push({ init, input })
+      return Response.json(createReleaseWorkflowDetailPayload(), {
+        status: String(input).endsWith("/drafts") ? 201 : 200,
+      })
+    },
+  })
+
+  await client.createReleaseWorkflowDraft("workspace_1", "release_1", {
+    expectedLatestDraftRevisionId: null,
+  })
+  await client.runReleaseWorkflowClaimCheck("workspace_1", "release_1", {
+    expectedDraftRevisionId: "draft_1",
+    note: "Check wording",
+  })
+  await client.requestReleaseWorkflowApproval("workspace_1", "release_1", {
+    expectedDraftRevisionId: "draft_1",
+  })
+  await client.approveReleaseWorkflowDraft("workspace_1", "release_1", {
+    expectedDraftRevisionId: "draft_1",
+  })
+  await client.reopenReleaseWorkflowDraft("workspace_1", "release_1", {
+    expectedDraftRevisionId: "draft_1",
+    note: "Tighten availability language",
+  })
+  await client.createReleaseWorkflowPublishPack("workspace_1", "release_1", {
+    expectedDraftRevisionId: "draft_1",
+  })
+
+  assert.deepEqual(
+    requests.map((request) => ({
+      body: request.init?.body,
+      method: request.init?.method,
+      url: String(request.input),
+    })),
+    [
+      {
+        body: JSON.stringify({ expectedLatestDraftRevisionId: null }),
+        method: "POST",
+        url: "https://api.pulsenotes.xyz/v1/workspaces/workspace_1/release-workflow/release_1/drafts",
+      },
+      {
+        body: JSON.stringify({ expectedDraftRevisionId: "draft_1", note: "Check wording" }),
+        method: "POST",
+        url: "https://api.pulsenotes.xyz/v1/workspaces/workspace_1/release-workflow/release_1/claim-check",
+      },
+      {
+        body: JSON.stringify({ expectedDraftRevisionId: "draft_1" }),
+        method: "POST",
+        url: "https://api.pulsenotes.xyz/v1/workspaces/workspace_1/release-workflow/release_1/request-approval",
+      },
+      {
+        body: JSON.stringify({ expectedDraftRevisionId: "draft_1" }),
+        method: "POST",
+        url: "https://api.pulsenotes.xyz/v1/workspaces/workspace_1/release-workflow/release_1/approve",
+      },
+      {
+        body: JSON.stringify({
+          expectedDraftRevisionId: "draft_1",
+          note: "Tighten availability language",
+        }),
+        method: "POST",
+        url: "https://api.pulsenotes.xyz/v1/workspaces/workspace_1/release-workflow/release_1/reopen",
+      },
+      {
+        body: JSON.stringify({ expectedDraftRevisionId: "draft_1" }),
+        method: "POST",
+        url: "https://api.pulsenotes.xyz/v1/workspaces/workspace_1/release-workflow/release_1/publish-pack",
+      },
+    ],
+  )
+
+  for (const request of requests) {
+    assert.equal(new Headers(request.init?.headers).get("content-type"), "application/json")
+    assert.equal(request.init?.credentials, "include")
   }
 })
 
