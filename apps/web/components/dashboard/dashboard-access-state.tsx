@@ -4,8 +4,13 @@ import { DashboardPage, SurfaceCard } from "@/components/dashboard/surfaces"
 import { buttonVariants } from "@/components/ui/button-variants"
 import { cn } from "@/lib/utils"
 
+export type DashboardAccessStateKind =
+  | "signed-out"
+  | "no-workspace"
+  | "workspace-selection-required"
+
 type DashboardAccessStateProps = {
-  state: "signed-out" | "no-workspace" | "workspace-selection-required"
+  state: DashboardAccessStateKind
 }
 
 const accessCopy = {

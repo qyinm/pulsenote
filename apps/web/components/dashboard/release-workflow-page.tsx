@@ -1,5 +1,9 @@
 import { headers } from "next/headers"
 
+import {
+  DashboardAccessState,
+  type DashboardAccessStateKind,
+} from "@/components/dashboard/dashboard-access-state"
 import { ReleaseWorkflowLiveWorkspace } from "@/components/dashboard/release-workflow-live-workspace"
 import { DashboardPage, SurfaceCard } from "@/components/dashboard/surfaces"
 import { resolveDashboardAccessState } from "@/lib/dashboard/access"
@@ -15,6 +19,10 @@ type ReleaseWorkflowPageProps = {
   unavailableTitle: string
 }
 
+export function renderReleaseWorkflowAccessFallback(state: DashboardAccessStateKind) {
+  return <DashboardAccessState state={state} />
+}
+
 export async function ReleaseWorkflowPage({
   emptyDescription,
   emptyTitle,
@@ -26,7 +34,7 @@ export async function ReleaseWorkflowPage({
   const accessState = await resolveDashboardAccessState(requestHeaders)
 
   if (accessState.kind !== "ready") {
-    return null
+    return renderReleaseWorkflowAccessFallback(accessState.kind)
   }
 
   let workflowData: Awaited<ReturnType<typeof getServerReleaseWorkflowData>> | null = null
