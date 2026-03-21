@@ -2,7 +2,7 @@ CREATE TYPE "public"."workflow_event_type" AS ENUM('draft_created', 'claim_check
 CREATE TABLE "draft_claim_check_result_evidence_blocks" (
 	"draft_claim_check_result_id" uuid NOT NULL,
 	"evidence_block_id" uuid NOT NULL,
-	CONSTRAINT "draft_claim_check_result_evidence_blocks_draft_claim_check_result_id_evidence_block_id_pk" PRIMARY KEY("draft_claim_check_result_id","evidence_block_id")
+	CONSTRAINT "draft_claim_check_result_evidence_blocks_pk" PRIMARY KEY("draft_claim_check_result_id","evidence_block_id")
 );
 --> statement-breakpoint
 CREATE TABLE "draft_claim_check_results" (

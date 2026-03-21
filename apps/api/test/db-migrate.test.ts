@@ -173,3 +173,20 @@ test("0003 migration creates composite uniqueness before dependent integration c
   assert.ok(uniqueConstraintIndex < releaseRecordsConstraintIndex)
   assert.ok(uniqueConstraintIndex < syncRunsConstraintIndex)
 })
+
+test("0006 migration uses non-colliding constraint names for draft claim check evidence links", () => {
+  const migrationSql = readFileSync(
+    new URL("../drizzle/0006_ambitious_mordo.sql", import.meta.url),
+    "utf8",
+  )
+
+  assert.match(
+    migrationSql,
+    /CONSTRAINT "draft_claim_check_result_evidence_blocks_pk" PRIMARY KEY/,
+  )
+  assert.ok(
+    !migrationSql.includes(
+      'CONSTRAINT "draft_claim_check_result_evidence_blocks_draft_claim_check_result_id_evidence_block_id_pk" PRIMARY KEY',
+    ),
+  )
+})
