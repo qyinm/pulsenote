@@ -9,15 +9,19 @@ import {
   claimCandidates,
   claimStatusEnum,
   currentWorkspaceSelections,
+  draftClaimCheckResults,
+  draftRevisions,
   evidenceBlocks,
   evidenceSourceTypeEnum,
   integrationConnections,
+  publishPackExports,
   releaseRecords,
   reviewStateEnum,
   reviewStatuses,
   sourceCursors,
   sourceLinks,
   syncRuns,
+  workflowEvents,
   workspaceMemberships,
 } from "../src/db/schema.js"
 
@@ -65,6 +69,7 @@ test("workspace and review workflow tables enforce idempotent uniqueness constra
   const sourceCursorConfig = getTableConfig(sourceCursors)
   const reviewStatusConfig = getTableConfig(reviewStatuses)
   const integrationConnectionConfig = getTableConfig(integrationConnections)
+  const draftRevisionConfig = getTableConfig(draftRevisions)
 
   assert.ok(
     workspaceMembershipConfig.uniqueConstraints.some(
@@ -86,12 +91,20 @@ test("workspace and review workflow tables enforce idempotent uniqueness constra
       (constraint) => constraint.getName() === "integration_connections_id_workspace_id_unique",
     ),
   )
+  assert.ok(
+    draftRevisionConfig.uniqueConstraints.some(
+      (constraint) => constraint.getName() === "draft_revisions_id_release_record_id_unique",
+    ),
+  )
 })
 
 test("sync and release records keep workspace and connection tenant boundaries aligned", () => {
   const syncRunConfig = getTableConfig(syncRuns)
   const releaseRecordConfig = getTableConfig(releaseRecords)
   const currentWorkspaceSelectionConfig = getTableConfig(currentWorkspaceSelections)
+  const draftClaimCheckResultConfig = getTableConfig(draftClaimCheckResults)
+  const workflowEventConfig = getTableConfig(workflowEvents)
+  const publishPackExportConfig = getTableConfig(publishPackExports)
 
   assert.ok(
     syncRunConfig.foreignKeys.some(
@@ -110,6 +123,25 @@ test("sync and release records keep workspace and connection tenant boundaries a
       (constraint) =>
         constraint.getName() ===
         "current_workspace_selections_workspace_id_user_id_workspace_memberships_fk",
+    ),
+  )
+  assert.ok(
+    draftClaimCheckResultConfig.foreignKeys.some(
+      (constraint) =>
+        constraint.getName() ===
+        "draft_claim_check_results_draft_revision_id_release_record_id_draft_revisions_fk",
+    ),
+  )
+  assert.ok(
+    workflowEventConfig.foreignKeys.some(
+      (constraint) =>
+        constraint.getName() === "workflow_events_draft_revision_id_release_record_id_draft_revisions_fk",
+    ),
+  )
+  assert.ok(
+    publishPackExportConfig.foreignKeys.some(
+      (constraint) =>
+        constraint.getName() === "publish_pack_exports_draft_revision_id_release_record_id_draft_revisions_fk",
     ),
   )
 })

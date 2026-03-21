@@ -9,6 +9,8 @@ import {
   WorkspaceSlugConflictError,
 } from "../foundation/service.js"
 import type { GitHubSyncService } from "../github/service.js"
+import type { ReleaseWorkflowService } from "../release-workflow/service.js"
+import { createReleaseWorkflowRoute } from "./release-workflow.js"
 import { createGitHubSyncRoute } from "./github-sync.js"
 import type { AppBindings } from "../types.js"
 
@@ -43,6 +45,7 @@ function notFound(message: string) {
 export function createWorkspacesRoute(
   foundationService: FoundationService,
   githubSyncService?: GitHubSyncService,
+  releaseWorkflowService?: ReleaseWorkflowService,
 ) {
   const route = new Hono<AppBindings>()
 
@@ -354,6 +357,10 @@ export function createWorkspacesRoute(
 
   if (githubSyncService) {
     route.route("/:workspaceId/github", createGitHubSyncRoute(githubSyncService))
+  }
+
+  if (releaseWorkflowService) {
+    route.route("/:workspaceId/release-workflow", createReleaseWorkflowRoute(releaseWorkflowService))
   }
 
   return route

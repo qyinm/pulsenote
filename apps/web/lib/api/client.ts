@@ -12,6 +12,18 @@ const reviewStateSchema = z.enum(["pending", "blocked", "approved"])
 const claimStatusSchema = z.enum(["pending", "flagged", "approved", "rejected"])
 const evidenceStateSchema = z.enum(["fresh", "stale", "missing", "unsupported"])
 const evidenceSourceTypeSchema = z.enum(["pull_request", "commit", "release", "ticket", "document"])
+const workflowAllowedActionSchema = z.enum([
+  "create_draft",
+  "run_claim_check",
+  "request_approval",
+  "approve_draft",
+  "reopen_draft",
+  "create_publish_pack",
+])
+const workflowReadinessSchema = z.enum(["blocked", "attention", "ready"])
+const claimCheckStateSchema = z.enum(["not_started", "blocked", "cleared"])
+const approvalStateSchema = z.enum(["not_requested", "pending", "approved", "reopened"])
+const publishPackStateSchema = z.enum(["not_ready", "ready", "exported"])
 const workspaceMembershipRoleSchema = z.enum(["owner", "member"])
 const integrationStatusSchema = z.enum(["active", "disconnected"])
 const syncRunStatusSchema = z.enum(["queued", "running", "succeeded", "failed"])
@@ -91,6 +103,89 @@ const releaseRecordSnapshotSchema = z.object({
       url: z.string().url(),
     }),
   ),
+})
+
+const workflowCurrentDraftSchema = z.object({
+  changelogBody: z.string(),
+  createdAt: z.string(),
+  createdByUserId: z.string().nullable(),
+  id: z.string(),
+  releaseNotesBody: z.string(),
+  version: z.number().int(),
+})
+
+const claimCheckResultSchema = z.object({
+  createdAt: z.string(),
+  draftRevisionId: z.string(),
+  evidenceBlockIds: z.array(z.string()),
+  id: z.string(),
+  note: z.string().nullable(),
+  releaseRecordId: z.string(),
+  sentence: z.string(),
+  status: claimStatusSchema,
+  updatedAt: z.string(),
+})
+
+const workflowClaimCheckSummarySchema = z.object({
+  blockerNotes: z.array(z.string()),
+  draftRevisionId: z.string().nullable(),
+  flaggedClaims: z.number().int(),
+  items: z.array(claimCheckResultSchema),
+  state: claimCheckStateSchema,
+  totalClaims: z.number().int(),
+})
+
+const workflowApprovalSummarySchema = z.object({
+  draftRevisionId: z.string().nullable(),
+  note: z.string().nullable(),
+  ownerUserId: z.string().nullable(),
+  state: approvalStateSchema,
+  updatedAt: z.string().nullable(),
+})
+
+const workflowPublishPackSummarySchema = z.object({
+  draftRevisionId: z.string().nullable(),
+  exportId: z.string().nullable(),
+  exportedAt: z.string().nullable(),
+  state: publishPackStateSchema,
+})
+
+const releaseWorkflowListItemSchema = z.object({
+  allowedActions: z.array(workflowAllowedActionSchema),
+  approvalSummary: workflowApprovalSummarySchema,
+  claimCheckSummary: workflowClaimCheckSummarySchema.omit({ items: true }),
+  currentDraft: workflowCurrentDraftSchema.pick({
+    createdAt: true,
+    id: true,
+    version: true,
+  }).nullable(),
+  evidenceCount: z.number().int(),
+  latestPublishPackSummary: workflowPublishPackSummarySchema,
+  readiness: workflowReadinessSchema,
+  releaseRecord: z.object({
+    compareRange: z.string().nullable(),
+    createdAt: z.string(),
+    id: z.string(),
+    stage: releaseStageSchema,
+    summary: z.string().nullable(),
+    title: z.string(),
+    updatedAt: z.string(),
+    workspaceId: z.string(),
+  }),
+  sourceLinkCount: z.number().int(),
+})
+
+const releaseWorkflowDetailSchema = z.object({
+  allowedActions: z.array(workflowAllowedActionSchema),
+  approvalSummary: workflowApprovalSummarySchema,
+  claimCheckSummary: workflowClaimCheckSummarySchema,
+  currentDraft: workflowCurrentDraftSchema.nullable(),
+  evidenceBlocks: releaseRecordSnapshotSchema.shape.evidenceBlocks,
+  latestPublishPackSummary: workflowPublishPackSummarySchema,
+  readiness: workflowReadinessSchema,
+  releaseRecord: releaseRecordSnapshotSchema.shape.releaseRecord,
+  reviewStatuses: releaseRecordSnapshotSchema.shape.reviewStatuses,
+  sourceLinks: releaseRecordSnapshotSchema.shape.sourceLinks,
 })
 
 const workspaceSnapshotSchema = z.object({
@@ -173,6 +268,9 @@ const workspaceChoiceSchema = z.object({
 
 export type ApiSession = z.infer<typeof apiSessionSchema>
 export type ReleaseRecordSnapshot = z.infer<typeof releaseRecordSnapshotSchema>
+export type ReleaseWorkflowDetail = z.infer<typeof releaseWorkflowDetailSchema>
+export type ReleaseWorkflowListItem = z.infer<typeof releaseWorkflowListItemSchema>
+export type WorkflowAllowedAction = z.infer<typeof workflowAllowedActionSchema>
 export type WorkspaceChoice = z.infer<typeof workspaceChoiceSchema>
 export type WorkspaceSnapshot = z.infer<typeof workspaceSnapshotSchema>
 
@@ -184,6 +282,17 @@ type CreateApiClientOptions = {
 type ApiErrorPayload = {
   message?: string
   status?: number
+}
+
+type CreateReleaseWorkflowDraftPayload = {
+  changelogBody?: string
+  expectedLatestDraftRevisionId?: string | null
+  releaseNotesBody?: string
+}
+
+type ReleaseWorkflowDraftCommandPayload = {
+  expectedDraftRevisionId: string
+  note?: string
 }
 
 export class ApiError extends Error {
@@ -293,11 +402,121 @@ export function createApiClient(options: CreateApiClientOptions = {}) {
         init,
       )
     },
+    getReleaseWorkflowDetail(workspaceId: string, releaseRecordId: string, init?: RequestInit) {
+      return request(
+        `/v1/workspaces/${encodeURIComponent(workspaceId)}/release-workflow/${encodeURIComponent(releaseRecordId)}`,
+        releaseWorkflowDetailSchema,
+        init,
+      )
+    },
     listReleaseRecords(workspaceId: string, init?: RequestInit) {
       return request(
         `/v1/workspaces/${encodeURIComponent(workspaceId)}/release-records`,
         z.array(releaseRecordSnapshotSchema),
         init,
+      )
+    },
+    listReleaseWorkflow(workspaceId: string, init?: RequestInit) {
+      return request(
+        `/v1/workspaces/${encodeURIComponent(workspaceId)}/release-workflow`,
+        z.array(releaseWorkflowListItemSchema),
+        init,
+      )
+    },
+    approveReleaseWorkflowDraft(
+      workspaceId: string,
+      releaseRecordId: string,
+      payload: ReleaseWorkflowDraftCommandPayload,
+      init?: RequestInit,
+    ) {
+      return request(
+        `/v1/workspaces/${encodeURIComponent(workspaceId)}/release-workflow/${encodeURIComponent(releaseRecordId)}/approve`,
+        releaseWorkflowDetailSchema,
+        {
+          ...init,
+          body: JSON.stringify(payload),
+          method: "POST",
+        },
+      )
+    },
+    createReleaseWorkflowDraft(
+      workspaceId: string,
+      releaseRecordId: string,
+      payload: CreateReleaseWorkflowDraftPayload,
+      init?: RequestInit,
+    ) {
+      return request(
+        `/v1/workspaces/${encodeURIComponent(workspaceId)}/release-workflow/${encodeURIComponent(releaseRecordId)}/drafts`,
+        releaseWorkflowDetailSchema,
+        {
+          ...init,
+          body: JSON.stringify(payload),
+          method: "POST",
+        },
+      )
+    },
+    createReleaseWorkflowPublishPack(
+      workspaceId: string,
+      releaseRecordId: string,
+      payload: ReleaseWorkflowDraftCommandPayload,
+      init?: RequestInit,
+    ) {
+      return request(
+        `/v1/workspaces/${encodeURIComponent(workspaceId)}/release-workflow/${encodeURIComponent(releaseRecordId)}/publish-pack`,
+        releaseWorkflowDetailSchema,
+        {
+          ...init,
+          body: JSON.stringify(payload),
+          method: "POST",
+        },
+      )
+    },
+    reopenReleaseWorkflowDraft(
+      workspaceId: string,
+      releaseRecordId: string,
+      payload: ReleaseWorkflowDraftCommandPayload,
+      init?: RequestInit,
+    ) {
+      return request(
+        `/v1/workspaces/${encodeURIComponent(workspaceId)}/release-workflow/${encodeURIComponent(releaseRecordId)}/reopen`,
+        releaseWorkflowDetailSchema,
+        {
+          ...init,
+          body: JSON.stringify(payload),
+          method: "POST",
+        },
+      )
+    },
+    requestReleaseWorkflowApproval(
+      workspaceId: string,
+      releaseRecordId: string,
+      payload: ReleaseWorkflowDraftCommandPayload,
+      init?: RequestInit,
+    ) {
+      return request(
+        `/v1/workspaces/${encodeURIComponent(workspaceId)}/release-workflow/${encodeURIComponent(releaseRecordId)}/request-approval`,
+        releaseWorkflowDetailSchema,
+        {
+          ...init,
+          body: JSON.stringify(payload),
+          method: "POST",
+        },
+      )
+    },
+    runReleaseWorkflowClaimCheck(
+      workspaceId: string,
+      releaseRecordId: string,
+      payload: ReleaseWorkflowDraftCommandPayload,
+      init?: RequestInit,
+    ) {
+      return request(
+        `/v1/workspaces/${encodeURIComponent(workspaceId)}/release-workflow/${encodeURIComponent(releaseRecordId)}/claim-check`,
+        releaseWorkflowDetailSchema,
+        {
+          ...init,
+          body: JSON.stringify(payload),
+          method: "POST",
+        },
       )
     },
     setCurrentWorkspace(
