@@ -28,6 +28,27 @@ function badRequest(message: string) {
   } as const
 }
 
+async function parseOptionalJsonRecord(context: Context<AppBindings>) {
+  const rawBody = await context.req.text()
+
+  if (rawBody.trim().length === 0) {
+    return {
+      payload: null,
+    } as const
+  }
+
+  try {
+    return {
+      payload: asRecord(JSON.parse(rawBody)),
+    } as const
+  } catch {
+    return {
+      error: badRequest("Malformed JSON request body"),
+      payload: null,
+    } as const
+  }
+}
+
 function mapWorkflowError(error: unknown) {
   if (error instanceof ReleaseWorkflowNotFoundError || error instanceof DraftRevisionNotFoundError) {
     return {
@@ -105,7 +126,11 @@ export function createReleaseWorkflowRoute(releaseWorkflowService: ReleaseWorkfl
   })
 
   route.post("/:releaseRecordId/drafts", async (context) => {
-    const payload = asRecord(await context.req.json().catch(() => null))
+    const { error, payload } = await parseOptionalJsonRecord(context)
+
+    if (error) {
+      return context.json(error, error.status)
+    }
 
     try {
       const detail = await releaseWorkflowService.createDraft({
@@ -139,7 +164,12 @@ export function createReleaseWorkflowRoute(releaseWorkflowService: ReleaseWorkfl
       workspaceId: string
     }) => Promise<unknown>,
   ) {
-    const payload = asRecord(await context.req.json().catch(() => null))
+    const { error, payload } = await parseOptionalJsonRecord(context)
+
+    if (error) {
+      return context.json(error, error.status)
+    }
+
     const expectedDraftRevisionId = asOptionalString(payload?.expectedDraftRevisionId)
 
     if (!expectedDraftRevisionId) {

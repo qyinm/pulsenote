@@ -185,3 +185,55 @@ test("release workflow routes complete the founder happy path", async () => {
   assert.equal(publishPackBody.latestPublishPackSummary.state, "exported")
   assert.deepEqual(publishPackBody.allowedActions, ["reopen_draft"])
 })
+
+test("release workflow routes reject malformed JSON when creating drafts", async () => {
+  const fixture = await seedReleaseWorkflowFixture()
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(fixture.bootstrap.user.id)),
+    foundationService: fixture.foundationService,
+    releaseWorkflowService: fixture.workflowService,
+  })
+
+  const response = await app.request(
+    `/v1/workspaces/${fixture.bootstrap.workspace.id}/release-workflow/${fixture.releaseRecord.id}/drafts`,
+    {
+      body: "{",
+      headers: {
+        "content-type": "application/json",
+      },
+      method: "POST",
+    },
+  )
+
+  assert.equal(response.status, 400)
+  assert.deepEqual(await response.json(), {
+    message: "Malformed JSON request body",
+    status: 400,
+  })
+})
+
+test("release workflow routes reject malformed JSON for draft commands before validation", async () => {
+  const fixture = await seedReleaseWorkflowFixture()
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(fixture.bootstrap.user.id)),
+    foundationService: fixture.foundationService,
+    releaseWorkflowService: fixture.workflowService,
+  })
+
+  const response = await app.request(
+    `/v1/workspaces/${fixture.bootstrap.workspace.id}/release-workflow/${fixture.releaseRecord.id}/request-approval`,
+    {
+      body: "{",
+      headers: {
+        "content-type": "application/json",
+      },
+      method: "POST",
+    },
+  )
+
+  assert.equal(response.status, 400)
+  assert.deepEqual(await response.json(), {
+    message: "Malformed JSON request body",
+    status: 400,
+  })
+})
