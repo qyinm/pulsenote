@@ -362,7 +362,12 @@ export const draftClaimCheckResultEvidenceBlocks = pgTable(
       .notNull()
       .references(() => evidenceBlocks.id, { onDelete: "cascade" }),
   },
-  (table) => [primaryKey({ columns: [table.draftClaimCheckResultId, table.evidenceBlockId] })],
+  (table) => [
+    primaryKey({
+      columns: [table.draftClaimCheckResultId, table.evidenceBlockId],
+      name: "draft_claim_check_result_evidence_blocks_pk",
+    }),
+  ],
 )
 
 export const workflowEvents = pgTable(
