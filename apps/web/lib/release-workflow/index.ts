@@ -185,6 +185,111 @@ export function buildReleaseWorkflowMetrics(
   }
 }
 
+export function detailToReleaseWorkflowListItem(
+  detail: ReleaseWorkflowDetail,
+): ReleaseWorkflowListItem {
+  return {
+    allowedActions: detail.allowedActions,
+    approvalSummary: detail.approvalSummary,
+    claimCheckSummary: {
+      blockerNotes: detail.claimCheckSummary.blockerNotes,
+      draftRevisionId: detail.claimCheckSummary.draftRevisionId,
+      flaggedClaims: detail.claimCheckSummary.flaggedClaims,
+      state: detail.claimCheckSummary.state,
+      totalClaims: detail.claimCheckSummary.totalClaims,
+    },
+    currentDraft:
+      detail.currentDraft === null
+        ? null
+        : {
+            createdAt: detail.currentDraft.createdAt,
+            id: detail.currentDraft.id,
+            version: detail.currentDraft.version,
+          },
+    evidenceCount: detail.evidenceBlocks.length,
+    latestPublishPackSummary: detail.latestPublishPackSummary,
+    readiness: detail.readiness,
+    releaseRecord: {
+      compareRange: detail.releaseRecord.compareRange,
+      createdAt: detail.releaseRecord.createdAt,
+      id: detail.releaseRecord.id,
+      stage: detail.releaseRecord.stage,
+      summary: detail.releaseRecord.summary,
+      title: detail.releaseRecord.title,
+      updatedAt: detail.releaseRecord.updatedAt,
+      workspaceId: detail.releaseRecord.workspaceId,
+    },
+    sourceLinkCount: detail.sourceLinks.length,
+  }
+}
+
+export function buildReleaseWorkflowEvidenceNotes(detail: ReleaseWorkflowDetail) {
+  const evidenceNotes = detail.evidenceBlocks.map((evidenceBlock) => {
+    const evidenceState =
+      evidenceBlock.evidenceState.charAt(0).toUpperCase() + evidenceBlock.evidenceState.slice(1)
+
+    return `${evidenceState}: ${evidenceBlock.title}`
+  })
+  const sourceLinkNotes = detail.sourceLinks.map(
+    (sourceLink) => `Linked source: ${sourceLink.label}`,
+  )
+
+  if (evidenceNotes.length > 0 || sourceLinkNotes.length > 0) {
+    return [...evidenceNotes, ...sourceLinkNotes]
+  }
+
+  return ["No evidence is attached to this release workflow yet."]
+}
+
+export function buildReleaseWorkflowClaimCheckNotes(detail: ReleaseWorkflowDetail) {
+  if (detail.claimCheckSummary.items.length > 0) {
+    return detail.claimCheckSummary.items.map((item) => {
+      const state = item.status.charAt(0).toUpperCase() + item.status.slice(1)
+      return `${state}: ${item.sentence}${item.note ? ` — ${item.note}` : ""}`
+    })
+  }
+
+  if (detail.claimCheckSummary.blockerNotes.length > 0) {
+    return detail.claimCheckSummary.blockerNotes
+  }
+
+  return ["Claim check has not produced any draft-level review notes yet."]
+}
+
+export function buildReleaseWorkflowApprovalNotes(detail: ReleaseWorkflowDetail) {
+  const approvalReviewStatus = detail.reviewStatuses.find((reviewStatus) => reviewStatus.stage === "approval")
+
+  if (approvalReviewStatus) {
+    const state = approvalReviewStatus.state.charAt(0).toUpperCase() + approvalReviewStatus.state.slice(1)
+    return [
+      `Approval: ${state}${approvalReviewStatus.note ? ` — ${approvalReviewStatus.note}` : ""}`,
+    ]
+  }
+
+  switch (detail.approvalSummary.state) {
+    case "approved":
+      return ["The current draft revision is approved for publish-pack assembly."]
+    case "pending":
+      return ["Approval has been requested and is still waiting on a human decision."]
+    case "reopened":
+      return ["This draft was reopened after approval and needs another review pass."]
+    default:
+      return ["Approval has not been requested for the current draft revision."]
+  }
+}
+
+export function buildReleaseWorkflowPublishPackNotes(detail: ReleaseWorkflowDetail) {
+  if (detail.latestPublishPackSummary.state === "exported") {
+    return ["The current draft revision is already frozen into a publish pack export."]
+  }
+
+  if (detail.latestPublishPackSummary.state === "ready") {
+    return ["The current draft revision is approved and ready to export as a publish pack."]
+  }
+
+  return ["A publish pack will appear once the current draft is approved."]
+}
+
 export async function getServerReleaseWorkflowData(
   requestHeaders: Headers,
   workspaceId: string,

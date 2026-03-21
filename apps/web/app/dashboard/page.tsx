@@ -1,16 +1,13 @@
-import { ChartAreaInteractive } from "@/components/chart-area-interactive"
-import { DataTable } from "@/components/data-table"
-import { DashboardPage as DashboardPageShell } from "@/components/dashboard/surfaces"
-import { SectionCards } from "@/components/section-cards"
-
-import { releaseRecords } from "@/lib/dashboard"
+import { ReleaseWorkflowPage } from "@/components/dashboard/release-workflow-page"
 
 export default function DashboardPage() {
   return (
-    <DashboardPageShell className="gap-6 py-4 md:py-6">
-      <SectionCards />
-      <ChartAreaInteractive />
-      <DataTable data={releaseRecords} />
-    </DashboardPageShell>
+    <ReleaseWorkflowPage
+      mode="overview"
+      unavailableTitle="Founder release workflow is unavailable"
+      unavailableDescription="The authenticated API request failed before the release workflow overview could be rendered."
+      emptyTitle="No founder workflow records yet"
+      emptyDescription="Release workflow records will appear here once release context is ingested from the connected workspace."
+    />
   )
 }
