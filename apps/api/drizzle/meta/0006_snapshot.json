@@ -374,8 +374,8 @@
         }
       },
       "compositePrimaryKeys": {
-        "draft_claim_check_result_evidence_blocks_draft_claim_check_result_id_evidence_block_id_pk": {
-          "name": "draft_claim_check_result_evidence_blocks_draft_claim_check_result_id_evidence_block_id_pk",
+        "draft_claim_check_result_evidence_blocks_pk": {
+          "name": "draft_claim_check_result_evidence_blocks_pk",
           "columns": [
             "draft_claim_check_result_id",
             "evidence_block_id"
