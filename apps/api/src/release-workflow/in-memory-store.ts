@@ -157,6 +157,22 @@ export function createInMemoryReleaseWorkflowStore(
       return workflowEvent
     },
 
+    async deleteDraftClaimCheckResultsByDraftRevisionId(draftRevisionId: string) {
+      const resultIds = Array.from(state.draftClaimCheckResults.values())
+        .filter((draftClaimCheckResult) => draftClaimCheckResult.draftRevisionId === draftRevisionId)
+        .map((draftClaimCheckResult) => draftClaimCheckResult.id)
+      const resultIdSet = new Set(resultIds)
+
+      for (const resultId of resultIds) {
+        state.draftClaimCheckResults.delete(resultId)
+      }
+
+      state.draftClaimCheckResultEvidenceLinks = state.draftClaimCheckResultEvidenceLinks.filter(
+        (draftClaimCheckResultEvidenceLink) =>
+          !resultIdSet.has(draftClaimCheckResultEvidenceLink.draftClaimCheckResultId),
+      )
+    },
+
     async getDraftRevision(draftRevisionId: string) {
       return state.draftRevisions.get(draftRevisionId) ?? null
     },

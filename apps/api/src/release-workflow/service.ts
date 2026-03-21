@@ -242,13 +242,17 @@ function getLatestApprovalEventForDraft(workflowEvents: WorkflowEvent[], draftRe
   }
 
   const approvalEventTypes = new Set(["approval_requested", "draft_approved", "draft_reopened"])
-  const approvalEventPriority: Record<
-    Extract<WorkflowEvent["type"], "approval_requested" | "draft_approved" | "draft_reopened">,
-    number
-  > = {
-    approval_requested: 1,
-    draft_approved: 2,
-    draft_reopened: 3,
+  const getApprovalEventPriority = (workflowEvent: WorkflowEvent) => {
+    switch (workflowEvent.type) {
+      case "approval_requested":
+        return 1
+      case "draft_approved":
+        return 2
+      case "draft_reopened":
+        return 3
+      default:
+        return 0
+    }
   }
 
   return [...workflowEvents]
@@ -263,7 +267,7 @@ function getLatestApprovalEventForDraft(workflowEvents: WorkflowEvent[], draftRe
         return createdAtComparison
       }
 
-      return approvalEventPriority[right.type] - approvalEventPriority[left.type]
+      return getApprovalEventPriority(right) - getApprovalEventPriority(left)
     })[0] ?? null
 }
 
@@ -769,6 +773,8 @@ export function createReleaseWorkflowService(
       const hasFlaggedClaims = claimCheckCandidates.some((claimCheckCandidate) => claimCheckCandidate.status === "flagged")
 
       await store.transaction(async (transactionStore) => {
+        await transactionStore.deleteDraftClaimCheckResultsByDraftRevisionId(resources.currentDraft!.id)
+
         for (const claimCheckCandidate of claimCheckCandidates) {
           const claimCheckResult = await transactionStore.createDraftClaimCheckResult({
             draftRevisionId: resources.currentDraft!.id,

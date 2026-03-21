@@ -62,6 +62,7 @@ export type ReleaseWorkflowStore = {
   createDraftRevision(input: CreateDraftRevisionInput): Promise<DraftRevision>
   createPublishPackExport(input: CreatePublishPackExportInput): Promise<PublishPackExport>
   createWorkflowEvent(input: CreateWorkflowEventInput): Promise<WorkflowEvent>
+  deleteDraftClaimCheckResultsByDraftRevisionId(draftRevisionId: string): Promise<void>
   getDraftRevision(draftRevisionId: string): Promise<DraftRevision | null>
   getLatestDraftRevision(releaseRecordId: string): Promise<DraftRevision | null>
   getReleaseRecord(releaseRecordId: string): Promise<ReleaseRecord | null>

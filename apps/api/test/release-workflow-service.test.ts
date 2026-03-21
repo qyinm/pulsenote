@@ -284,3 +284,74 @@ test("release workflow service treats approved events as newer than approval req
   assert.equal(detail.approvalSummary.state, "approved")
   assert.equal(exported.latestPublishPackSummary.state, "exported")
 })
+
+test("release workflow service replaces old claim check results when a reopened draft is checked again", async () => {
+  let runCount = 0
+  const fixture = await seedReleaseWorkflowFixture({
+    async composeDraft() {
+      return {
+        changelogBody: "- Adds founder release workflow and approval checkpoints",
+        releaseNotesBody: "- Adds founder release workflow and approval checkpoints",
+      }
+    },
+    async runClaimCheck(releaseSnapshot, draftRevision) {
+      runCount += 1
+
+      if (runCount === 1) {
+        return [
+          {
+            evidenceBlockIds: [],
+            note: "This sentence sounds customer-facing but could not be traced to release evidence.",
+            sentence: draftRevision.releaseNotesBody.replace(/^- /, ""),
+            status: "flagged" as const,
+          },
+        ]
+      }
+
+      return [
+        {
+          evidenceBlockIds: releaseSnapshot.claimCandidates[0]?.evidenceBlockIds ?? [],
+          note: null,
+          sentence: draftRevision.releaseNotesBody.replace(/^- /, ""),
+          status: "approved" as const,
+        },
+      ]
+    },
+  })
+
+  const draft = await fixture.workflowService.createDraft({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedLatestDraftRevisionId: null,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+  const firstClaimCheck = await fixture.workflowService.runClaimCheck({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  assert.equal(firstClaimCheck.claimCheckSummary.state, "blocked")
+  assert.equal(firstClaimCheck.claimCheckSummary.flaggedClaims, 1)
+  assert.equal(firstClaimCheck.claimCheckSummary.totalClaims, 1)
+
+  await fixture.workflowService.reopenDraft({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  const rerunClaimCheck = await fixture.workflowService.runClaimCheck({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  assert.equal(rerunClaimCheck.claimCheckSummary.state, "cleared")
+  assert.equal(rerunClaimCheck.claimCheckSummary.flaggedClaims, 0)
+  assert.equal(rerunClaimCheck.claimCheckSummary.totalClaims, 1)
+  assert.deepEqual(rerunClaimCheck.claimCheckSummary.blockerNotes, [])
+})

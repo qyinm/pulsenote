@@ -231,6 +231,24 @@ export function createPostgresReleaseWorkflowStore(
       return workflowEvent satisfies WorkflowEvent
     },
 
+    async deleteDraftClaimCheckResultsByDraftRevisionId(draftRevisionId: string) {
+      const resultRows = await db.query.draftClaimCheckResults.findMany({
+        columns: {
+          id: true,
+        },
+        where: eq(draftClaimCheckResults.draftRevisionId, draftRevisionId),
+      })
+      const resultIds = resultRows.map((resultRow) => resultRow.id)
+
+      if (resultIds.length > 0) {
+        await db
+          .delete(draftClaimCheckResultEvidenceBlocks)
+          .where(inArray(draftClaimCheckResultEvidenceBlocks.draftClaimCheckResultId, resultIds))
+      }
+
+      await db.delete(draftClaimCheckResults).where(eq(draftClaimCheckResults.draftRevisionId, draftRevisionId))
+    },
+
     async getDraftRevision(draftRevisionId: string) {
       const draftRevision = await db.query.draftRevisions.findFirst({
         where: eq(draftRevisions.id, draftRevisionId),
