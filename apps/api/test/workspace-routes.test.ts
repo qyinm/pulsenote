@@ -197,8 +197,15 @@ test("workspace routes manage the GitHub intake connection for an authenticated 
         token: `installation_token_${installationId}`,
       }
     },
-    getInstallUrl() {
-      return "https://github.com/apps/pulsenote/installations/new"
+    getInstallUrl(input) {
+      assert.equal(input.userId, bootstrapBody.memberships[0].userId)
+      assert.equal(input.workspaceId, bootstrapBody.workspace.id)
+      return "https://github.com/apps/pulsenote/installations/new?state=install_state_123"
+    },
+    verifyInstallState(input) {
+      assert.equal(input.userId, bootstrapBody.memberships[0].userId)
+      assert.equal(input.workspaceId, bootstrapBody.workspace.id)
+      assert.equal(input.state, "install_state_123")
     },
     async listInstallationRepositories(installationId) {
       assert.equal(installationId, "321")
@@ -226,11 +233,11 @@ test("workspace routes manage the GitHub intake connection for an authenticated 
 
   assert.equal(installUrlResponse.status, 200)
   assert.deepEqual(await installUrlResponse.json(), {
-    url: "https://github.com/apps/pulsenote/installations/new",
+    url: "https://github.com/apps/pulsenote/installations/new?state=install_state_123",
   })
 
   const repositoriesResponse = await app.request(
-    `/v1/workspaces/${bootstrapBody.workspace.id}/integrations/github/installations/321/repositories`,
+    `/v1/workspaces/${bootstrapBody.workspace.id}/integrations/github/installations/321/repositories?state=install_state_123`,
   )
 
   assert.equal(repositoriesResponse.status, 200)
@@ -250,6 +257,7 @@ test("workspace routes manage the GitHub intake connection for an authenticated 
     {
       body: JSON.stringify({
         installationId: "321",
+        state: "install_state_123",
         repository: {
           name: "pulsenote",
           owner: "qyinm",
@@ -296,6 +304,65 @@ test("workspace routes manage the GitHub intake connection for an authenticated 
   assert.deepEqual(await missingConnectionResponse.json(), {
     message: "GitHub connection was not found",
     status: 404,
+  })
+})
+
+test("workspace routes reject GitHub installation repository listing without signed install state", async () => {
+  const foundationService = createFoundationService(createInMemoryFoundationStore())
+  const bootstrapApp = createApp(runtimeEnv, {
+    authService: createAuthService(null),
+    foundationService,
+  })
+
+  const bootstrapResponse = await bootstrapApp.request("/v1/workspaces/bootstrap", {
+    body: JSON.stringify({
+      user: {
+        email: "missing-state@pulsenote.dev",
+        fullName: "Missing State User",
+      },
+      workspace: {
+        name: "Missing state workspace",
+        slug: "missing-state-workspace",
+      },
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "POST",
+  })
+
+  const bootstrapBody = await bootstrapResponse.json()
+  const githubInstallationService: GitHubInstallationService = {
+    async createInstallationAuth(installationId) {
+      return {
+        strategy: "installation_token",
+        token: `installation_token_${installationId}`,
+      }
+    },
+    getInstallUrl() {
+      return "https://github.com/apps/pulsenote/installations/new?state=install_state_123"
+    },
+    verifyInstallState() {
+      throw new Error("verifyInstallState should not be called without a state")
+    },
+    async listInstallationRepositories() {
+      throw new Error("listInstallationRepositories should not be called without a state")
+    },
+  }
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(bootstrapBody.memberships[0].userId)),
+    foundationService,
+    githubInstallationService,
+  })
+
+  const response = await app.request(
+    `/v1/workspaces/${bootstrapBody.workspace.id}/integrations/github/installations/321/repositories`,
+  )
+
+  assert.equal(response.status, 400)
+  assert.deepEqual(await response.json(), {
+    message: "state is required",
+    status: 400,
   })
 })
 

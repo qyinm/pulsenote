@@ -300,6 +300,9 @@ test("github release sync route uses the stored GitHub App connection in product
     getInstallUrl() {
       return "https://github.com/apps/pulsenote/installations/new"
     },
+    verifyInstallState() {
+      throw new Error("verifyInstallState should not be called")
+    },
     async listInstallationRepositories() {
       throw new Error("repository listing should not be called")
     },

@@ -483,6 +483,7 @@ export function createApiClient(options: CreateApiClientOptions = {}) {
       workspaceId: string,
       payload: {
         installationId: string
+        state: string
         repository: {
           name: string
           owner: string
@@ -534,10 +535,11 @@ export function createApiClient(options: CreateApiClientOptions = {}) {
     listGitHubInstallationRepositories(
       workspaceId: string,
       installationId: string,
+      state: string,
       init?: RequestInit,
     ) {
       return request(
-        `/v1/workspaces/${encodeURIComponent(workspaceId)}/integrations/github/installations/${encodeURIComponent(installationId)}/repositories`,
+        `/v1/workspaces/${encodeURIComponent(workspaceId)}/integrations/github/installations/${encodeURIComponent(installationId)}/repositories?state=${encodeURIComponent(state)}`,
         z.array(githubInstallationRepositorySchema),
         init,
       )

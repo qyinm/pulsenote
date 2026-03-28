@@ -1,4 +1,4 @@
-import { createPrivateKey, sign } from "node:crypto"
+import { createHmac, createPrivateKey, sign, timingSafeEqual } from "node:crypto"
 
 import { Octokit } from "octokit"
 
@@ -19,6 +19,12 @@ type CreateGitHubInstallationServiceDependencies = {
   now?: () => Date
 }
 
+type GitHubInstallStateClaims = {
+  issuedAt: number
+  userId: string
+  workspaceId: string
+}
+
 function base64UrlEncode(input: Buffer | string) {
   const buffer = typeof input === "string" ? Buffer.from(input) : input
   return buffer
@@ -36,6 +42,10 @@ function requireRuntimeEnv(value: string | null, fieldName: string) {
   return value
 }
 
+function decodeBase64UrlJson<T>(value: string): T {
+  return JSON.parse(Buffer.from(value, "base64url").toString("utf8")) as T
+}
+
 export type GitHubInstallationService = ReturnType<typeof createGitHubInstallationService>
 
 export function createGitHubInstallationService(
@@ -47,6 +57,32 @@ export function createGitHubInstallationService(
 
   if (!fetchImplementation) {
     throw new Error("fetch is required for GitHub installation service")
+  }
+
+  function createStateSignature(encodedPayload: string) {
+    const secret =
+      runtimeEnv.betterAuthSecret?.trim() ||
+      runtimeEnv.githubAppPrivateKey?.trim() ||
+      runtimeEnv.githubAppId?.trim()
+
+    if (!secret) {
+      throw new Error("GitHub App state signing is unavailable")
+    }
+
+    return createHmac("sha256", secret).update(encodedPayload).digest()
+  }
+
+  function createInstallState(input: { userId: string; workspaceId: string }) {
+    const payload = base64UrlEncode(
+      JSON.stringify({
+        issuedAt: now().getTime(),
+        userId: input.userId,
+        workspaceId: input.workspaceId,
+      } satisfies GitHubInstallStateClaims),
+    )
+    const signature = base64UrlEncode(createStateSignature(payload))
+
+    return `${payload}.${signature}`
   }
 
   function createAppJwt() {
@@ -72,9 +108,44 @@ export function createGitHubInstallationService(
   }
 
   return {
-    getInstallUrl() {
+    getInstallUrl(input: { userId: string; workspaceId: string }) {
       const githubAppSlug = requireRuntimeEnv(runtimeEnv.githubAppSlug, "GITHUB_APP_SLUG")
-      return `https://github.com/apps/${githubAppSlug}/installations/new`
+      const url = new URL(`https://github.com/apps/${githubAppSlug}/installations/new`)
+      url.searchParams.set("state", createInstallState(input))
+      return url.toString()
+    },
+
+    verifyInstallState(input: { state: string; userId: string; workspaceId: string }) {
+      if (!input.state.trim()) {
+        throw new Error("state is required")
+      }
+
+      const [encodedPayload, encodedSignature] = input.state.split(".")
+
+      if (!encodedPayload || !encodedSignature) {
+        throw new Error("GitHub install state is invalid")
+      }
+
+      const expectedSignature = createStateSignature(encodedPayload)
+      const providedSignature = Buffer.from(encodedSignature, "base64url")
+
+      if (
+        expectedSignature.length !== providedSignature.length ||
+        !timingSafeEqual(expectedSignature, providedSignature)
+      ) {
+        throw new Error("GitHub install state is invalid")
+      }
+
+      const claims = decodeBase64UrlJson<GitHubInstallStateClaims>(encodedPayload)
+      const maxAgeMs = 15 * 60 * 1000
+
+      if (typeof claims.issuedAt !== "number" || now().getTime() - claims.issuedAt > maxAgeMs) {
+        throw new Error("GitHub install state has expired")
+      }
+
+      if (claims.userId !== input.userId || claims.workspaceId !== input.workspaceId) {
+        throw new Error("GitHub install state does not match the current workspace")
+      }
     },
 
     async createInstallationAuth(installationId: string): Promise<GitHubSyncAuth> {

@@ -17,31 +17,32 @@ import {
 
 type GitHubInstallationCallbackProps = {
   installationId: string | null
+  state: string | null
   workspaceId: string
 }
 
 export function GitHubInstallationCallback({
   installationId,
+  state,
   workspaceId,
 }: GitHubInstallationCallbackProps) {
   const [repositories, setRepositories] = useState<GitHubInstallationRepository[]>([])
   const [selectedRepository, setSelectedRepository] = useState<string>("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(Boolean(installationId))
-  const missingInstallationError = installationId
-    ? null
-    : "GitHub did not return an installation ID."
+  const missingInstallationError =
+    installationId && state ? null : "GitHub did not return a valid installation handoff."
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
-    if (!installationId) {
+    if (!installationId || !state) {
       return
     }
 
     let isCancelled = false
 
     createApiClient()
-      .listGitHubInstallationRepositories(workspaceId, installationId)
+      .listGitHubInstallationRepositories(workspaceId, installationId, state)
       .then((items) => {
         if (isCancelled) {
           return
@@ -70,10 +71,10 @@ export function GitHubInstallationCallback({
     return () => {
       isCancelled = true
     }
-  }, [installationId, workspaceId])
+  }, [installationId, state, workspaceId])
 
   async function handleConnect() {
-    if (!installationId) {
+    if (!installationId || !state) {
       setError("GitHub installation is missing.")
       return
     }
@@ -91,6 +92,7 @@ export function GitHubInstallationCallback({
     try {
       await createApiClient().connectGitHubRepository(workspaceId, {
         installationId,
+        state,
         repository: {
           name: repository.name,
           owner: repository.owner,

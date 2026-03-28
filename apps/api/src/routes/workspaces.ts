@@ -365,7 +365,18 @@ export function createWorkspacesRoute(
     }
 
     try {
-      return context.json({ url: githubInstallationService.getInstallUrl() })
+      const authUser = context.get("authUser")
+
+      if (!authUser) {
+        return context.json({ message: "Authentication is required", status: 401 }, 401)
+      }
+
+      return context.json({
+        url: githubInstallationService.getInstallUrl({
+          userId: authUser.id,
+          workspaceId: context.req.param("workspaceId"),
+        }),
+      })
     } catch (error) {
       const message = error instanceof Error ? error.message : "GitHub App integration is unavailable"
       return context.json({ message, status: 503 }, 503)
@@ -378,6 +389,23 @@ export function createWorkspacesRoute(
     }
 
     try {
+      const authUser = context.get("authUser")
+      const state = context.req.query("state")
+
+      if (!authUser) {
+        return context.json({ message: "Authentication is required", status: 401 }, 401)
+      }
+
+      if (!state) {
+        return context.json(badRequest("state is required"), 400)
+      }
+
+      githubInstallationService.verifyInstallState({
+        state,
+        userId: authUser.id,
+        workspaceId: context.req.param("workspaceId"),
+      })
+
       const repositories = await githubInstallationService.listInstallationRepositories(
         context.req.param("installationId"),
       )
@@ -399,18 +427,25 @@ export function createWorkspacesRoute(
     const payload = asRecord(body)
     const repository = asRecord(payload?.repository)
     const installationId = asString(payload?.installationId)
+    const state = asString(payload?.state)
     const repositoryOwner = asString(repository?.owner)
     const repositoryName = asString(repository?.name)
     const repositoryUrl = asString(repository?.url)
 
-    if (!installationId || !repositoryOwner || !repositoryName || !repositoryUrl) {
+    if (!installationId || !state || !repositoryOwner || !repositoryName || !repositoryUrl) {
       return context.json(
-        badRequest("installationId, repository.owner, repository.name, and repository.url are required"),
+        badRequest("installationId, state, repository.owner, repository.name, and repository.url are required"),
         400,
       )
     }
 
     try {
+      githubInstallationService?.verifyInstallState({
+        state,
+        userId: authUser.id,
+        workspaceId: context.req.param("workspaceId"),
+      })
+
       const githubConnection = await foundationService.connectGitHubWorkspace({
         connectedByUserId: authUser.id,
         installationId,

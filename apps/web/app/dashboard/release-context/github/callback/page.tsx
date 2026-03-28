@@ -19,14 +19,17 @@ export default async function GitHubInstallationCallbackPage({
 
   const resolvedSearchParams = await searchParams
   const rawInstallationId = resolvedSearchParams.installation_id
+  const rawState = resolvedSearchParams.state
   const installationId = Array.isArray(rawInstallationId)
     ? rawInstallationId[0] ?? null
     : rawInstallationId ?? null
+  const state = Array.isArray(rawState) ? rawState[0] ?? null : rawState ?? null
 
   return (
     <DashboardPage>
       <GitHubInstallationCallback
         installationId={installationId}
+        state={state}
         workspaceId={accessState.workspace.workspace.id}
       />
     </DashboardPage>
