@@ -3,6 +3,7 @@ import type {
   DraftRevision,
   PublishPackExport,
   ReleaseRecord,
+  User,
   WorkflowEvent,
 } from "../domain/models.js"
 import type { FoundationStore } from "../foundation/store.js"
@@ -210,6 +211,18 @@ export function createInMemoryReleaseWorkflowStore(
       return listDraftClaimCheckResultsWithEvidence(draftRevisionIds)
     },
 
+    async listDraftRevisionsByReleaseRecordIds(releaseRecordIds: string[]) {
+      if (releaseRecordIds.length === 0) {
+        return []
+      }
+
+      const releaseRecordIdSet = new Set(releaseRecordIds)
+
+      return Array.from(state.draftRevisions.values())
+        .filter((draftRevision) => releaseRecordIdSet.has(draftRevision.releaseRecordId))
+        .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+    },
+
     async listLatestDraftRevisionsByReleaseRecordIds(releaseRecordIds: string[]) {
       if (releaseRecordIds.length === 0) {
         return []
@@ -256,8 +269,40 @@ export function createInMemoryReleaseWorkflowStore(
       return Array.from(latestExportsByReleaseRecordId.values())
     },
 
+    async listPublishPackExportsByReleaseRecordIds(releaseRecordIds: string[]) {
+      if (releaseRecordIds.length === 0) {
+        return []
+      }
+
+      const releaseRecordIdSet = new Set(releaseRecordIds)
+
+      return Array.from(state.publishPackExports.values())
+        .filter((publishPackExport) => releaseRecordIdSet.has(publishPackExport.releaseRecordId))
+        .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+    },
+
     async listReleaseSnapshots(workspaceId: string) {
       return foundationStore.listReleaseRecordSnapshots(workspaceId)
+    },
+
+    async listUsersByIds(userIds: string[]) {
+      if (userIds.length === 0) {
+        return []
+      }
+
+      const usersById = new Map<string, User>()
+
+      await Promise.all(
+        userIds.map(async (userId) => {
+          const user = await foundationStore.getUser(userId)
+
+          if (user) {
+            usersById.set(userId, user)
+          }
+        }),
+      )
+
+      return Array.from(usersById.values())
     },
 
     async listWorkflowEventsByReleaseRecordIds(releaseRecordIds: string[]) {

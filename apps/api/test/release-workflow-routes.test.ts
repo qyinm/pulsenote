@@ -32,6 +32,87 @@ test("release workflow routes expose list and detail read models", async () => {
   assert.deepEqual(detailBody.allowedActions, ["create_draft"])
 })
 
+test("release workflow routes expose workspace and release history read models", async () => {
+  const fixture = await seedReleaseWorkflowFixture({
+    async composeDraft() {
+      return {
+        changelogBody: "- Adds founder release workflow and approval checkpoints",
+        releaseNotesBody: "- Adds founder release workflow and approval checkpoints",
+      }
+    },
+    async runClaimCheck(releaseSnapshot, draftRevision) {
+      return [
+        {
+          evidenceBlockIds: releaseSnapshot.claimCandidates[0]?.evidenceBlockIds ?? [],
+          note: null,
+          sentence: draftRevision.releaseNotesBody.replace(/^- /, ""),
+          status: "approved" as const,
+        },
+      ]
+    },
+  })
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(fixture.bootstrap.user.id)),
+    foundationService: fixture.foundationService,
+    releaseWorkflowService: fixture.workflowService,
+  })
+
+  const draft = await fixture.workflowService.createDraft({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedLatestDraftRevisionId: null,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  await fixture.workflowService.runClaimCheck({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  const listResponse = await app.request(
+    `/v1/workspaces/${fixture.bootstrap.workspace.id}/release-workflow/history`,
+  )
+
+  assert.equal(listResponse.status, 200)
+  const listBody = await listResponse.json()
+  assert.equal(listBody.length, 2)
+  assert.equal(listBody[0]?.eventType, "claim_check_completed")
+  assert.equal(listBody[0]?.outcome, "progressed")
+  assert.equal(listBody[0]?.actorName, "Owner User")
+  assert.equal(listBody[0]?.draftVersion, 1)
+
+  const detailResponse = await app.request(
+    `/v1/workspaces/${fixture.bootstrap.workspace.id}/release-workflow/${fixture.releaseRecord.id}/history`,
+  )
+
+  assert.equal(detailResponse.status, 200)
+  const detailBody = await detailResponse.json()
+  assert.equal(detailBody.length, 2)
+  assert.equal(detailBody[1]?.eventType, "draft_created")
+  assert.equal(detailBody[1]?.releaseRecordId, fixture.releaseRecord.id)
+})
+
+test("release workflow history route returns 404 for releases outside the workspace", async () => {
+  const fixture = await seedReleaseWorkflowFixture()
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(fixture.bootstrap.user.id)),
+    foundationService: fixture.foundationService,
+    releaseWorkflowService: fixture.workflowService,
+  })
+
+  const response = await app.request(
+    `/v1/workspaces/${fixture.bootstrap.workspace.id}/release-workflow/not-a-release/history`,
+  )
+
+  assert.equal(response.status, 404)
+  assert.deepEqual(await response.json(), {
+    message: `Release record not-a-release was not found in workspace ${fixture.bootstrap.workspace.id}`,
+    status: 404,
+  })
+})
+
 test("release workflow routes return 422 when approval is requested before claim check", async () => {
   const fixture = await seedReleaseWorkflowFixture({
     async composeDraft() {

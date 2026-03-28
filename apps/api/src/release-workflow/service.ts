@@ -3,6 +3,7 @@ import type {
   DraftClaimCheckResult,
   DraftRevision,
   ReviewStatus,
+  User,
   WorkflowEvent,
 } from "../domain/models.js"
 import type { ReleaseRecordSnapshot } from "../foundation/store.js"
@@ -14,6 +15,7 @@ import type {
   PublishPackSummary,
   ReleaseWorkflowBaseRecord,
   ReleaseWorkflowDetail,
+  ReleaseWorkflowHistoryEntry,
   ReleaseWorkflowListItem,
   WorkflowAllowedAction,
   WorkflowReadiness,
@@ -591,6 +593,113 @@ function detailToListItem(detail: ReleaseWorkflowDetail): ReleaseWorkflowListIte
   }
 }
 
+function buildHistoryEventLabel(workflowEvent: WorkflowEvent): string {
+  switch (workflowEvent.type) {
+    case "draft_created":
+      return "Draft created"
+    case "claim_check_completed":
+      return "Claim check completed"
+    case "approval_requested":
+      return "Approval requested"
+    case "draft_approved":
+      return "Draft approved"
+    case "draft_reopened":
+      return "Draft reopened"
+    case "publish_pack_created":
+      return "Publish pack created"
+  }
+}
+
+function buildHistoryEventOutcome(
+  workflowEvent: WorkflowEvent,
+  claimCheckSummaryByDraftRevisionId: Map<string, ClaimCheckSummary>,
+): ReleaseWorkflowHistoryEntry["outcome"] {
+  switch (workflowEvent.type) {
+    case "draft_created":
+      return "revision"
+    case "claim_check_completed": {
+      if (!workflowEvent.draftRevisionId) {
+        return "progressed"
+      }
+
+      const claimCheckSummary = claimCheckSummaryByDraftRevisionId.get(workflowEvent.draftRevisionId)
+      return claimCheckSummary?.state === "blocked" ? "blocked" : "progressed"
+    }
+    case "approval_requested":
+      return "progressed"
+    case "draft_approved":
+      return "signed_off"
+    case "draft_reopened":
+      return "blocked"
+    case "publish_pack_created":
+      return "signed_off"
+  }
+}
+
+function buildHistoryActorName(user: User | null | undefined) {
+  if (!user) {
+    return null
+  }
+
+  const fullName = user.fullName?.trim()
+  return fullName && fullName.length > 0 ? fullName : user.email
+}
+
+function buildClaimCheckSummaryByDraftRevisionId(
+  draftRevisions: DraftRevision[],
+  claimCheckResults: DraftClaimCheckResult[],
+) {
+  const claimCheckResultsByDraftRevisionId = new Map<string, DraftClaimCheckResult[]>()
+
+  for (const claimCheckResult of claimCheckResults) {
+    const items = claimCheckResultsByDraftRevisionId.get(claimCheckResult.draftRevisionId) ?? []
+    items.push(claimCheckResult)
+    claimCheckResultsByDraftRevisionId.set(claimCheckResult.draftRevisionId, items)
+  }
+
+  return new Map(
+    draftRevisions.map((draftRevision) => [
+      draftRevision.id,
+      buildClaimCheckSummary(draftRevision, claimCheckResultsByDraftRevisionId.get(draftRevision.id) ?? []),
+    ]),
+  )
+}
+
+function compareWorkflowHistoryEntries(
+  left: ReleaseWorkflowHistoryEntry,
+  right: ReleaseWorkflowHistoryEntry,
+) {
+  const historyEventPriority = (entry: ReleaseWorkflowHistoryEntry) => {
+    switch (entry.eventType) {
+      case "draft_created":
+        return 1
+      case "claim_check_completed":
+        return 2
+      case "approval_requested":
+        return 3
+      case "draft_approved":
+        return 4
+      case "draft_reopened":
+        return 5
+      case "publish_pack_created":
+        return 6
+    }
+  }
+  const createdAtComparison = right.createdAt.localeCompare(left.createdAt)
+
+  if (createdAtComparison !== 0) {
+    return createdAtComparison
+  }
+
+  const priorityComparison = historyEventPriority(right) - historyEventPriority(left)
+
+  if (priorityComparison !== 0) {
+    return priorityComparison
+  }
+
+  return right.id.localeCompare(left.id)
+}
+
 function assertExpectedDraftRevision(
   currentDraft: DraftRevision | null,
   expectedDraftRevisionId: string | null,
@@ -639,6 +748,97 @@ export function createReleaseWorkflowService(
       releaseSnapshot,
       workflowEvents,
     }
+  }
+
+  async function listHistoryEntriesForReleaseRecords(
+    workflowStore: ReleaseWorkflowStore,
+    releaseSnapshots: ReleaseRecordSnapshot[],
+  ): Promise<ReleaseWorkflowHistoryEntry[]> {
+    if (releaseSnapshots.length === 0) {
+      return []
+    }
+
+    const releaseRecordIds = releaseSnapshots.map((releaseSnapshot) => releaseSnapshot.releaseRecord.id)
+    const [workflowEvents, draftRevisions, publishPackExports] = await Promise.all([
+      workflowStore.listWorkflowEventsByReleaseRecordIds(releaseRecordIds),
+      workflowStore.listDraftRevisionsByReleaseRecordIds(releaseRecordIds),
+      workflowStore.listPublishPackExportsByReleaseRecordIds(releaseRecordIds),
+    ])
+
+    if (workflowEvents.length === 0) {
+      return []
+    }
+
+    const draftRevisionIds = draftRevisions.map((draftRevision) => draftRevision.id)
+    const [claimCheckResults, users] = await Promise.all([
+      draftRevisionIds.length > 0
+        ? workflowStore.listDraftClaimCheckResultsByDraftRevisionIds(draftRevisionIds)
+        : Promise.resolve([]),
+      workflowStore.listUsersByIds(
+        Array.from(
+          new Set(
+            workflowEvents
+              .map((workflowEvent) => workflowEvent.actorUserId)
+              .filter((actorUserId): actorUserId is string => actorUserId !== null),
+          ),
+        ),
+      ),
+    ])
+
+    const releaseSnapshotByReleaseRecordId = new Map(
+      releaseSnapshots.map((releaseSnapshot) => [releaseSnapshot.releaseRecord.id, releaseSnapshot]),
+    )
+    const draftRevisionById = new Map(
+      draftRevisions.map((draftRevision) => [draftRevision.id, draftRevision]),
+    )
+    const publishPackExportByDraftRevisionId = new Map(
+      publishPackExports.map((publishPackExport) => [publishPackExport.draftRevisionId, publishPackExport]),
+    )
+    const userById = new Map(users.map((user) => [user.id, user]))
+    const claimCheckSummaryByDraftRevisionId = buildClaimCheckSummaryByDraftRevisionId(
+      draftRevisions,
+      claimCheckResults,
+    )
+
+    return workflowEvents
+      .map((workflowEvent) => {
+        const releaseSnapshot = releaseSnapshotByReleaseRecordId.get(workflowEvent.releaseRecordId)
+
+        if (!releaseSnapshot) {
+          return null
+        }
+
+        const draftRevision =
+          workflowEvent.draftRevisionId === null
+            ? null
+            : draftRevisionById.get(workflowEvent.draftRevisionId) ?? null
+        const actor =
+          workflowEvent.actorUserId === null ? null : userById.get(workflowEvent.actorUserId) ?? null
+        const publishPackExport =
+          draftRevision === null ? null : publishPackExportByDraftRevisionId.get(draftRevision.id) ?? null
+
+        return {
+          actorName: buildHistoryActorName(actor),
+          actorUserId: workflowEvent.actorUserId,
+          createdAt: workflowEvent.createdAt,
+          draftRevisionId: workflowEvent.draftRevisionId,
+          draftVersion: draftRevision?.version ?? null,
+          eventLabel: buildHistoryEventLabel(workflowEvent),
+          eventType: workflowEvent.type,
+          evidenceCount: releaseSnapshot.evidenceBlocks.length,
+          id: workflowEvent.id,
+          note: workflowEvent.note,
+          outcome: buildHistoryEventOutcome(workflowEvent, claimCheckSummaryByDraftRevisionId),
+          publishPackExportId:
+            workflowEvent.type === "publish_pack_created" ? (publishPackExport?.id ?? null) : null,
+          releaseRecordId: workflowEvent.releaseRecordId,
+          releaseTitle: releaseSnapshot.releaseRecord.title,
+          sourceLinkCount: releaseSnapshot.sourceLinks.length,
+          stage: workflowEvent.stage,
+        } satisfies ReleaseWorkflowHistoryEntry
+      })
+      .filter((entry): entry is ReleaseWorkflowHistoryEntry => entry !== null)
+      .sort(compareWorkflowHistoryEntries)
   }
 
   const service = {
@@ -711,6 +911,24 @@ export function createReleaseWorkflowService(
       const detail = buildWorkflowDetailFromBaseRecord(resources.baseRecord, resources.workflowEvents)
 
       return withClaimCheckItems(detail, resources.claimCheckResults)
+    },
+
+    async listReleaseWorkflowHistory(workspaceId: string): Promise<ReleaseWorkflowHistoryEntry[]> {
+      const releaseSnapshots = await store.listReleaseSnapshots(workspaceId)
+      return listHistoryEntriesForReleaseRecords(store, releaseSnapshots)
+    },
+
+    async getReleaseWorkflowHistory(
+      workspaceId: string,
+      releaseRecordId: string,
+    ): Promise<ReleaseWorkflowHistoryEntry[]> {
+      const releaseSnapshot = await store.getReleaseSnapshot(workspaceId, releaseRecordId)
+
+      if (!releaseSnapshot) {
+        throw new ReleaseWorkflowNotFoundError(releaseRecordId, workspaceId)
+      }
+
+      return listHistoryEntriesForReleaseRecords(store, [releaseSnapshot])
     },
 
     async createDraft(input: CreateDraftInput): Promise<ReleaseWorkflowDetail> {

@@ -101,6 +101,32 @@ function getRouteParam(context: Context<AppBindings>, key: "workspaceId" | "rele
 export function createReleaseWorkflowRoute(releaseWorkflowService: ReleaseWorkflowService) {
   const route = new Hono<AppBindings>()
 
+  route.get("/history", async (context) => {
+    const items = await releaseWorkflowService.listReleaseWorkflowHistory(
+      getRouteParam(context, "workspaceId"),
+    )
+    return context.json(items)
+  })
+
+  route.get("/:releaseRecordId/history", async (context) => {
+    try {
+      const items = await releaseWorkflowService.getReleaseWorkflowHistory(
+        getRouteParam(context, "workspaceId"),
+        getRouteParam(context, "releaseRecordId"),
+      )
+
+      return context.json(items)
+    } catch (error) {
+      const mappedError = mapWorkflowError(error)
+
+      if (mappedError) {
+        return context.json(mappedError.body, mappedError.status)
+      }
+
+      throw error
+    }
+  })
+
   route.get("/", async (context) => {
     const items = await releaseWorkflowService.listReleaseWorkflow(getRouteParam(context, "workspaceId"))
     return context.json(items)
