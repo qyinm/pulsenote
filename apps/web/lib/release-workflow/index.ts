@@ -226,14 +226,35 @@ export function buildReleaseWorkflowApprovalFilterCounts(
   workflow: ReleaseWorkflowListItem[],
   currentUserId: string,
 ): ReleaseWorkflowApprovalFilterCounts {
-  return {
-    all: filterReleaseWorkflowApprovalQueue(workflow, currentUserId, "all").length,
-    assigned_to_me: filterReleaseWorkflowApprovalQueue(workflow, currentUserId, "assigned_to_me")
-      .length,
-    requested_by_me: filterReleaseWorkflowApprovalQueue(workflow, currentUserId, "requested_by_me")
-      .length,
-    unassigned: filterReleaseWorkflowApprovalQueue(workflow, currentUserId, "unassigned").length,
-  }
+  return workflow.reduce<ReleaseWorkflowApprovalFilterCounts>(
+    (counts, item) => {
+      if (!isPendingApprovalRecord(item)) {
+        return counts
+      }
+
+      counts.all += 1
+
+      if (item.approvalSummary.ownerUserId === currentUserId) {
+        counts.assigned_to_me += 1
+      }
+
+      if (item.approvalSummary.requestedByUserId === currentUserId) {
+        counts.requested_by_me += 1
+      }
+
+      if (item.approvalSummary.ownerUserId === null) {
+        counts.unassigned += 1
+      }
+
+      return counts
+    },
+    {
+      all: 0,
+      assigned_to_me: 0,
+      requested_by_me: 0,
+      unassigned: 0,
+    },
+  )
 }
 
 export function getReleaseWorkflowOwnershipCue(
@@ -277,10 +298,10 @@ export function getReleaseWorkflowOwnershipCue(
   return {
     description: item.approvalSummary.ownerName
       ? `This release is waiting on ${item.approvalSummary.ownerName} before it can move toward publish-pack export.`
-      : "This release is still waiting for the next reviewer handoff.",
+      : "This release is waiting on an assigned reviewer before it can move toward publish-pack export.",
     label: item.approvalSummary.ownerName
       ? `Waiting on ${item.approvalSummary.ownerName}`
-      : "Awaiting reviewer handoff",
+      : "Waiting on assigned reviewer",
     tone: "attention",
   }
 }

@@ -543,6 +543,27 @@ test("approval filter metrics and ownership cues use the current reviewer identi
     label: "Reviewer missing",
     tone: "unassigned",
   })
+
+  assert.deepEqual(
+    getReleaseWorkflowOwnershipCue(
+      createReleaseWorkflowListItem({
+        approvalSummary: {
+          ownerName: null,
+          ownerUserId: "user_3",
+          requestedByName: "Owner User",
+          requestedByUserId: "user_2",
+          state: "pending",
+        },
+      }),
+      "user_1",
+    ),
+    {
+      description:
+        "This release is waiting on an assigned reviewer before it can move toward publish-pack export.",
+      label: "Waiting on assigned reviewer",
+      tone: "attention",
+    },
+  )
 })
 
 test("buildReleaseWorkflowQueueItem surfaces workflow labels and next actions", () => {
