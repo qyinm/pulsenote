@@ -109,6 +109,7 @@ export function createGitHubInstallationService(
       }
 
       return {
+        source: "github_app_installation",
         strategy: "installation_token",
         token: payload.token,
       }

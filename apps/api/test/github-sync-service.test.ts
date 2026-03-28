@@ -183,6 +183,50 @@ test("syncCompareRange marks the sync run as failed when GitHub compare throws",
   assert.equal(releaseSnapshots.length, 0)
 })
 
+test("syncCompareRange rejects client-supplied installation tokens in production", async () => {
+  const { connection, store, workspace } = await createWorkspaceContext()
+  const service = createGitHubSyncService({
+    githubClient: {
+      async compareCommits() {
+        throw new Error("compare should not be called")
+      },
+      async getPullRequests() {
+        throw new Error("pull sync should not be called")
+      },
+      async getRelease() {
+        throw new Error("release sync should not be called")
+      },
+    },
+    runtimeEnv: {
+      ...runtimeEnv,
+      nodeEnv: "production",
+    },
+    store,
+  })
+
+  await assert.rejects(
+    () =>
+      service.syncCompareRange({
+        auth: {
+          strategy: "installation_token",
+          token: "ghp_test_token",
+        },
+        compare: {
+          base: "main",
+          head: "feat/api-foundation",
+        },
+        connectionId: connection.id,
+        repository: {
+          owner: "qyinm",
+          provider: "github",
+          repo: "pulsenote",
+        },
+        workspaceId: workspace.id,
+      }),
+    /Development-only GitHub ingest is not available in production/,
+  )
+})
+
 test("syncMergedPullRequests marks the sync run as succeeded and persists normalized release data", async () => {
   const { connection, store, workspace } = await createWorkspaceContext()
   const service = createGitHubSyncService({

@@ -248,7 +248,7 @@ test("github compare sync route rejects development-only ingest in production", 
   const response = await app.request(`/v1/workspaces/${bootstrap.workspace.id}/github/sync/compare`, {
     body: JSON.stringify({
       auth: {
-        strategy: "personal_access_token",
+        strategy: "installation_token",
         token: "ghp_dev_token",
       },
       compare: {
@@ -292,6 +292,7 @@ test("github release sync route uses the stored GitHub App connection in product
     async createInstallationAuth(installationId) {
       assert.equal(installationId, "321")
       return {
+        source: "github_app_installation",
         strategy: "installation_token",
         token: "installation_token_321",
       }

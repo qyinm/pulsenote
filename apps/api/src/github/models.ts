@@ -16,6 +16,7 @@ export type GitHubCompareRange = {
 }
 
 export type GitHubSyncAuth = {
+  source?: "github_app_installation"
   token: string
   strategy: GitHubTokenStrategy
 }
