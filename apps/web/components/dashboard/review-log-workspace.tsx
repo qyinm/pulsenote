@@ -70,6 +70,8 @@ function formatTimestamp(value: string) {
   return new Intl.DateTimeFormat("en-US", {
     dateStyle: "medium",
     timeStyle: "short",
+    timeZone: "UTC",
+    timeZoneName: "short",
   }).format(new Date(value))
 }
 
