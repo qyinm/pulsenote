@@ -82,6 +82,17 @@ export type IntegrationConnection = {
   lastSyncedAt: string | null
 }
 
+export type GitHubConnectionConfig = {
+  connectionId: string
+  installationId: string
+  repositoryOwner: string
+  repositoryName: string
+  repositoryUrl: string
+  connectedByUserId: string
+  createdAt: string
+  updatedAt: string
+}
+
 export type IntegrationAccount = {
   id: string
   connectionId: string
@@ -212,6 +223,7 @@ export const foundationModelNames = [
   "workspace_membership",
   "current_workspace_selection",
   "integration_connection",
+  "github_connection_config",
   "integration_account",
   "sync_run",
   "source_cursor",

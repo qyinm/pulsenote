@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import type { FormEvent } from "react"
+import { useState } from "react"
 import {
   FileStackIcon,
   Link2Icon,
@@ -8,15 +9,13 @@ import {
   StampIcon,
 } from "lucide-react"
 
-import type { ReleaseRecordSnapshot } from "@/lib/api/client"
+import type { GitHubConnection, ReleaseRecordSnapshot } from "@/lib/api/client"
 import { createApiClient } from "@/lib/api/client"
 import {
   buildReleaseContextEvidenceNotes,
   buildReleaseContextMetrics,
   buildReleaseContextQueueItem,
   buildReleaseContextReviewNotes,
-  createReleaseContextDetailCache,
-  getSelectedReleaseContextSnapshot,
 } from "@/lib/dashboard/release-context"
 import {
   BulletList,
@@ -28,11 +27,16 @@ import {
 } from "@/components/dashboard/surfaces"
 import { SimpleTable } from "@/components/dashboard/simple-table"
 import { Badge } from "@/components/ui/badge"
+import { buttonVariants } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 type ReleaseContextLiveWorkspaceProps = {
+  initialGitHubConnection: GitHubConnection | null
+  initialGitHubInstallUrl: string | null
   initialReleaseRecords: ReleaseRecordSnapshot[]
-  initialSelectedId: string
-  initialSelectedReleaseRecord: ReleaseRecordSnapshot
+  initialSelectedId: string | null
+  initialSelectedReleaseRecord: ReleaseRecordSnapshot | null
   workspaceId: string
 }
 
@@ -48,76 +52,151 @@ function readinessBadge(readiness: ReturnType<typeof buildReleaseContextQueueIte
   return <Badge variant="outline">{readiness}</Badge>
 }
 
+function formatLastSyncedAt(value: string | null) {
+  if (!value) {
+    return "Not synced yet"
+  }
+
+  return new Date(value).toLocaleString("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  })
+}
+
 export function ReleaseContextLiveWorkspace({
+  initialGitHubConnection,
+  initialGitHubInstallUrl,
   initialReleaseRecords,
   initialSelectedId,
   initialSelectedReleaseRecord,
   workspaceId,
 }: ReleaseContextLiveWorkspaceProps) {
-  const [selectedId, setSelectedId] = useState(initialSelectedId)
-  const [detailById, setDetailById] = useState<Record<string, ReleaseRecordSnapshot>>(
-    createReleaseContextDetailCache(initialSelectedId, initialSelectedReleaseRecord),
-  )
-  const [detailError, setDetailError] = useState<string | null>(null)
-  const [isLoadingDetail, setIsLoadingDetail] = useState(false)
+  const [releaseRecords, setReleaseRecords] = useState(initialReleaseRecords)
+  const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId)
+  const [githubConnection, setGitHubConnection] = useState(initialGitHubConnection)
+  const [syncMode, setSyncMode] = useState<"compare" | "release">("release")
+  const [releaseTag, setReleaseTag] = useState("")
+  const [compareBase, setCompareBase] = useState("main")
+  const [compareHead, setCompareHead] = useState("")
+  const [syncError, setSyncError] = useState<string | null>(null)
+  const [syncNotice, setSyncNotice] = useState<string | null>(null)
+  const [isSyncing, setIsSyncing] = useState(false)
 
-  const queueItems = initialReleaseRecords.map(buildReleaseContextQueueItem)
-  const metrics = buildReleaseContextMetrics(initialReleaseRecords)
-  const selectedReleaseRecord = getSelectedReleaseContextSnapshot(
-    initialReleaseRecords,
-    detailById,
-    selectedId,
-  )
+  const selectedReleaseRecord =
+    (selectedId
+      ? releaseRecords.find((snapshot) => snapshot.releaseRecord.id === selectedId) ?? null
+      : null) ??
+    initialSelectedReleaseRecord
+  const queueItems = releaseRecords.map(buildReleaseContextQueueItem)
+  const metrics = buildReleaseContextMetrics(releaseRecords)
   const selectedQueueItem = selectedReleaseRecord
     ? buildReleaseContextQueueItem(selectedReleaseRecord)
-    : (queueItems.find((queueItem) => queueItem.id === selectedId) ?? queueItems[0] ?? null)
+    : (queueItems[0] ?? null)
+  const evidenceNotes = selectedReleaseRecord
+    ? buildReleaseContextEvidenceNotes(selectedReleaseRecord)
+    : ["Run GitHub intake to create the first release record."]
+  const reviewNotes = selectedReleaseRecord
+    ? buildReleaseContextReviewNotes(selectedReleaseRecord)
+    : ["Release review notes will appear once a synced record exists."]
+  const selectedReadiness = selectedQueueItem ? readinessBadge(selectedQueueItem.readiness) : "Unknown"
+  const selectedStage = selectedQueueItem?.stageLabel ?? "No stage yet"
+  const selectedFreshness = selectedQueueItem?.freshness ?? "No evidence"
 
-  useEffect(() => {
-    if (!selectedId || detailById[selectedId]) {
+  async function refreshReleaseContext(preferredRecordId?: string) {
+    const apiClient = createApiClient()
+    const [nextReleaseRecords, nextGitHubConnection] = await Promise.all([
+      apiClient.listReleaseRecords(workspaceId),
+      apiClient.getGitHubConnection(workspaceId).catch(() => null),
+    ])
+
+    setReleaseRecords(nextReleaseRecords)
+    setGitHubConnection(nextGitHubConnection)
+
+    if (nextReleaseRecords.length === 0) {
+      setSelectedId(null)
       return
     }
 
-    let isCancelled = false
+    const nextSelectedId =
+      (preferredRecordId &&
+      nextReleaseRecords.some((snapshot) => snapshot.releaseRecord.id === preferredRecordId)
+        ? preferredRecordId
+        : nextReleaseRecords[0]?.releaseRecord.id) ?? null
 
-    createApiClient()
-      .getReleaseRecord(workspaceId, selectedId)
-      .then((releaseRecord) => {
-        if (isCancelled) {
-          return
-        }
+    setSelectedId(nextSelectedId)
+  }
 
-        setDetailById((currentDetails) => ({
-          ...currentDetails,
-          [selectedId]: releaseRecord,
-        }))
-      })
-      .catch((error: unknown) => {
-        if (isCancelled) {
-          return
-        }
+  async function handleReleaseSync(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
 
-        setDetailError(error instanceof Error ? error.message : "Selected release record could not be loaded.")
-      })
-      .finally(() => {
-        if (!isCancelled) {
-          setIsLoadingDetail(false)
-        }
-      })
-
-    return () => {
-      isCancelled = true
+    if (!githubConnection) {
+      setSyncError("Connect GitHub before running release intake.")
+      return
     }
-  }, [detailById, selectedId, workspaceId])
 
-  const evidenceNotes = selectedReleaseRecord
-    ? buildReleaseContextEvidenceNotes(selectedReleaseRecord)
-    : ["Select a release record to inspect its evidence trace."]
-  const reviewNotes = selectedReleaseRecord
-    ? buildReleaseContextReviewNotes(selectedReleaseRecord)
-    : ["Select a release record to inspect its review state."]
-  const selectedReadiness = selectedQueueItem ? readinessBadge(selectedQueueItem.readiness) : "Unknown"
-  const selectedStage = selectedQueueItem?.stageLabel ?? "Unknown"
-  const selectedFreshness = selectedQueueItem?.freshness ?? "Unknown"
+    if (!releaseTag.trim()) {
+      setSyncError("A release tag is required.")
+      return
+    }
+
+    setIsSyncing(true)
+    setSyncError(null)
+    setSyncNotice(null)
+
+    try {
+      const apiClient = createApiClient()
+      const result = await apiClient.syncGitHubRelease(workspaceId, {
+        connectionId: githubConnection.connectionId,
+        release: {
+          tag: releaseTag.trim(),
+        },
+      })
+
+      await refreshReleaseContext(result.releaseRecordId)
+      setReleaseTag("")
+      setSyncNotice(`Release ${result.release.tagName} was added to the intake queue.`)
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : "GitHub release intake failed.")
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
+  async function handleCompareSync(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    if (!githubConnection) {
+      setSyncError("Connect GitHub before running compare-range intake.")
+      return
+    }
+
+    if (!compareBase.trim() || !compareHead.trim()) {
+      setSyncError("Both compare.base and compare.head are required.")
+      return
+    }
+
+    setIsSyncing(true)
+    setSyncError(null)
+    setSyncNotice(null)
+
+    try {
+      const apiClient = createApiClient()
+      const result = await apiClient.syncGitHubCompare(workspaceId, {
+        compare: {
+          base: compareBase.trim(),
+          head: compareHead.trim(),
+        },
+        connectionId: githubConnection.connectionId,
+      })
+
+      await refreshReleaseContext(result.releaseRecordId)
+      setSyncNotice(`Compare range ${compareBase.trim()}...${compareHead.trim()} was added to intake.`)
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : "GitHub compare intake failed.")
+    } finally {
+      setIsSyncing(false)
+    }
+  }
 
   return (
     <>
@@ -154,6 +233,123 @@ export function ReleaseContextLiveWorkspace({
         />
       </MetricGrid>
 
+      <SurfaceCard
+        title={githubConnection ? "Run release intake" : "Connect GitHub"}
+        description={
+          githubConnection
+            ? "Sync a release tag or compare range into PulseNote so the intake queue stays attached to real GitHub evidence."
+            : "Install the PulseNote GitHub App first so release intake can create reviewable release records from the selected repository."
+        }
+        action={
+          githubConnection ? (
+            <Badge variant="outline">
+              {githubConnection.repositoryOwner}/{githubConnection.repositoryName}
+            </Badge>
+          ) : null
+        }
+      >
+        {!githubConnection ? (
+          <div className="grid gap-3 sm:flex sm:items-center sm:justify-between">
+            <p className="text-sm text-muted-foreground">
+              GitHub App install must complete before PulseNote can sync a release tag or compare range into this workspace.
+            </p>
+            {initialGitHubInstallUrl ? (
+              <a
+                href={initialGitHubInstallUrl}
+                className={buttonVariants({ size: "sm" })}
+              >
+                Connect GitHub
+              </a>
+            ) : (
+              <p className="text-sm text-destructive">GitHub App install is unavailable for this environment.</p>
+            )}
+          </div>
+        ) : (
+          <div className="grid gap-4">
+            <InlineList
+              items={[
+                {
+                  label: "Repository",
+                  value: `${githubConnection.repositoryOwner}/${githubConnection.repositoryName}`,
+                },
+                {
+                  label: "Last sync",
+                  value: formatLastSyncedAt(githubConnection.lastSyncedAt),
+                },
+                {
+                  label: "Connection",
+                  value: githubConnection.status === "active" ? "Active" : "Disconnected",
+                },
+              ]}
+            />
+
+            <Tabs
+              value={syncMode}
+              onValueChange={(value) => setSyncMode(value as "compare" | "release")}
+            >
+              <TabsList>
+                <TabsTrigger value="release">Release tag</TabsTrigger>
+                <TabsTrigger value="compare">Compare range</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="release">
+                <form className="grid gap-3" onSubmit={handleReleaseSync}>
+                  <Input
+                    value={releaseTag}
+                    onChange={(event) => setReleaseTag(event.target.value)}
+                    placeholder="v2.4.0"
+                  />
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="submit"
+                      disabled={isSyncing}
+                      className={buttonVariants({ size: "sm" })}
+                    >
+                      {isSyncing ? "Syncing..." : "Sync release tag"}
+                    </button>
+                    <p className="text-sm text-muted-foreground">
+                      Use this when the shipped release already has a GitHub release or tag.
+                    </p>
+                  </div>
+                </form>
+              </TabsContent>
+
+              <TabsContent value="compare">
+                <form className="grid gap-3" onSubmit={handleCompareSync}>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <Input
+                      value={compareBase}
+                      onChange={(event) => setCompareBase(event.target.value)}
+                      placeholder="main"
+                    />
+                    <Input
+                      value={compareHead}
+                      onChange={(event) => setCompareHead(event.target.value)}
+                      placeholder="release/2026-03-28"
+                    />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="submit"
+                      disabled={isSyncing}
+                      className={buttonVariants({ size: "sm" })}
+                    >
+                      {isSyncing ? "Syncing..." : "Sync compare range"}
+                    </button>
+                    <p className="text-sm text-muted-foreground">
+                      Use this when the team shipped without a formal release tag.
+                    </p>
+                  </div>
+                </form>
+              </TabsContent>
+            </Tabs>
+
+            {syncError ? <p className="text-sm text-destructive">{syncError}</p> : null}
+            {syncNotice ? <p className="text-sm text-muted-foreground">{syncNotice}</p> : null}
+          </div>
+        )}
+      </SurfaceCard>
+
       <DashboardSplit
         main={
           <>
@@ -187,23 +383,19 @@ export function ReleaseContextLiveWorkspace({
                     release: (
                       <div className="grid gap-1">
                         <span className="font-medium text-foreground">{item.title}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {item.summary}
-                        </span>
+                        <span className="text-xs text-muted-foreground">{item.summary}</span>
                       </div>
                     ),
                     sources: item.sourceSummary,
                     stage: item.stageLabel,
                   },
                 }))}
-                selectedRowKey={selectedId}
+                selectedRowKey={selectedId ?? undefined}
                 onRowSelect={(rowKey) => {
                   setSelectedId(rowKey)
-                  setDetailError(null)
-                  setIsLoadingDetail(false)
                 }}
                 emptyTitle="No release context in queue"
-                emptyDescription="New release intake records will appear here as GitHub evidence is synced."
+                emptyDescription="Run GitHub intake above to create the first reviewable release record."
               />
             </SurfaceCard>
 
@@ -219,11 +411,11 @@ export function ReleaseContextLiveWorkspace({
           <>
             <SurfaceCard
               title="Selected release context"
-              description="The highlighted release record resolves from the authenticated API and keeps its review state explicit."
+              description="The highlighted release record keeps its review state explicit before drafting begins."
             >
               <InlineList
                 items={[
-                  { label: "Release", value: selectedQueueItem?.title ?? "Unknown release" },
+                  { label: "Release", value: selectedQueueItem?.title ?? "No release selected" },
                   { label: "Stage", value: selectedStage },
                   {
                     label: "Compare range",
@@ -233,10 +425,7 @@ export function ReleaseContextLiveWorkspace({
                     label: "Claims",
                     value: selectedQueueItem?.claimSummary ?? "No claims yet",
                   },
-                  {
-                    label: "Freshness",
-                    value: selectedFreshness,
-                  },
+                  { label: "Freshness", value: selectedFreshness },
                   { label: "Readiness", value: selectedReadiness },
                 ]}
               />
@@ -246,15 +435,7 @@ export function ReleaseContextLiveWorkspace({
               title="Review state"
               description="Keep the blocker, reviewer note, and current evidence state visible before drafting."
             >
-              {detailError && !selectedReleaseRecord ? (
-                <p className="text-sm text-destructive">{detailError}</p>
-              ) : isLoadingDetail && !selectedReleaseRecord ? (
-                <p className="text-sm text-muted-foreground">
-                  Loading the selected release record from the authenticated API.
-                </p>
-              ) : (
-                <BulletList items={reviewNotes} />
-              )}
+              <BulletList items={reviewNotes} />
             </SurfaceCard>
 
             <SurfaceCard

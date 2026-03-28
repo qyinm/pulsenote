@@ -11,6 +11,7 @@ import type {
   GitHubPullRequestSummary,
   GitHubReleaseSelector,
   GitHubReleaseSummary,
+  GitHubSyncAuth,
   GitHubReleaseSyncRequest,
   GitHubReleaseSyncResult,
 } from "./models.js"
@@ -333,11 +334,19 @@ export function createGitHubSyncService(options: {
 }) {
   const { githubClient, runtimeEnv, store } = options
 
+  function assertProductionAuth(input: { auth: GitHubSyncAuth }) {
+    if (runtimeEnv.nodeEnv !== "production") {
+      return
+    }
+
+    if (input.auth.strategy !== "installation_token" || input.auth.source !== "github_app_installation") {
+      throw new Error("Development-only GitHub ingest is not available in production")
+    }
+  }
+
   return {
     async syncCompareRange(input: GitHubCompareSyncRequest): Promise<GitHubCompareSyncResult> {
-      if (runtimeEnv.nodeEnv === "production") {
-        throw new Error("Development-only GitHub ingest is not available in production")
-      }
+      assertProductionAuth(input)
 
       requireNonEmpty(input.workspaceId, "workspaceId")
       requireNonEmpty(input.connectionId, "connectionId")
@@ -385,6 +394,10 @@ export function createGitHubSyncService(options: {
           scope,
         )
 
+        await store.updateIntegrationConnection({
+          id: input.connectionId,
+          lastSyncedAt: nowIso(),
+        })
         await markSyncRunStatus(store, queuedSyncRun, "succeeded")
 
         return {
@@ -407,9 +420,7 @@ export function createGitHubSyncService(options: {
     async syncMergedPullRequests(
       input: GitHubMergedPullSyncRequest,
     ): Promise<GitHubMergedPullSyncResult> {
-      if (runtimeEnv.nodeEnv === "production") {
-        throw new Error("Development-only GitHub ingest is not available in production")
-      }
+      assertProductionAuth(input)
 
       requireNonEmpty(input.workspaceId, "workspaceId")
       requireNonEmpty(input.connectionId, "connectionId")
@@ -458,6 +469,10 @@ export function createGitHubSyncService(options: {
         })
         const persisted = await persistMergedPullReleaseRecord(store, input, pullRequests, scope)
 
+        await store.updateIntegrationConnection({
+          id: input.connectionId,
+          lastSyncedAt: nowIso(),
+        })
         await markSyncRunStatus(store, queuedSyncRun, "succeeded")
 
         return {
@@ -478,9 +493,7 @@ export function createGitHubSyncService(options: {
     },
 
     async syncRelease(input: GitHubReleaseSyncRequest): Promise<GitHubReleaseSyncResult> {
-      if (runtimeEnv.nodeEnv === "production") {
-        throw new Error("Development-only GitHub ingest is not available in production")
-      }
+      assertProductionAuth(input)
 
       requireNonEmpty(input.workspaceId, "workspaceId")
       requireNonEmpty(input.connectionId, "connectionId")
@@ -526,6 +539,10 @@ export function createGitHubSyncService(options: {
         const scope = buildReleaseScope(input.repository, release)
         const persisted = await persistReleaseRecord(store, input, release, scope)
 
+        await store.updateIntegrationConnection({
+          id: input.connectionId,
+          lastSyncedAt: nowIso(),
+        })
         await markSyncRunStatus(store, queuedSyncRun, "succeeded")
 
         return {

@@ -119,6 +119,32 @@ test("createIntegrationConnection rejects unsupported providers before persisten
   )
 })
 
+test("createIntegrationConnection rejects duplicate providers within a workspace", async () => {
+  const store = createInMemoryFoundationStore()
+  const service = createFoundationService(store)
+
+  const bootstrap = await service.bootstrapWorkspace({
+    user: { email: "owner@pulsenote.dev", fullName: "Owner User" },
+    workspace: { name: "PulseNote", slug: "pulsenote-duplicate-provider" },
+  })
+
+  await service.createIntegrationConnection({
+    externalAccountId: "github-installation-7",
+    provider: "github",
+    workspaceId: bootstrap.workspace.id,
+  })
+
+  await assert.rejects(
+    () =>
+      service.createIntegrationConnection({
+        externalAccountId: "github-installation-8",
+        provider: "github",
+        workspaceId: bootstrap.workspace.id,
+      }),
+    /already exists in workspace/,
+  )
+})
+
 test("getCurrentWorkspaceSnapshotForUser returns the current workspace when the user has one membership", async () => {
   const store = createInMemoryFoundationStore()
   const service = createFoundationService(store)
@@ -162,4 +188,108 @@ test("getCurrentWorkspaceSnapshotForUser rejects ambiguous workspace membership 
     () => service.getCurrentWorkspaceSnapshotForUser(bootstrap.user.id),
     /Multiple workspaces found; specify the current workspace before loading the dashboard/,
   )
+})
+
+test("connectGitHubWorkspace rolls back the connection when config persistence fails", async () => {
+  const store = createInMemoryFoundationStore()
+  const service = createFoundationService(store)
+  const bootstrap = await service.bootstrapWorkspace({
+    user: { email: "owner@pulsenote.dev", fullName: "Owner User" },
+    workspace: { name: "PulseNote", slug: "pulsenote" },
+  })
+  const originalUpsertGitHubConnectionConfig = store.upsertGitHubConnectionConfig.bind(store)
+
+  store.upsertGitHubConnectionConfig = async (input) => {
+    await originalUpsertGitHubConnectionConfig(input)
+    throw new Error("config persistence failed")
+  }
+
+  await assert.rejects(
+    () =>
+      service.connectGitHubWorkspace({
+        connectedByUserId: bootstrap.user.id,
+        installationId: "321",
+        repositoryName: "pulsenote",
+        repositoryOwner: "qyinm",
+        repositoryUrl: "https://github.com/qyinm/pulsenote",
+        workspaceId: bootstrap.workspace.id,
+      }),
+    /config persistence failed/,
+  )
+
+  const snapshot = await service.getWorkspaceSnapshot(bootstrap.workspace.id)
+  assert.equal(snapshot.integrations.length, 0)
+  assert.equal(await service.getGitHubWorkspaceConnection(bootstrap.workspace.id), null)
+})
+
+test("disconnectGitHubWorkspace rolls back when the status update fails", async () => {
+  const store = createInMemoryFoundationStore()
+  const service = createFoundationService(store)
+  const bootstrap = await service.bootstrapWorkspace({
+    user: { email: "owner@pulsenote.dev", fullName: "Owner User" },
+    workspace: { name: "PulseNote", slug: "pulsenote" },
+  })
+  const githubConnection = await service.connectGitHubWorkspace({
+    connectedByUserId: bootstrap.user.id,
+    installationId: "321",
+    repositoryName: "pulsenote",
+    repositoryOwner: "qyinm",
+    repositoryUrl: "https://github.com/qyinm/pulsenote",
+    workspaceId: bootstrap.workspace.id,
+  })
+  const originalUpdateIntegrationConnection = store.updateIntegrationConnection.bind(store)
+
+  store.updateIntegrationConnection = async (input) => {
+    if (input.id === githubConnection.connection.id && input.status === "disconnected") {
+      throw new Error("status update failed")
+    }
+
+    return originalUpdateIntegrationConnection(input)
+  }
+
+  await assert.rejects(
+    () => service.disconnectGitHubWorkspace(bootstrap.workspace.id),
+    /status update failed/,
+  )
+
+  const persistedConnection = await service.getGitHubWorkspaceConnection(bootstrap.workspace.id)
+  assert.ok(persistedConnection)
+  assert.equal(persistedConnection?.connection.status, "active")
+  assert.equal(persistedConnection?.config.installationId, "321")
+})
+
+test("connectGitHubWorkspace rejects repository drift for an existing workspace connection", async () => {
+  const store = createInMemoryFoundationStore()
+  const service = createFoundationService(store)
+  const bootstrap = await service.bootstrapWorkspace({
+    user: { email: "owner@pulsenote.dev", fullName: "Owner User" },
+    workspace: { name: "PulseNote", slug: "pulsenote" },
+  })
+
+  await service.connectGitHubWorkspace({
+    connectedByUserId: bootstrap.user.id,
+    installationId: "321",
+    repositoryName: "pulsenote",
+    repositoryOwner: "qyinm",
+    repositoryUrl: "https://github.com/qyinm/pulsenote",
+    workspaceId: bootstrap.workspace.id,
+  })
+
+  await assert.rejects(
+    () =>
+      service.connectGitHubWorkspace({
+        connectedByUserId: bootstrap.user.id,
+        installationId: "654",
+        repositoryName: "other-repo",
+        repositoryOwner: "qyinm",
+        repositoryUrl: "https://github.com/qyinm/other-repo",
+        workspaceId: bootstrap.workspace.id,
+      }),
+    /GitHub repository cannot be changed for an existing workspace connection/,
+  )
+
+  const persistedConnection = await service.getGitHubWorkspaceConnection(bootstrap.workspace.id)
+  assert.ok(persistedConnection)
+  assert.equal(persistedConnection?.config.repositoryName, "pulsenote")
+  assert.equal(persistedConnection?.config.installationId, "321")
 })

@@ -3,6 +3,7 @@ import { Hono, type Context } from "hono"
 import { createAuthServiceForRuntime } from "./auth/service.js"
 import { createDatabaseClient } from "./db/client.js"
 import { createGitHubClient, type GitHubClient } from "./github/client.js"
+import { createGitHubInstallationService, type GitHubInstallationService } from "./github/installation.js"
 import { createGitHubSyncService } from "./github/service.js"
 import { createFoundationService, type FoundationService } from "./foundation/service.js"
 import { createInMemoryFoundationStore } from "./foundation/store.js"
@@ -23,6 +24,7 @@ type CreateAppOptions = {
   authService?: ReturnType<typeof createAuthServiceForRuntime>
   foundationService?: FoundationService
   githubClient?: GitHubClient
+  githubInstallationService?: GitHubInstallationService
   githubSyncService?: ReturnType<typeof createGitHubSyncService>
   releaseWorkflowService?: ReleaseWorkflowService
 }
@@ -60,6 +62,8 @@ export function createApp(runtimeEnv: AppRuntimeEnv = getRuntimeEnv(), options: 
   }
 
   const foundationService = options.foundationService ?? createFoundationService(foundationStore)
+  const githubInstallationService =
+    options.githubInstallationService ?? createGitHubInstallationService(runtimeEnv)
   const releaseWorkflowService =
     options.releaseWorkflowService ?? createReleaseWorkflowService(releaseWorkflowStore)
   const githubSyncService =
@@ -79,7 +83,7 @@ export function createApp(runtimeEnv: AppRuntimeEnv = getRuntimeEnv(), options: 
 
     context.header("Access-Control-Allow-Credentials", "true")
     context.header("Access-Control-Allow-Headers", "Content-Type")
-    context.header("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
+    context.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
     context.header("Access-Control-Allow-Origin", origin)
     context.header("Vary", "Origin")
     return true
@@ -98,7 +102,7 @@ export function createApp(runtimeEnv: AppRuntimeEnv = getRuntimeEnv(), options: 
     const headers = new Headers(response.headers)
     headers.set("Access-Control-Allow-Credentials", "true")
     headers.set("Access-Control-Allow-Headers", "Content-Type")
-    headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
+    headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
     headers.set("Access-Control-Allow-Origin", origin)
     headers.set("Vary", "Origin")
 
@@ -187,7 +191,12 @@ export function createApp(runtimeEnv: AppRuntimeEnv = getRuntimeEnv(), options: 
   app.route("/v1/session", sessionRoute)
   app.route(
     "/v1/workspaces",
-    createWorkspacesRoute(foundationService, githubSyncService, releaseWorkflowService),
+    createWorkspacesRoute(
+      foundationService,
+      githubSyncService,
+      releaseWorkflowService,
+      githubInstallationService,
+    ),
   )
 
   app.onError((error, context) => {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import type { ReleaseRecordSnapshot } from "../lib/api/client.js"
+import { ApiError, type ReleaseRecordSnapshot } from "../lib/api/client.js"
 import {
   buildReleaseContextEvidenceNotes,
   buildReleaseContextMetrics,
@@ -9,6 +9,7 @@ import {
   createReleaseContextDetailCache,
   getSelectedReleaseContextSnapshot,
   getServerReleaseContextData,
+  getServerReleaseContextGitHubState,
 } from "../lib/dashboard/release-context.js"
 
 function createReleaseRecordSnapshot(
@@ -102,6 +103,68 @@ test("getServerReleaseContextData skips detail fetches when the queue is empty",
   assert.equal(data.selectedId, null)
   assert.equal(data.selectedReleaseRecord, null)
   assert.deepEqual(data.releaseRecords, [])
+})
+
+test("getServerReleaseContextGitHubState forwards cookies and tolerates expected empty GitHub state", async () => {
+  const requests: Array<{ init?: RequestInit; kind: "connection" | "install" }> = []
+
+  const githubState = await getServerReleaseContextGitHubState(
+    new Headers({
+      cookie: "better-auth.session=abc123",
+    }),
+    "workspace_1",
+    {
+      async beginGitHubInstall(workspaceId, init) {
+        requests.push({ init, kind: "install" })
+        assert.equal(workspaceId, "workspace_1")
+        throw new ApiError("GitHub App integration is unavailable", 503, {
+          message: "GitHub App integration is unavailable",
+          status: 503,
+        })
+      },
+      async getGitHubConnection(workspaceId, init) {
+        requests.push({ init, kind: "connection" })
+        assert.equal(workspaceId, "workspace_1")
+        throw new ApiError("GitHub connection was not found", 404, {
+          message: "GitHub connection was not found",
+          status: 404,
+        })
+      },
+    },
+  )
+
+  assert.deepEqual(githubState, {
+    connection: null,
+    installUrl: null,
+  })
+  assert.equal(
+    ((requests[0]?.init?.headers as Record<string, string> | undefined) ?? {}).cookie,
+    "better-auth.session=abc123",
+  )
+  assert.equal(
+    ((requests[1]?.init?.headers as Record<string, string> | undefined) ?? {}).cookie,
+    "better-auth.session=abc123",
+  )
+})
+
+test("getServerReleaseContextGitHubState rethrows unexpected GitHub state failures", async () => {
+  await assert.rejects(
+    () =>
+      getServerReleaseContextGitHubState(new Headers(), "workspace_1", {
+        async beginGitHubInstall() {
+          return {
+            url: "https://github.com/apps/pulsenote/installations/new",
+          }
+        },
+        async getGitHubConnection() {
+          throw new ApiError("Authentication is required", 401, {
+            message: "Authentication is required",
+            status: 401,
+          })
+        },
+      }),
+    /Authentication is required/,
+  )
 })
 
 test("buildReleaseContextQueueItem marks blocked or unsupported evidence as at risk", () => {

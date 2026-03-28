@@ -1,6 +1,13 @@
 import { Hono } from "hono"
 
-import { githubTokenStrategies, type GitHubTokenStrategy } from "../github/models.js"
+import type { FoundationService } from "../foundation/service.js"
+import type { GitHubInstallationService } from "../github/installation.js"
+import {
+  githubTokenStrategies,
+  type GitHubRepositoryScope,
+  type GitHubSyncAuth,
+  type GitHubTokenStrategy,
+} from "../github/models.js"
 import type { GitHubSyncService } from "../github/service.js"
 import type { AppBindings } from "../types.js"
 
@@ -32,7 +39,79 @@ function asGitHubTokenStrategy(value: unknown): GitHubTokenStrategy | null {
     : null
 }
 
-export function createGitHubSyncRoute(githubSyncService: GitHubSyncService) {
+function createClientSuppliedGitHubSyncAuth(token: string, strategy: GitHubTokenStrategy): GitHubSyncAuth {
+  if (strategy !== "personal_access_token") {
+    throw new Error("Client-supplied installation tokens are not supported")
+  }
+
+  return {
+    strategy,
+    token,
+  }
+}
+
+async function resolveStoredGitHubSyncContext(
+  foundationService: FoundationService | undefined,
+  githubInstallationService: GitHubInstallationService | undefined,
+  workspaceId: string,
+  connectionId: string,
+): Promise<{ auth: GitHubSyncAuth; repository: GitHubRepositoryScope }> {
+  if (!foundationService || !githubInstallationService) {
+    throw new Error("Stored GitHub connection sync is unavailable")
+  }
+
+  const githubConnection = await foundationService.getGitHubWorkspaceConnection(workspaceId)
+
+  if (!githubConnection || githubConnection.connection.id !== connectionId) {
+    throw new Error(`GitHub connection ${connectionId} was not found in workspace`)
+  }
+
+  const auth = await githubInstallationService.createInstallationAuth(
+    githubConnection.config.installationId,
+  )
+
+  return {
+    auth,
+    repository: {
+      installationId: githubConnection.config.installationId,
+      owner: githubConnection.config.repositoryOwner,
+      provider: "github",
+      repo: githubConnection.config.repositoryName,
+    },
+  }
+}
+
+function getErrorStatus(message: string, fallbackStatus: number) {
+  const normalizedMessage = message.toLowerCase()
+
+  if (
+    normalizedMessage.includes("was not found") ||
+    normalizedMessage.includes("not found") ||
+    normalizedMessage.includes("does not belong")
+  ) {
+    return 404
+  }
+
+  if (normalizedMessage.includes("required")) {
+    return 400
+  }
+
+  if (normalizedMessage.includes("not supported")) {
+    return 400
+  }
+
+  if (normalizedMessage.includes("not available in production")) {
+    return 403
+  }
+
+  return fallbackStatus
+}
+
+export function createGitHubSyncRoute(
+  githubSyncService: GitHubSyncService,
+  foundationService?: FoundationService,
+  githubInstallationService?: GitHubInstallationService,
+) {
   const route = new Hono<AppBindings>()
 
   route.post("/sync/compare", async (context) => {
@@ -42,71 +121,76 @@ export function createGitHubSyncRoute(githubSyncService: GitHubSyncService) {
     const auth = asRecord(payload?.auth)
     const compare = asRecord(payload?.compare)
     const repository = asRecord(payload?.repository)
-
     const connectionId = asString(payload?.connectionId)
-    const token = asString(auth?.token)
-    const strategy = asGitHubTokenStrategy(auth?.strategy)
     const base = asString(compare?.base)
     const head = asString(compare?.head)
+
+    if (!workspaceId || !connectionId || !base || !head) {
+      return context.json(
+        {
+          message: "connectionId, compare.base, compare.head, and workspaceId are required",
+          status: 400,
+        },
+        400,
+      )
+    }
+
+    const token = asString(auth?.token)
+    const strategy = asGitHubTokenStrategy(auth?.strategy)
     const owner = asString(repository?.owner)
     const repo = asString(repository?.repo)
     const installationId = asString(repository?.installationId)
 
-    if (!connectionId || !token || !strategy || !base || !head || !owner || !repo) {
-      return context.json(
-        {
-          message:
-            "connectionId, auth.token, auth.strategy, compare.base, compare.head, repository.owner, and repository.repo are required",
-          status: 400,
-        },
-        400,
-      )
-    }
-
-    if (!workspaceId) {
-      return context.json(
-        {
-          message: "workspaceId is required",
-          status: 400,
-        },
-        400,
-      )
+    if (auth !== null || repository !== null) {
+      if (!token || !strategy || !owner || !repo) {
+        return context.json(
+          {
+            message:
+              "connectionId, auth.token, auth.strategy, compare.base, compare.head, repository.owner, and repository.repo are required",
+            status: 400,
+          },
+          400,
+        )
+      }
     }
 
     try {
+      const resolved =
+        token && strategy && owner && repo
+          ? {
+              auth: {
+                ...createClientSuppliedGitHubSyncAuth(token, strategy),
+              },
+              repository: {
+                installationId,
+                owner,
+                provider: "github",
+                repo,
+              } satisfies GitHubRepositoryScope,
+            }
+          : await resolveStoredGitHubSyncContext(
+              foundationService,
+              githubInstallationService,
+              workspaceId,
+              connectionId,
+            )
+
       const result = await githubSyncService.syncCompareRange({
-        auth: {
-          strategy,
-          token,
-        },
+        auth: resolved.auth,
         compare: {
           base,
           head,
         },
         connectionId,
-        repository: {
-          installationId,
-          owner,
-          provider: "github",
-          repo,
-        },
+        repository: resolved.repository,
         workspaceId,
       })
 
       return context.json(result, 200)
     } catch (error) {
       const message = error instanceof Error ? error.message : "GitHub compare sync failed"
-      const normalizedMessage = message.toLowerCase()
-      const status =
-        message.includes("not available in production")
-          ? 403
-          : normalizedMessage.includes("was not found") ||
-              normalizedMessage.includes("not found") ||
-              normalizedMessage.includes("does not belong")
-            ? 404
-            : 502
-
-      return context.json({ message, status }, status)
+      const status = getErrorStatus(message, 502)
+      return context.json({ message, status }, status as 400 | 403 | 404 | 502)
     }
   })
 
@@ -116,30 +200,37 @@ export function createGitHubSyncRoute(githubSyncService: GitHubSyncService) {
     const payload = asRecord(body)
     const auth = asRecord(payload?.auth)
     const repository = asRecord(payload?.repository)
-
     const connectionId = asString(payload?.connectionId)
+    const pullNumbers = asPositiveIntegerArray(payload?.pullNumbers)
     const token = asString(auth?.token)
     const strategy = asGitHubTokenStrategy(auth?.strategy)
     const owner = asString(repository?.owner)
     const repo = asString(repository?.repo)
     const installationId = asString(repository?.installationId)
-    const pullNumbers = asPositiveIntegerArray(payload?.pullNumbers)
 
-    if (!connectionId || !token || !strategy || !owner || !repo || !pullNumbers) {
+    if (auth !== null && repository !== null) {
+      if (!workspaceId || !connectionId || !pullNumbers || !token || !strategy || !owner || !repo) {
+        return context.json(
+          {
+            message:
+              "connectionId, auth.token, auth.strategy, repository.owner, repository.repo, and a non-empty pullNumbers array are required",
+            status: 400,
+          },
+          400,
+        )
+      }
+    } else if (auth !== null || repository !== null) {
       return context.json(
         {
-          message:
-            "connectionId, auth.token, auth.strategy, repository.owner, repository.repo, and a non-empty pullNumbers array are required",
+          message: "auth and repository must be provided together for merged pull sync",
           status: 400,
         },
         400,
       )
-    }
-
-    if (!workspaceId) {
+    } else if (!workspaceId || !connectionId || !pullNumbers) {
       return context.json(
         {
-          message: "workspaceId is required",
+          message: "connectionId, a non-empty pullNumbers array, and workspaceId are required",
           status: 400,
         },
         400,
@@ -147,36 +238,39 @@ export function createGitHubSyncRoute(githubSyncService: GitHubSyncService) {
     }
 
     try {
+      const resolved =
+        token && strategy && owner && repo
+          ? {
+              auth: {
+                ...createClientSuppliedGitHubSyncAuth(token, strategy),
+              },
+              repository: {
+                installationId,
+                owner,
+                provider: "github",
+                repo,
+              } satisfies GitHubRepositoryScope,
+            }
+          : await resolveStoredGitHubSyncContext(
+              foundationService,
+              githubInstallationService,
+              workspaceId,
+              connectionId,
+            )
+
       const result = await githubSyncService.syncMergedPullRequests({
-        auth: {
-          strategy,
-          token,
-        },
+        auth: resolved.auth,
         connectionId,
         pullNumbers,
-        repository: {
-          installationId,
-          owner,
-          provider: "github",
-          repo,
-        },
+        repository: resolved.repository,
         workspaceId,
       })
 
       return context.json(result, 200)
     } catch (error) {
       const message = error instanceof Error ? error.message : "GitHub merged pull sync failed"
-      const normalizedMessage = message.toLowerCase()
-      const status =
-        message.includes("not available in production")
-          ? 403
-          : normalizedMessage.includes("was not found") ||
-              normalizedMessage.includes("not found") ||
-              normalizedMessage.includes("does not belong")
-            ? 404
-            : 400
-
-      return context.json({ message, status }, status)
+      const status = getErrorStatus(message, 502)
+      return context.json({ message, status }, status as 400 | 403 | 404 | 502)
     }
   })
 
@@ -187,33 +281,41 @@ export function createGitHubSyncRoute(githubSyncService: GitHubSyncService) {
     const auth = asRecord(payload?.auth)
     const repository = asRecord(payload?.repository)
     const release = asRecord(payload?.release)
-
     const connectionId = asString(payload?.connectionId)
-    const token = asString(auth?.token)
-    const strategy = asGitHubTokenStrategy(auth?.strategy)
-    const owner = asString(repository?.owner)
-    const repo = asString(repository?.repo)
-    const installationId = asString(repository?.installationId)
     const tag = asString(release?.tag)
     const releaseId = asPositiveInteger(release?.releaseId)
     const hasTag = Boolean(tag)
     const hasReleaseId = releaseId !== null
 
-    if (!connectionId || !token || !strategy || !owner || !repo || hasTag === hasReleaseId) {
-      return context.json(
-        {
-          message:
-            "connectionId, auth.token, auth.strategy, repository.owner, repository.repo, and exactly one of release.tag or release.releaseId are required",
-          status: 400,
-        },
-        400,
-      )
-    }
+    const token = asString(auth?.token)
+    const strategy = asGitHubTokenStrategy(auth?.strategy)
+    const owner = asString(repository?.owner)
+    const repo = asString(repository?.repo)
+    const installationId = asString(repository?.installationId)
 
-    if (!workspaceId) {
+    if (auth !== null || repository !== null) {
+      if (
+        !workspaceId ||
+        !connectionId ||
+        hasTag === hasReleaseId ||
+        !token ||
+        !strategy ||
+        !owner ||
+        !repo
+      ) {
+        return context.json(
+          {
+            message:
+              "connectionId, auth.token, auth.strategy, repository.owner, repository.repo, and exactly one of release.tag or release.releaseId are required",
+            status: 400,
+          },
+          400,
+        )
+      }
+    } else if (!workspaceId || !connectionId || hasTag === hasReleaseId) {
       return context.json(
         {
-          message: "workspaceId is required",
+          message: "connectionId, workspaceId, and exactly one of release.tag or release.releaseId are required",
           status: 400,
         },
         400,
@@ -221,11 +323,28 @@ export function createGitHubSyncRoute(githubSyncService: GitHubSyncService) {
     }
 
     try {
+      const resolved =
+        token && strategy && owner && repo
+          ? {
+              auth: {
+                ...createClientSuppliedGitHubSyncAuth(token, strategy),
+              },
+              repository: {
+                installationId,
+                owner,
+                provider: "github",
+                repo,
+              } satisfies GitHubRepositoryScope,
+            }
+          : await resolveStoredGitHubSyncContext(
+              foundationService,
+              githubInstallationService,
+              workspaceId,
+              connectionId,
+            )
+
       const result = await githubSyncService.syncRelease({
-        auth: {
-          strategy,
-          token,
-        },
+        auth: resolved.auth,
         connectionId,
         release:
           releaseId !== null
@@ -235,29 +354,15 @@ export function createGitHubSyncRoute(githubSyncService: GitHubSyncService) {
             : {
                 tag: tag!,
               },
-        repository: {
-          installationId,
-          owner,
-          provider: "github",
-          repo,
-        },
+        repository: resolved.repository,
         workspaceId,
       })
 
       return context.json(result, 200)
     } catch (error) {
       const message = error instanceof Error ? error.message : "GitHub release sync failed"
-      const normalizedMessage = message.toLowerCase()
-      const status =
-        message.includes("not available in production")
-          ? 403
-          : normalizedMessage.includes("was not found") ||
-              normalizedMessage.includes("not found") ||
-              normalizedMessage.includes("does not belong")
-            ? 404
-            : 400
-
-      return context.json({ message, status }, status)
+      const status = getErrorStatus(message, 502)
+      return context.json({ message, status }, status as 400 | 403 | 404 | 502)
     }
   })
 

@@ -75,7 +75,10 @@ test("auth routes allow trusted-origin preflight requests with credentials", asy
   assert.equal(response.status, 204)
   assert.equal(response.headers.get("access-control-allow-origin"), "http://localhost:3000")
   assert.equal(response.headers.get("access-control-allow-credentials"), "true")
-  assert.equal(response.headers.get("access-control-allow-methods"), "GET, POST, PUT, OPTIONS")
+  assert.equal(
+    response.headers.get("access-control-allow-methods"),
+    "GET, POST, PUT, DELETE, OPTIONS",
+  )
 })
 
 test("auth routes include CORS headers on trusted-origin handler responses", async () => {

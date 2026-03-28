@@ -1,22 +1,34 @@
 import { headers } from "next/headers"
 
+import { DashboardAccessState } from "@/components/dashboard/dashboard-access-state"
 import { ReleaseContextLiveWorkspace } from "@/components/dashboard/release-context-live-workspace"
 import { DashboardPage, SurfaceCard } from "@/components/dashboard/surfaces"
 import { resolveDashboardAccessState } from "@/lib/dashboard/access"
-import { getServerReleaseContextData } from "@/lib/dashboard/release-context"
+import {
+  getServerReleaseContextData,
+  getServerReleaseContextGitHubState,
+} from "@/lib/dashboard/release-context"
 
 export default async function ReleaseContextPage() {
   const requestHeaders = await headers()
   const accessState = await resolveDashboardAccessState(requestHeaders)
 
   if (accessState.kind !== "ready") {
-    return null
+    return <DashboardAccessState state={accessState.kind} />
   }
 
   let releaseContextData: Awaited<ReturnType<typeof getServerReleaseContextData>> | null = null
+  let githubState: Awaited<ReturnType<typeof getServerReleaseContextGitHubState>> = {
+    connection: null,
+    installUrl: null,
+  }
   let errorMessage: string | null = null
 
   try {
+    githubState = await getServerReleaseContextGitHubState(
+      requestHeaders,
+      accessState.workspace.workspace.id,
+    )
     releaseContextData = await getServerReleaseContextData(
       requestHeaders,
       accessState.workspace.workspace.id,
@@ -41,28 +53,14 @@ export default async function ReleaseContextPage() {
     )
   }
 
-  if (!releaseContextData?.selectedId || !releaseContextData.selectedReleaseRecord) {
-    return (
-      <DashboardPage>
-        <SurfaceCard
-          title="No release context in queue"
-          description="New release intake records will appear here once authenticated GitHub evidence is ingested."
-        >
-          <p className="text-sm text-muted-foreground">
-            Connect a release intake sync to start reviewing evidence, claims, and handoff state.
-          </p>
-        </SurfaceCard>
-      </DashboardPage>
-    )
-  }
-
   return (
     <DashboardPage>
       <ReleaseContextLiveWorkspace
-        initialReleaseRecords={releaseContextData.releaseRecords}
-        initialSelectedId={releaseContextData.selectedId}
-        initialSelectedReleaseRecord={releaseContextData.selectedReleaseRecord}
-        key={`${accessState.workspace.workspace.id}:${releaseContextData.selectedId}:${releaseContextData.selectedReleaseRecord.releaseRecord.updatedAt}`}
+        initialGitHubConnection={githubState.connection}
+        initialGitHubInstallUrl={githubState.installUrl}
+        initialReleaseRecords={releaseContextData?.releaseRecords ?? []}
+        initialSelectedId={releaseContextData?.selectedId ?? null}
+        initialSelectedReleaseRecord={releaseContextData?.selectedReleaseRecord ?? null}
         workspaceId={accessState.workspace.workspace.id}
       />
     </DashboardPage>

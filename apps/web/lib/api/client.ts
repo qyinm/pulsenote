@@ -266,7 +266,93 @@ const workspaceChoiceSchema = z.object({
   }),
 })
 
+const githubInstallUrlSchema = z.object({
+  url: z.string().url(),
+})
+
+const githubInstallationRepositorySchema = z.object({
+  defaultBranch: z.string().nullable(),
+  fullName: z.string(),
+  id: z.number().int(),
+  name: z.string(),
+  owner: z.string(),
+  url: z.string().url(),
+})
+
+const githubConnectionSchema = z.object({
+  connectedAt: z.string(),
+  connectionId: z.string(),
+  installationId: z.string(),
+  lastSyncedAt: z.string().nullable(),
+  repositoryName: z.string(),
+  repositoryOwner: z.string(),
+  repositoryUrl: z.string().url(),
+  status: integrationStatusSchema,
+})
+
+const githubSyncCompareResultSchema = z.object({
+  claimCandidateCount: z.number().int(),
+  comparison: z.object({
+    aheadBy: z.number().int(),
+    behindBy: z.number().int(),
+    commits: z.array(
+      z.object({
+        committedAt: z.string().nullable(),
+        message: z.string(),
+        sha: z.string(),
+      }),
+    ),
+    files: z.array(
+      z.object({
+        additions: z.number().int(),
+        changes: z.number().int(),
+        deletions: z.number().int(),
+        filename: z.string(),
+        patch: z.string().nullable(),
+        status: z.string(),
+      }),
+    ),
+    mergeBaseSha: z.string().nullable(),
+    totalCommits: z.number().int(),
+  }),
+  evidenceBlockCount: z.number().int(),
+  releaseRecordId: z.string(),
+  scope: z.string(),
+  sourceLinkCount: z.number().int(),
+  syncRunId: z.string(),
+})
+
+const githubSyncReleaseResultSchema = z.object({
+  claimCandidateCount: z.number().int(),
+  evidenceBlockCount: z.number().int(),
+  release: z.object({
+    assets: z.array(
+      z.object({
+        contentType: z.string().nullable(),
+        downloadUrl: z.string().url(),
+        name: z.string(),
+        size: z.number().int(),
+      }),
+    ),
+    body: z.string().nullable(),
+    createdAt: z.string(),
+    draft: z.boolean(),
+    htmlUrl: z.string().url(),
+    id: z.number().int(),
+    name: z.string().nullable(),
+    prerelease: z.boolean(),
+    publishedAt: z.string().nullable(),
+    tagName: z.string(),
+    targetCommitish: z.string(),
+  }),
+  releaseRecordId: z.string(),
+  scope: z.string(),
+  sourceLinkCount: z.number().int(),
+})
+
 export type ApiSession = z.infer<typeof apiSessionSchema>
+export type GitHubConnection = z.infer<typeof githubConnectionSchema>
+export type GitHubInstallationRepository = z.infer<typeof githubInstallationRepositorySchema>
 export type ReleaseRecordSnapshot = z.infer<typeof releaseRecordSnapshotSchema>
 export type ReleaseWorkflowDetail = z.infer<typeof releaseWorkflowDetailSchema>
 export type ReleaseWorkflowListItem = z.infer<typeof releaseWorkflowListItemSchema>
@@ -386,11 +472,77 @@ export function createApiClient(options: CreateApiClientOptions = {}) {
         method: "POST",
       })
     },
+    beginGitHubInstall(workspaceId: string, init?: RequestInit) {
+      return request(
+        `/v1/workspaces/${encodeURIComponent(workspaceId)}/integrations/github/install-url`,
+        githubInstallUrlSchema,
+        init,
+      )
+    },
+    connectGitHubRepository(
+      workspaceId: string,
+      payload: {
+        installationId: string
+        state: string
+        repository: {
+          name: string
+          owner: string
+          url: string
+        }
+      },
+      init?: RequestInit,
+    ) {
+      return request(
+        `/v1/workspaces/${encodeURIComponent(workspaceId)}/integrations/github`,
+        githubConnectionSchema,
+        {
+          ...init,
+          body: JSON.stringify(payload),
+          method: "PUT",
+        },
+      )
+    },
+    disconnectGitHubConnection(workspaceId: string, init?: RequestInit) {
+      return fetchImplementation(
+        `${baseUrl}/v1/workspaces/${encodeURIComponent(workspaceId)}/integrations/github`,
+        {
+          ...init,
+          credentials: "include",
+          headers: mergeHeaders(init),
+          method: "DELETE",
+        },
+      ).then(async (response) => {
+        if (!response.ok) {
+          const payload = await response.json().catch(() => null)
+          const error = payload as ApiErrorPayload | null
+          throw new ApiError(error?.message ?? "Request failed", response.status, payload)
+        }
+      })
+    },
     getCurrentWorkspace(init?: RequestInit) {
       return request("/v1/workspaces/current", workspaceSnapshotSchema, init)
     },
+    getGitHubConnection(workspaceId: string, init?: RequestInit) {
+      return request(
+        `/v1/workspaces/${encodeURIComponent(workspaceId)}/integrations/github`,
+        githubConnectionSchema,
+        init,
+      )
+    },
     listWorkspaceChoices(init?: RequestInit) {
       return request("/v1/workspaces/choices", z.array(workspaceChoiceSchema), init)
+    },
+    listGitHubInstallationRepositories(
+      workspaceId: string,
+      installationId: string,
+      state: string,
+      init?: RequestInit,
+    ) {
+      return request(
+        `/v1/workspaces/${encodeURIComponent(workspaceId)}/integrations/github/installations/${encodeURIComponent(installationId)}/repositories?state=${encodeURIComponent(state)}`,
+        z.array(githubInstallationRepositorySchema),
+        init,
+      )
     },
     getSession(init?: RequestInit) {
       return request("/v1/session", apiSessionSchema, init)
@@ -512,6 +664,48 @@ export function createApiClient(options: CreateApiClientOptions = {}) {
       return request(
         `/v1/workspaces/${encodeURIComponent(workspaceId)}/release-workflow/${encodeURIComponent(releaseRecordId)}/claim-check`,
         releaseWorkflowDetailSchema,
+        {
+          ...init,
+          body: JSON.stringify(payload),
+          method: "POST",
+        },
+      )
+    },
+    syncGitHubCompare(
+      workspaceId: string,
+      payload: {
+        compare: {
+          base: string
+          head: string
+        }
+        connectionId: string
+      },
+      init?: RequestInit,
+    ) {
+      return request(
+        `/v1/workspaces/${encodeURIComponent(workspaceId)}/github/sync/compare`,
+        githubSyncCompareResultSchema,
+        {
+          ...init,
+          body: JSON.stringify(payload),
+          method: "POST",
+        },
+      )
+    },
+    syncGitHubRelease(
+      workspaceId: string,
+      payload: {
+        connectionId: string
+        release: {
+          releaseId?: number
+          tag?: string
+        }
+      },
+      init?: RequestInit,
+    ) {
+      return request(
+        `/v1/workspaces/${encodeURIComponent(workspaceId)}/github/sync/release`,
+        githubSyncReleaseResultSchema,
         {
           ...init,
           body: JSON.stringify(payload),
