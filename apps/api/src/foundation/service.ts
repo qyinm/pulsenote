@@ -239,6 +239,21 @@ export function createFoundationService(store: FoundationStore) {
           input.workspaceId,
           "github",
         )
+
+        if (existingConnection) {
+          const existingConfig = await transactionStore.getGitHubConnectionConfig(existingConnection.id)
+
+          if (
+            existingConfig &&
+            (existingConfig.repositoryOwner !== input.repositoryOwner.trim() ||
+              existingConfig.repositoryName !== input.repositoryName.trim())
+          ) {
+            throw new Error(
+              "GitHub repository cannot be changed for an existing workspace connection while release history points to it",
+            )
+          }
+        }
+
         const connection =
           existingConnection === null
             ? await transactionStore.createIntegrationConnection({

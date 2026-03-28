@@ -11,6 +11,7 @@ import type {
   GitHubPullRequestSummary,
   GitHubReleaseSelector,
   GitHubReleaseSummary,
+  GitHubSyncAuth,
   GitHubReleaseSyncRequest,
   GitHubReleaseSyncResult,
 } from "./models.js"

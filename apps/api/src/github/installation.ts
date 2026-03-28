@@ -196,9 +196,11 @@ export function createGitHubInstallationService(
           },
         },
       })
-      const response = await octokit.request("GET /installation/repositories")
+      const repositories = await octokit.paginate("GET /installation/repositories", {
+        per_page: 100,
+      })
 
-      return response.data.repositories.map((repository) => ({
+      return repositories.map((repository) => ({
         defaultBranch: repository.default_branch ?? null,
         fullName: repository.full_name,
         id: repository.id,

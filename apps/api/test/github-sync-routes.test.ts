@@ -367,6 +367,76 @@ test("github release sync route uses the stored GitHub App connection in product
   assert.ok(body.releaseRecordId)
 })
 
+test("github release sync route returns 502 when stored installation auth is unavailable", async () => {
+  const { bootstrap, foundationService, store } = await bootstrapWorkspace()
+  const githubConnection = await foundationService.connectGitHubWorkspace({
+    connectedByUserId: bootstrap.user.id,
+    installationId: "321",
+    repositoryName: "pulsenote",
+    repositoryOwner: "qyinm",
+    repositoryUrl: "https://github.com/qyinm/pulsenote",
+    workspaceId: bootstrap.workspace.id,
+  })
+  const productionEnv = {
+    ...runtimeEnv,
+    nodeEnv: "production" as const,
+  }
+  const githubInstallationService: GitHubInstallationService = {
+    async createInstallationAuth() {
+      throw new Error("GitHub installation token request failed with 500")
+    },
+    getInstallUrl() {
+      return "https://github.com/apps/pulsenote/installations/new"
+    },
+    verifyInstallState() {
+      throw new Error("verifyInstallState should not be called")
+    },
+    async listInstallationRepositories() {
+      throw new Error("repository listing should not be called")
+    },
+  }
+  const githubSyncService = createGitHubSyncService({
+    githubClient: {
+      async compareCommits() {
+        throw new Error("compare sync should not be called")
+      },
+      async getPullRequests() {
+        throw new Error("pull sync should not be called")
+      },
+      async getRelease() {
+        throw new Error("release sync should not be called")
+      },
+    },
+    runtimeEnv: productionEnv,
+    store,
+  })
+  const app = createApp(productionEnv, {
+    authService: createAuthService(createAuthenticatedSession(bootstrap.user.id)),
+    foundationService,
+    githubInstallationService,
+    githubSyncService,
+  })
+
+  const response = await app.request(`/v1/workspaces/${bootstrap.workspace.id}/github/sync/release`, {
+    body: JSON.stringify({
+      connectionId: githubConnection.connection.id,
+      release: {
+        tag: "v2.4.0",
+      },
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "POST",
+  })
+
+  assert.equal(response.status, 502)
+  assert.deepEqual(await response.json(), {
+    message: "GitHub installation token request failed with 500",
+    status: 502,
+  })
+})
+
 test("github compare sync route rejects unsupported auth strategies", async () => {
   const { bootstrap, connection, foundationService, store } = await bootstrapWorkspace()
   const githubSyncService = createGitHubSyncService({

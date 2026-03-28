@@ -248,8 +248,8 @@ export function createGitHubSyncRoute(
       return context.json(result, 200)
     } catch (error) {
       const message = error instanceof Error ? error.message : "GitHub merged pull sync failed"
-      const status = getErrorStatus(message, 400)
-      return context.json({ message, status }, status as 400 | 403 | 404)
+      const status = getErrorStatus(message, 502)
+      return context.json({ message, status }, status as 400 | 403 | 404 | 502)
     }
   })
 
@@ -341,8 +341,8 @@ export function createGitHubSyncRoute(
       return context.json(result, 200)
     } catch (error) {
       const message = error instanceof Error ? error.message : "GitHub release sync failed"
-      const status = getErrorStatus(message, 400)
-      return context.json({ message, status }, status as 400 | 403 | 404)
+      const status = getErrorStatus(message, 502)
+      return context.json({ message, status }, status as 400 | 403 | 404 | 502)
     }
   })
 
