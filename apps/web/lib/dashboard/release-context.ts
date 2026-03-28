@@ -1,10 +1,15 @@
-import type { ReleaseRecordSnapshot } from "../api/client"
+import type { GitHubConnection, ReleaseRecordSnapshot } from "../api/client"
 import { createApiClient } from "../api/client"
 import { getForwardedAuthHeaders } from "../auth/headers"
 
 type ReleaseContextApiClient = Pick<
   ReturnType<typeof createApiClient>,
   "getReleaseRecord" | "listReleaseRecords"
+>
+
+type ReleaseContextGitHubApiClient = Pick<
+  ReturnType<typeof createApiClient>,
+  "beginGitHubInstall" | "getGitHubConnection"
 >
 
 export type ReleaseContextReadiness = "Ready" | "Needs review" | "At risk"
@@ -36,6 +41,11 @@ export type ReleaseContextData = {
   selectedReleaseRecord: ReleaseRecordSnapshot | null
 }
 
+export type ReleaseContextGithubState = {
+  connection: GitHubConnection | null
+  installUrl: string | null
+}
+
 export function createReleaseContextDetailCache(
   selectedId: string,
   selectedReleaseRecord: ReleaseRecordSnapshot,
@@ -43,6 +53,29 @@ export function createReleaseContextDetailCache(
   return {
     [selectedId]: selectedReleaseRecord,
   } satisfies Record<string, ReleaseRecordSnapshot>
+}
+
+export async function getServerReleaseContextGitHubState(
+  requestHeaders: Headers,
+  workspaceId: string,
+  apiClient: ReleaseContextGitHubApiClient = createApiClient(),
+): Promise<ReleaseContextGithubState> {
+  const init = {
+    headers: getForwardedAuthHeaders(requestHeaders),
+  }
+
+  const [connection, installUrl] = await Promise.all([
+    apiClient.getGitHubConnection(workspaceId, init).catch(() => null),
+    apiClient
+      .beginGitHubInstall(workspaceId, init)
+      .then((result) => result.url)
+      .catch(() => null),
+  ])
+
+  return {
+    connection,
+    installUrl,
+  }
 }
 
 export function getSelectedReleaseContextSnapshot(

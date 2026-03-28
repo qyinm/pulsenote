@@ -8,6 +8,7 @@ import {
   WorkspaceAccessDeniedError,
   WorkspaceSlugConflictError,
 } from "../foundation/service.js"
+import type { GitHubInstallationService } from "../github/installation.js"
 import type { GitHubSyncService } from "../github/service.js"
 import type { ReleaseWorkflowService } from "../release-workflow/service.js"
 import { createReleaseWorkflowRoute } from "./release-workflow.js"
@@ -46,6 +47,7 @@ export function createWorkspacesRoute(
   foundationService: FoundationService,
   githubSyncService?: GitHubSyncService,
   releaseWorkflowService?: ReleaseWorkflowService,
+  githubInstallationService?: GitHubInstallationService,
 ) {
   const route = new Hono<AppBindings>()
 
@@ -330,6 +332,122 @@ export function createWorkspacesRoute(
     }
   })
 
+  route.get("/:workspaceId/integrations/github", async (context) => {
+    try {
+      const githubConnection = await foundationService.getGitHubWorkspaceConnection(
+        context.req.param("workspaceId"),
+      )
+
+      if (!githubConnection) {
+        return context.json(notFound("GitHub connection was not found"), 404)
+      }
+
+      return context.json({
+        connectedAt: githubConnection.connection.connectedAt,
+        connectionId: githubConnection.connection.id,
+        installationId: githubConnection.config.installationId,
+        lastSyncedAt: githubConnection.connection.lastSyncedAt,
+        repositoryName: githubConnection.config.repositoryName,
+        repositoryOwner: githubConnection.config.repositoryOwner,
+        repositoryUrl: githubConnection.config.repositoryUrl,
+        status: githubConnection.connection.status,
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Workspace was not found"
+      const status = message.includes("was not found") ? 404 : 400
+      return context.json({ message, status }, status)
+    }
+  })
+
+  route.get("/:workspaceId/integrations/github/install-url", async (context) => {
+    if (!githubInstallationService) {
+      return context.json({ message: "GitHub App integration is unavailable", status: 503 }, 503)
+    }
+
+    try {
+      return context.json({ url: githubInstallationService.getInstallUrl() })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "GitHub App integration is unavailable"
+      return context.json({ message, status: 503 }, 503)
+    }
+  })
+
+  route.get("/:workspaceId/integrations/github/installations/:installationId/repositories", async (context) => {
+    if (!githubInstallationService) {
+      return context.json({ message: "GitHub App integration is unavailable", status: 503 }, 503)
+    }
+
+    try {
+      const repositories = await githubInstallationService.listInstallationRepositories(
+        context.req.param("installationId"),
+      )
+      return context.json(repositories)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "GitHub installation repositories could not be loaded"
+      return context.json({ message, status: 400 }, 400)
+    }
+  })
+
+  route.put("/:workspaceId/integrations/github", async (context) => {
+    const authUser = context.get("authUser")
+
+    if (!authUser) {
+      return context.json({ message: "Authentication is required", status: 401 }, 401)
+    }
+
+    const body = await context.req.json().catch(() => null)
+    const payload = asRecord(body)
+    const repository = asRecord(payload?.repository)
+    const installationId = asString(payload?.installationId)
+    const repositoryOwner = asString(repository?.owner)
+    const repositoryName = asString(repository?.name)
+    const repositoryUrl = asString(repository?.url)
+
+    if (!installationId || !repositoryOwner || !repositoryName || !repositoryUrl) {
+      return context.json(
+        badRequest("installationId, repository.owner, repository.name, and repository.url are required"),
+        400,
+      )
+    }
+
+    try {
+      const githubConnection = await foundationService.connectGitHubWorkspace({
+        connectedByUserId: authUser.id,
+        installationId,
+        repositoryName,
+        repositoryOwner,
+        repositoryUrl,
+        workspaceId: context.req.param("workspaceId"),
+      })
+
+      return context.json({
+        connectedAt: githubConnection.connection.connectedAt,
+        connectionId: githubConnection.connection.id,
+        installationId: githubConnection.config.installationId,
+        lastSyncedAt: githubConnection.connection.lastSyncedAt,
+        repositoryName: githubConnection.config.repositoryName,
+        repositoryOwner: githubConnection.config.repositoryOwner,
+        repositoryUrl: githubConnection.config.repositoryUrl,
+        status: githubConnection.connection.status,
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "GitHub connection could not be saved"
+      const status = message.includes("was not found") ? 404 : 400
+      return context.json({ message, status }, status)
+    }
+  })
+
+  route.delete("/:workspaceId/integrations/github", async (context) => {
+    try {
+      await foundationService.disconnectGitHubWorkspace(context.req.param("workspaceId"))
+      return context.body(null, 204)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "GitHub connection could not be disconnected"
+      const status = message.includes("was not found") ? 404 : 400
+      return context.json({ message, status }, status)
+    }
+  })
+
   route.post("/:workspaceId/sync-runs", async (context) => {
     const body = await context.req.json().catch(() => null)
     const payload = asRecord(body)
@@ -356,7 +474,10 @@ export function createWorkspacesRoute(
   })
 
   if (githubSyncService) {
-    route.route("/:workspaceId/github", createGitHubSyncRoute(githubSyncService))
+    route.route(
+      "/:workspaceId/github",
+      createGitHubSyncRoute(githubSyncService, foundationService, githubInstallationService),
+    )
   }
 
   if (releaseWorkflowService) {

@@ -9,6 +9,7 @@ import {
 } from "../domain/models.js"
 import type {
   FoundationStore,
+  GitHubWorkspaceConnection,
   ReleaseRecordSnapshot,
   WorkspaceChoice,
   WorkspaceSnapshot,
@@ -46,6 +47,15 @@ type BootstrapWorkspaceResult = {
 type CreateIntegrationConnectionInput = {
   externalAccountId: string
   provider: IntegrationConnection["provider"]
+  workspaceId: string
+}
+
+type ConnectGitHubWorkspaceInput = {
+  connectedByUserId: string
+  installationId: string
+  repositoryName: string
+  repositoryOwner: string
+  repositoryUrl: string
   workspaceId: string
 }
 
@@ -189,6 +199,83 @@ export function createFoundationService(store: FoundationStore) {
         externalAccountId: input.externalAccountId.trim(),
         provider,
         workspaceId: workspace.id,
+      })
+    },
+
+    async getGitHubWorkspaceConnection(workspaceId: string): Promise<GitHubWorkspaceConnection | null> {
+      requireNonEmpty(workspaceId, "workspaceId")
+
+      const workspace = await store.getWorkspace(workspaceId)
+
+      if (!workspace) {
+        throw new Error(`Workspace ${workspaceId} was not found`)
+      }
+
+      return store.getGitHubWorkspaceConnection(workspaceId)
+    },
+
+    async connectGitHubWorkspace(input: ConnectGitHubWorkspaceInput): Promise<GitHubWorkspaceConnection> {
+      requireNonEmpty(input.workspaceId, "workspaceId")
+      requireNonEmpty(input.connectedByUserId, "connectedByUserId")
+      requireNonEmpty(input.installationId, "installationId")
+      requireNonEmpty(input.repositoryOwner, "repositoryOwner")
+      requireNonEmpty(input.repositoryName, "repositoryName")
+      requireNonEmpty(input.repositoryUrl, "repositoryUrl")
+
+      const workspace = await store.getWorkspace(input.workspaceId)
+
+      if (!workspace) {
+        throw new Error(`Workspace ${input.workspaceId} was not found`)
+      }
+
+      const user = await store.getUser(input.connectedByUserId)
+
+      if (!user) {
+        throw new Error(`User ${input.connectedByUserId} was not found`)
+      }
+
+      const existingConnection = await store.findWorkspaceIntegrationConnection(input.workspaceId, "github")
+      const connection =
+        existingConnection === null
+          ? await store.createIntegrationConnection({
+              externalAccountId: input.installationId.trim(),
+              provider: "github",
+              workspaceId: input.workspaceId,
+            })
+          : await store.updateIntegrationConnection({
+              externalAccountId: input.installationId.trim(),
+              id: existingConnection.id,
+              status: "active",
+            })
+
+      const config = await store.upsertGitHubConnectionConfig({
+        connectedByUserId: input.connectedByUserId.trim(),
+        connectionId: connection.id,
+        installationId: input.installationId.trim(),
+        repositoryName: input.repositoryName.trim(),
+        repositoryOwner: input.repositoryOwner.trim(),
+        repositoryUrl: input.repositoryUrl.trim(),
+      })
+
+      return {
+        config,
+        connection,
+      }
+    },
+
+    async disconnectGitHubWorkspace(workspaceId: string): Promise<void> {
+      requireNonEmpty(workspaceId, "workspaceId")
+
+      const connection = await store.findWorkspaceIntegrationConnection(workspaceId, "github")
+
+      if (!connection) {
+        return
+      }
+
+      await store.deleteGitHubConnectionConfig(connection.id)
+      await store.updateIntegrationConnection({
+        id: connection.id,
+        status: "disconnected",
       })
     },
 

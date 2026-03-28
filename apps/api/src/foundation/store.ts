@@ -2,8 +2,10 @@ import {
   type ClaimCandidate,
   type CurrentWorkspaceSelection,
   type EvidenceBlock,
+  type GitHubConnectionConfig,
   type IntegrationAccount,
   type IntegrationConnection,
+  type IntegrationProvider,
   type ReleaseRecord,
   type ReviewStatus,
   type SourceCursor,
@@ -40,6 +42,7 @@ type CreateIntegrationAccountInput = Pick<
   IntegrationAccount,
   "accountLabel" | "accountUrl" | "connectionId" | "provider"
 >
+type UpsertGitHubConnectionConfigInput = Omit<GitHubConnectionConfig, "createdAt" | "updatedAt">
 type CreateSyncRunInput = Pick<SyncRun, "connectionId" | "scope" | "workspaceId">
 type CreateSourceCursorInput = Pick<SourceCursor, "connectionId" | "key" | "value">
 type CreateReleaseRecordInput = Pick<
@@ -63,6 +66,8 @@ type CreateReviewStatusInput = Pick<
 >
 type UpdateSyncRunInput = Pick<SyncRun, "id" | "status"> &
   Partial<Pick<SyncRun, "errorMessage" | "finishedAt">>
+type UpdateIntegrationConnectionInput = Pick<IntegrationConnection, "id"> &
+  Partial<Pick<IntegrationConnection, "externalAccountId" | "lastSyncedAt" | "status">>
 
 export type WorkspaceSnapshot = {
   integrationAccounts: IntegrationAccount[]
@@ -86,6 +91,11 @@ export type WorkspaceChoice = {
   workspace: Workspace
 }
 
+export type GitHubWorkspaceConnection = {
+  config: GitHubConnectionConfig
+  connection: IntegrationConnection
+}
+
 export type FoundationStore = {
   bootstrapAuthenticatedWorkspace(input: BootstrapAuthenticatedWorkspaceInput): Promise<BootstrapWorkspaceResult>
   bootstrapWorkspace(input: BootstrapWorkspaceInput): Promise<BootstrapWorkspaceResult>
@@ -101,7 +111,14 @@ export type FoundationStore = {
   createUser(input: CreateUserInput): Promise<User>
   createWorkspace(input: CreateWorkspaceInput): Promise<Workspace>
   createWorkspaceMembership(input: CreateWorkspaceMembershipInput): Promise<WorkspaceMembership>
+  deleteGitHubConnectionConfig(connectionId: string): Promise<void>
   findWorkspaceMembership(workspaceId: string, userId: string): Promise<WorkspaceMembership | null>
+  findWorkspaceIntegrationConnection(
+    workspaceId: string,
+    provider: IntegrationProvider,
+  ): Promise<IntegrationConnection | null>
+  getGitHubConnectionConfig(connectionId: string): Promise<GitHubConnectionConfig | null>
+  getGitHubWorkspaceConnection(workspaceId: string): Promise<GitHubWorkspaceConnection | null>
   getIntegrationConnection(connectionId: string): Promise<IntegrationConnection | null>
   getCurrentWorkspaceSelection(userId: string): Promise<CurrentWorkspaceSelection | null>
   getReleaseRecord(releaseRecordId: string): Promise<ReleaseRecord | null>
@@ -116,8 +133,10 @@ export type FoundationStore = {
   setCurrentWorkspaceSelection(input: SetCurrentWorkspaceSelectionInput): Promise<CurrentWorkspaceSelection>
   syncAuthenticatedUser(input: SyncAuthenticatedUserInput): Promise<User>
   transaction<T>(callback: (store: FoundationStore) => Promise<T>): Promise<T>
+  updateIntegrationConnection(input: UpdateIntegrationConnectionInput): Promise<IntegrationConnection>
   updateReleaseRecordStage(releaseRecordId: string, stage: ReleaseRecord["stage"]): Promise<ReleaseRecord>
   updateSyncRun(input: UpdateSyncRunInput): Promise<SyncRun>
+  upsertGitHubConnectionConfig(input: UpsertGitHubConnectionConfigInput): Promise<GitHubConnectionConfig>
   upsertReviewStatus(input: CreateReviewStatusInput): Promise<ReviewStatus>
 }
 
@@ -131,6 +150,7 @@ type InMemoryState = {
   claimCandidateEvidenceLinks: ClaimCandidateEvidenceLink[]
   claimCandidates: Map<string, ClaimCandidate>
   evidenceBlocks: Map<string, EvidenceBlock>
+  githubConnectionConfigs: Map<string, GitHubConnectionConfig>
   integrationAccounts: Map<string, IntegrationAccount>
   integrationConnections: Map<string, IntegrationConnection>
   releaseRecords: Map<string, ReleaseRecord>
@@ -157,6 +177,7 @@ export function createInMemoryFoundationStore(): FoundationStore {
     claimCandidateEvidenceLinks: [],
     claimCandidates: new Map(),
     evidenceBlocks: new Map(),
+    githubConnectionConfigs: new Map(),
     integrationAccounts: new Map(),
     integrationConnections: new Map(),
     releaseRecords: new Map(),
@@ -221,6 +242,9 @@ export function createInMemoryFoundationStore(): FoundationStore {
       evidenceBlocks: new Map(
         Array.from(state.evidenceBlocks.entries()).map(([key, value]) => [key, { ...value }]),
       ),
+      githubConnectionConfigs: new Map(
+        Array.from(state.githubConnectionConfigs.entries()).map(([key, value]) => [key, { ...value }]),
+      ),
       integrationAccounts: new Map(
         Array.from(state.integrationAccounts.entries()).map(([key, value]) => [key, { ...value }]),
       ),
@@ -257,6 +281,7 @@ export function createInMemoryFoundationStore(): FoundationStore {
     state.claimCandidates = snapshot.claimCandidates
     state.currentWorkspaceSelections = snapshot.currentWorkspaceSelections
     state.evidenceBlocks = snapshot.evidenceBlocks
+    state.githubConnectionConfigs = snapshot.githubConnectionConfigs
     state.integrationAccounts = snapshot.integrationAccounts
     state.integrationConnections = snapshot.integrationConnections
     state.releaseRecords = snapshot.releaseRecords
@@ -402,6 +427,23 @@ export function createInMemoryFoundationStore(): FoundationStore {
 
       state.integrationConnections.set(integrationConnection.id, integrationConnection)
       return integrationConnection
+    },
+
+    async upsertGitHubConnectionConfig(input) {
+      const existingConfig = state.githubConnectionConfigs.get(input.connectionId)
+      const githubConnectionConfig: GitHubConnectionConfig = {
+        connectedByUserId: input.connectedByUserId,
+        connectionId: input.connectionId,
+        createdAt: existingConfig?.createdAt ?? nowIso(),
+        installationId: input.installationId,
+        repositoryName: input.repositoryName,
+        repositoryOwner: input.repositoryOwner,
+        repositoryUrl: input.repositoryUrl,
+        updatedAt: nowIso(),
+      }
+
+      state.githubConnectionConfigs.set(githubConnectionConfig.connectionId, githubConnectionConfig)
+      return githubConnectionConfig
     },
 
     async createReleaseRecord(input) {
@@ -574,6 +616,37 @@ export function createInMemoryFoundationStore(): FoundationStore {
       )
     },
 
+    async findWorkspaceIntegrationConnection(workspaceId, provider) {
+      return (
+        Array.from(state.integrationConnections.values()).find(
+          (connection) => connection.workspaceId === workspaceId && connection.provider === provider,
+        ) ?? null
+      )
+    },
+
+    async getGitHubConnectionConfig(connectionId) {
+      return state.githubConnectionConfigs.get(connectionId) ?? null
+    },
+
+    async getGitHubWorkspaceConnection(workspaceId) {
+      const connection = await this.findWorkspaceIntegrationConnection(workspaceId, "github")
+
+      if (!connection) {
+        return null
+      }
+
+      const config = state.githubConnectionConfigs.get(connection.id) ?? null
+
+      if (!config) {
+        return null
+      }
+
+      return {
+        config,
+        connection,
+      }
+    },
+
     async getIntegrationConnection(connectionId) {
       return state.integrationConnections.get(connectionId) ?? null
     },
@@ -672,6 +745,25 @@ export function createInMemoryFoundationStore(): FoundationStore {
       return selection
     },
 
+    async updateIntegrationConnection(input) {
+      const existingConnection = state.integrationConnections.get(input.id)
+
+      if (!existingConnection) {
+        throw new Error(`Integration connection ${input.id} was not found`)
+      }
+
+      const integrationConnection: IntegrationConnection = {
+        ...existingConnection,
+        externalAccountId: input.externalAccountId ?? existingConnection.externalAccountId,
+        lastSyncedAt:
+          input.lastSyncedAt === undefined ? existingConnection.lastSyncedAt : input.lastSyncedAt,
+        status: input.status ?? existingConnection.status,
+      }
+
+      state.integrationConnections.set(integrationConnection.id, integrationConnection)
+      return integrationConnection
+    },
+
     async updateSyncRun(input) {
       const existingSyncRun = state.syncRuns.get(input.id)
 
@@ -688,6 +780,10 @@ export function createInMemoryFoundationStore(): FoundationStore {
 
       state.syncRuns.set(syncRun.id, syncRun)
       return syncRun
+    },
+
+    async deleteGitHubConnectionConfig(connectionId) {
+      state.githubConnectionConfigs.delete(connectionId)
     },
 
     async upsertReviewStatus(input) {

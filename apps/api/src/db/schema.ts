@@ -162,6 +162,22 @@ export const integrationConnections = pgTable(
   (table) => [unique("integration_connections_id_workspace_id_unique").on(table.id, table.workspaceId)],
 )
 
+export const githubConnectionConfigs = pgTable("github_connection_configs", {
+  connectedByUserId: uuid("connected_by_user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  connectionId: uuid("connection_id")
+    .notNull()
+    .primaryKey()
+    .references(() => integrationConnections.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
+  installationId: varchar("installation_id", { length: 255 }).notNull(),
+  repositoryName: varchar("repository_name", { length: 255 }).notNull(),
+  repositoryOwner: varchar("repository_owner", { length: 255 }).notNull(),
+  repositoryUrl: text("repository_url").notNull(),
+  updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
+})
+
 export const integrationAccounts = pgTable("integration_accounts", {
   accountLabel: varchar("account_label", { length: 255 }).notNull(),
   accountUrl: text("account_url"),

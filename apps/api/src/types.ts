@@ -8,6 +8,9 @@ export type AppRuntimeEnv = {
   betterAuthSecret: string | null
   betterAuthUrl: string | null
   databaseUrl: string | null
+  githubAppId: string | null
+  githubAppPrivateKey: string | null
+  githubAppSlug: string | null
   host: string
   nodeEnv: NodeEnv
   port: number

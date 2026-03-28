@@ -9,6 +9,7 @@ import {
   createReleaseContextDetailCache,
   getSelectedReleaseContextSnapshot,
   getServerReleaseContextData,
+  getServerReleaseContextGitHubState,
 } from "../lib/dashboard/release-context.js"
 
 function createReleaseRecordSnapshot(
@@ -102,6 +103,44 @@ test("getServerReleaseContextData skips detail fetches when the queue is empty",
   assert.equal(data.selectedId, null)
   assert.equal(data.selectedReleaseRecord, null)
   assert.deepEqual(data.releaseRecords, [])
+})
+
+test("getServerReleaseContextGitHubState forwards cookies and tolerates missing GitHub connection state", async () => {
+  const requests: Array<{ init?: RequestInit; kind: "connection" | "install" }> = []
+
+  const githubState = await getServerReleaseContextGitHubState(
+    new Headers({
+      cookie: "better-auth.session=abc123",
+    }),
+    "workspace_1",
+    {
+      async beginGitHubInstall(workspaceId, init) {
+        requests.push({ init, kind: "install" })
+        assert.equal(workspaceId, "workspace_1")
+        return {
+          url: "https://github.com/apps/pulsenote/installations/new",
+        }
+      },
+      async getGitHubConnection(workspaceId, init) {
+        requests.push({ init, kind: "connection" })
+        assert.equal(workspaceId, "workspace_1")
+        throw new Error("GitHub connection was not found")
+      },
+    },
+  )
+
+  assert.deepEqual(githubState, {
+    connection: null,
+    installUrl: "https://github.com/apps/pulsenote/installations/new",
+  })
+  assert.equal(
+    ((requests[0]?.init?.headers as Record<string, string> | undefined) ?? {}).cookie,
+    "better-auth.session=abc123",
+  )
+  assert.equal(
+    ((requests[1]?.init?.headers as Record<string, string> | undefined) ?? {}).cookie,
+    "better-auth.session=abc123",
+  )
 })
 
 test("buildReleaseContextQueueItem marks blocked or unsupported evidence as at risk", () => {

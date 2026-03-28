@@ -335,7 +335,7 @@ export function createGitHubSyncService(options: {
 
   return {
     async syncCompareRange(input: GitHubCompareSyncRequest): Promise<GitHubCompareSyncResult> {
-      if (runtimeEnv.nodeEnv === "production") {
+      if (runtimeEnv.nodeEnv === "production" && input.auth.strategy !== "installation_token") {
         throw new Error("Development-only GitHub ingest is not available in production")
       }
 
@@ -385,6 +385,10 @@ export function createGitHubSyncService(options: {
           scope,
         )
 
+        await store.updateIntegrationConnection({
+          id: input.connectionId,
+          lastSyncedAt: nowIso(),
+        })
         await markSyncRunStatus(store, queuedSyncRun, "succeeded")
 
         return {
@@ -407,7 +411,7 @@ export function createGitHubSyncService(options: {
     async syncMergedPullRequests(
       input: GitHubMergedPullSyncRequest,
     ): Promise<GitHubMergedPullSyncResult> {
-      if (runtimeEnv.nodeEnv === "production") {
+      if (runtimeEnv.nodeEnv === "production" && input.auth.strategy !== "installation_token") {
         throw new Error("Development-only GitHub ingest is not available in production")
       }
 
@@ -458,6 +462,10 @@ export function createGitHubSyncService(options: {
         })
         const persisted = await persistMergedPullReleaseRecord(store, input, pullRequests, scope)
 
+        await store.updateIntegrationConnection({
+          id: input.connectionId,
+          lastSyncedAt: nowIso(),
+        })
         await markSyncRunStatus(store, queuedSyncRun, "succeeded")
 
         return {
@@ -478,7 +486,7 @@ export function createGitHubSyncService(options: {
     },
 
     async syncRelease(input: GitHubReleaseSyncRequest): Promise<GitHubReleaseSyncResult> {
-      if (runtimeEnv.nodeEnv === "production") {
+      if (runtimeEnv.nodeEnv === "production" && input.auth.strategy !== "installation_token") {
         throw new Error("Development-only GitHub ingest is not available in production")
       }
 
@@ -526,6 +534,10 @@ export function createGitHubSyncService(options: {
         const scope = buildReleaseScope(input.repository, release)
         const persisted = await persistReleaseRecord(store, input, release, scope)
 
+        await store.updateIntegrationConnection({
+          id: input.connectionId,
+          lastSyncedAt: nowIso(),
+        })
         await markSyncRunStatus(store, queuedSyncRun, "succeeded")
 
         return {

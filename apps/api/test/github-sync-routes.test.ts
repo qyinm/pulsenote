@@ -5,6 +5,7 @@ import { createApp } from "../src/app.js"
 import type { AuthService, AuthSession } from "../src/auth/service.js"
 import { createFoundationService } from "../src/foundation/service.js"
 import { createInMemoryFoundationStore } from "../src/foundation/store.js"
+import type { GitHubInstallationService } from "../src/github/installation.js"
 import { createGitHubSyncService } from "../src/github/service.js"
 
 const runtimeEnv = {
@@ -271,6 +272,95 @@ test("github compare sync route rejects development-only ingest in production", 
     message: "Development-only GitHub ingest is not available in production",
     status: 403,
   })
+})
+
+test("github release sync route uses the stored GitHub App connection in production", async () => {
+  const { bootstrap, foundationService, store } = await bootstrapWorkspace()
+  const githubConnection = await foundationService.connectGitHubWorkspace({
+    connectedByUserId: bootstrap.user.id,
+    installationId: "321",
+    repositoryName: "pulsenote",
+    repositoryOwner: "qyinm",
+    repositoryUrl: "https://github.com/qyinm/pulsenote",
+    workspaceId: bootstrap.workspace.id,
+  })
+  const productionEnv = {
+    ...runtimeEnv,
+    nodeEnv: "production" as const,
+  }
+  const githubInstallationService: GitHubInstallationService = {
+    async createInstallationAuth(installationId) {
+      assert.equal(installationId, "321")
+      return {
+        strategy: "installation_token",
+        token: "installation_token_321",
+      }
+    },
+    getInstallUrl() {
+      return "https://github.com/apps/pulsenote/installations/new"
+    },
+    async listInstallationRepositories() {
+      throw new Error("repository listing should not be called")
+    },
+  }
+  const githubSyncService = createGitHubSyncService({
+    githubClient: {
+      async compareCommits() {
+        throw new Error("compare sync should not be called")
+      },
+      async getPullRequests() {
+        throw new Error("pull sync should not be called")
+      },
+      async getRelease({ auth, release, repository }) {
+        assert.equal(auth.strategy, "installation_token")
+        assert.equal(auth.token, "installation_token_321")
+        assert.equal(repository.owner, "qyinm")
+        assert.equal(repository.repo, "pulsenote")
+        assert.equal(release.tag, "v2.4.0")
+        return {
+          assets: [],
+          body: "Release description",
+          createdAt: "2026-03-20T00:00:00.000Z",
+          draft: false,
+          htmlUrl: "https://github.com/qyinm/pulsenote/releases/tag/v2.4.0",
+          id: 42,
+          name: "PulseNote v2.4.0",
+          prerelease: false,
+          publishedAt: "2026-03-20T00:00:00.000Z",
+          tagName: "v2.4.0",
+          targetCommitish: "main",
+        }
+      },
+    },
+    runtimeEnv: productionEnv,
+    store,
+  })
+
+  const app = createApp(productionEnv, {
+    authService: createAuthService(createAuthenticatedSession(bootstrap.user.id)),
+    foundationService,
+    githubInstallationService,
+    githubSyncService,
+  })
+
+  const response = await app.request(`/v1/workspaces/${bootstrap.workspace.id}/github/sync/release`, {
+    body: JSON.stringify({
+      connectionId: githubConnection.connection.id,
+      release: {
+        tag: "v2.4.0",
+      },
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "POST",
+  })
+
+  assert.equal(response.status, 200)
+  const body = await response.json()
+  assert.equal(body.release.tagName, "v2.4.0")
+  assert.equal(body.scope, "github:repo:qyinm/pulsenote release:v2.4.0#42")
+  assert.ok(body.releaseRecordId)
 })
 
 test("github compare sync route rejects unsupported auth strategies", async () => {

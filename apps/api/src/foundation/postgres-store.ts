@@ -5,6 +5,7 @@ import {
   claimCandidates,
   currentWorkspaceSelections,
   evidenceBlocks,
+  githubConnectionConfigs,
   integrationAccounts,
   integrationConnections,
   releaseRecords,
@@ -21,8 +22,10 @@ import {
   type ClaimCandidate,
   type CurrentWorkspaceSelection,
   type EvidenceBlock,
+  type GitHubConnectionConfig,
   type IntegrationAccount,
   type IntegrationConnection,
+  type IntegrationProvider,
   type ReleaseRecord,
   type ReviewStatus,
   type SourceCursor,
@@ -32,7 +35,7 @@ import {
   type Workspace,
   type WorkspaceMembership,
 } from "../domain/models.js"
-import type { FoundationStore, ReleaseRecordSnapshot } from "./store.js"
+import type { FoundationStore, GitHubWorkspaceConnection, ReleaseRecordSnapshot } from "./store.js"
 
 function nowIso() {
   return new Date().toISOString()
@@ -270,6 +273,39 @@ export function createPostgresFoundationStore(
       return integrationConnection satisfies IntegrationConnection
     },
 
+    async upsertGitHubConnectionConfig(input) {
+      const existingConfig = await db.query.githubConnectionConfigs.findFirst({
+        where: eq(githubConnectionConfigs.connectionId, input.connectionId),
+      })
+
+      const [githubConnectionConfig] = await db
+        .insert(githubConnectionConfigs)
+        .values({
+          connectedByUserId: input.connectedByUserId,
+          connectionId: input.connectionId,
+          createdAt: existingConfig?.createdAt ?? nowIso(),
+          installationId: input.installationId,
+          repositoryName: input.repositoryName,
+          repositoryOwner: input.repositoryOwner,
+          repositoryUrl: input.repositoryUrl,
+          updatedAt: nowIso(),
+        })
+        .onConflictDoUpdate({
+          set: {
+            connectedByUserId: input.connectedByUserId,
+            installationId: input.installationId,
+            repositoryName: input.repositoryName,
+            repositoryOwner: input.repositoryOwner,
+            repositoryUrl: input.repositoryUrl,
+            updatedAt: nowIso(),
+          },
+          target: githubConnectionConfigs.connectionId,
+        })
+        .returning()
+
+      return githubConnectionConfig satisfies GitHubConnectionConfig
+    },
+
     async createReleaseRecord(input) {
       const [releaseRecord] = await db
         .insert(releaseRecords)
@@ -465,6 +501,44 @@ export function createPostgresFoundationStore(
       return workspaceMembership ?? null
     },
 
+    async findWorkspaceIntegrationConnection(workspaceId, provider) {
+      const integrationConnection = await db.query.integrationConnections.findFirst({
+        where: and(
+          eq(integrationConnections.workspaceId, workspaceId),
+          eq(integrationConnections.provider, provider as IntegrationProvider),
+        ),
+      })
+
+      return integrationConnection ?? null
+    },
+
+    async getGitHubConnectionConfig(connectionId) {
+      const githubConnectionConfig = await db.query.githubConnectionConfigs.findFirst({
+        where: eq(githubConnectionConfigs.connectionId, connectionId),
+      })
+
+      return githubConnectionConfig ?? null
+    },
+
+    async getGitHubWorkspaceConnection(workspaceId) {
+      const connection = await this.findWorkspaceIntegrationConnection(workspaceId, "github")
+
+      if (!connection) {
+        return null
+      }
+
+      const config = await this.getGitHubConnectionConfig(connection.id)
+
+      if (!config) {
+        return null
+      }
+
+      return {
+        config,
+        connection,
+      } satisfies GitHubWorkspaceConnection
+    },
+
     async listWorkspaceMembershipsForUser(userId) {
       return db.query.workspaceMemberships.findMany({
         orderBy: asc(workspaceMemberships.createdAt),
@@ -614,6 +688,29 @@ export function createPostgresFoundationStore(
       return selection satisfies CurrentWorkspaceSelection
     },
 
+    async updateIntegrationConnection(input) {
+      const existingConnection = await db.query.integrationConnections.findFirst({
+        where: eq(integrationConnections.id, input.id),
+      })
+
+      if (!existingConnection) {
+        throw new Error(`Integration connection ${input.id} was not found`)
+      }
+
+      const [integrationConnection] = await db
+        .update(integrationConnections)
+        .set({
+          externalAccountId: input.externalAccountId ?? existingConnection.externalAccountId,
+          lastSyncedAt:
+            input.lastSyncedAt === undefined ? existingConnection.lastSyncedAt : input.lastSyncedAt,
+          status: input.status ?? existingConnection.status,
+        })
+        .where(eq(integrationConnections.id, input.id))
+        .returning()
+
+      return integrationConnection satisfies IntegrationConnection
+    },
+
     async updateSyncRun(input) {
       const existingSyncRun = await db.query.syncRuns.findFirst({
         where: eq(syncRuns.id, input.id),
@@ -634,6 +731,12 @@ export function createPostgresFoundationStore(
         .returning()
 
       return syncRun satisfies SyncRun
+    },
+
+    async deleteGitHubConnectionConfig(connectionId) {
+      await db
+        .delete(githubConnectionConfigs)
+        .where(eq(githubConnectionConfigs.connectionId, connectionId))
     },
 
     async upsertReviewStatus(input) {

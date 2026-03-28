@@ -1,3 +1,4 @@
+import { headers } from "next/headers"
 import {
   BellIcon,
   FileCogIcon,
@@ -5,6 +6,7 @@ import {
   ShieldCheckIcon,
 } from "lucide-react"
 
+import { GitHubConnectionSettingsCard } from "@/components/dashboard/github-connection-settings-card"
 import {
   DashboardPage,
   MetricCard,
@@ -24,7 +26,9 @@ import {
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
+import { resolveDashboardAccessState } from "@/lib/dashboard/access"
 import { workspaceSettings } from "@/lib/dashboard"
+import { getServerReleaseContextGitHubState } from "@/lib/dashboard/release-context"
 
 function FieldRenderer({
   field,
@@ -72,7 +76,19 @@ function FieldRenderer({
   )
 }
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const requestHeaders = await headers()
+  const accessState = await resolveDashboardAccessState(requestHeaders)
+
+  if (accessState.kind !== "ready") {
+    return null
+  }
+
+  const githubState = await getServerReleaseContextGitHubState(
+    requestHeaders,
+    accessState.workspace.workspace.id,
+  )
+
   return (
     <DashboardPage>
       <MetricGrid>
@@ -106,6 +122,12 @@ export default function SettingsPage() {
           icon={FileCogIcon}
         />
       </MetricGrid>
+
+      <GitHubConnectionSettingsCard
+        initialGitHubConnection={githubState.connection}
+        initialGitHubInstallUrl={githubState.installUrl}
+        workspaceId={accessState.workspace.workspace.id}
+      />
 
       <div className="grid gap-4 xl:grid-cols-2">
         {workspaceSettings.map((section) => (
