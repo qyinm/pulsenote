@@ -130,6 +130,18 @@ test("buildReviewInboxItems surfaces approval, blocked claim, and reopened notif
         title: "Blocked claim release",
       },
     }),
+    createReleaseWorkflowListItem({
+      approvalSummary: {
+        ownerName: "Reviewer User",
+        ownerUserId: "user_2",
+        state: "reopened",
+      },
+      releaseRecord: {
+        id: "release_reopen",
+        stage: "approval",
+        title: "Reopened release",
+      },
+    }),
   ]
   const history = [
     createReleaseWorkflowHistoryEntry({
@@ -194,6 +206,39 @@ test("buildReviewInboxItems surfaces approval, blocked claim, and reopened notif
   )
   assert.equal(items[2]?.meta, "Assigned to you")
   assert.equal(items[1]?.preview, "Availability claim is still unsupported.")
+})
+
+test("buildReviewInboxItems excludes reopened history when the workflow is no longer reopened", () => {
+  const workflow = [
+    createReleaseWorkflowListItem({
+      approvalSummary: {
+        ownerName: "Reviewer User",
+        ownerUserId: "user_2",
+        state: "approved",
+      },
+      releaseRecord: {
+        id: "release_reopen",
+        stage: "publish_pack",
+        title: "Formerly reopened release",
+      },
+    }),
+  ]
+  const history = [
+    createReleaseWorkflowHistoryEntry({
+      createdAt: "2026-03-20T03:00:00.000Z",
+      eventLabel: "Draft reopened",
+      eventType: "draft_reopened",
+      id: "history_reopen",
+      note: "The rollout caveat needed another pass.",
+      releaseRecordId: "release_reopen",
+      releaseTitle: "Formerly reopened release",
+      stage: "approval",
+    }),
+  ]
+
+  const items = buildReviewInboxItems(workflow, history, "user_2")
+
+  assert.equal(items.length, 0)
 })
 
 test("getServerReviewInboxData forwards auth headers and returns badge count", async () => {

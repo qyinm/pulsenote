@@ -161,58 +161,61 @@ function buildApprovalItems(
 }
 
 function buildReopenedDraftItems(
-  history: ReleaseWorkflowHistoryEntry[],
+  latestHistoryByKey: Map<string, ReleaseWorkflowHistoryEntry>,
   workflowByReleaseId: Map<string, ReleaseWorkflowListItem>,
 ): ReviewInboxItem[] {
-  const latestReopenedByReleaseId = new Map<string, ReleaseWorkflowHistoryEntry>()
+  const reopenedEntries: ReleaseWorkflowHistoryEntry[] = []
 
-  for (const entry of history) {
-    if (entry.eventType !== "draft_reopened") {
-      continue
-    }
-
-    const current = latestReopenedByReleaseId.get(entry.releaseRecordId)
-
-    if (!current || current.createdAt < entry.createdAt) {
-      latestReopenedByReleaseId.set(entry.releaseRecordId, entry)
+  for (const entry of latestHistoryByKey.values()) {
+    if (entry.eventType === "draft_reopened") {
+      reopenedEntries.push(entry)
     }
   }
 
-  return Array.from(latestReopenedByReleaseId.values()).map((entry) => {
+  return reopenedEntries.flatMap((entry) => {
     const workflowItem = workflowByReleaseId.get(entry.releaseRecordId)
+
+    if (workflowItem?.approvalSummary.state !== "reopened") {
+      return []
+    }
+
     const stageLabel = workflowItem?.releaseRecord.stage === "approval" ? "Approval follow-up" : "Workflow follow-up"
     const ownerLabel =
       workflowItem?.approvalSummary.ownerName ??
       (workflowItem?.approvalSummary.ownerUserId ? "Assigned reviewer" : "Release owner")
 
-    return {
-      evidence: [
-        `${entry.evidenceCount} evidence blocks and ${entry.sourceLinkCount} source links are still linked to this release.`,
-        entry.draftVersion ? `The reopen event landed on Draft v${entry.draftVersion}.` : "The draft was reopened for another wording pass.",
-      ],
-      id: `workflow:${entry.id}`,
-      lane: stageLabel,
-      meta: "Draft reopened",
-      nextActions: [
-        entry.note ?? "Tighten the reopened wording before sending the release back into approval.",
-        "Use review log history to confirm what changed before you re-request approval.",
-      ],
-      orderTimestamp: entry.createdAt,
-      overview: [
-        entry.note ?? "The draft was reopened after an approval decision.",
-        "Reopened drafts should stay visible until another clean review pass is complete.",
-      ],
-      owner: ownerLabel,
-      preview: entry.note ?? "The draft was reopened and needs another review pass.",
-      routeHref: "/dashboard/review-log",
-      routeLabel: "Open review log",
-      secondaryHref: "/dashboard/approval",
-      secondaryLabel: "Back to approval",
-      source: "workflow",
-      status: "Reopened",
-      timeLabel: formatInboxTimestamp(entry.createdAt),
-      title: entry.releaseTitle,
-    }
+    return [
+      {
+        evidence: [
+          `${entry.evidenceCount} evidence blocks and ${entry.sourceLinkCount} source links are still linked to this release.`,
+          entry.draftVersion
+            ? `The reopen event landed on Draft v${entry.draftVersion}.`
+            : "The draft was reopened for another wording pass.",
+        ],
+        id: `workflow:${entry.id}`,
+        lane: stageLabel,
+        meta: "Draft reopened",
+        nextActions: [
+          entry.note ?? "Tighten the reopened wording before sending the release back into approval.",
+          "Use review log history to confirm what changed before you re-request approval.",
+        ],
+        orderTimestamp: entry.createdAt,
+        overview: [
+          entry.note ?? "The draft was reopened after an approval decision.",
+          "Reopened drafts should stay visible until another clean review pass is complete.",
+        ],
+        owner: ownerLabel,
+        preview: entry.note ?? "The draft was reopened and needs another review pass.",
+        routeHref: "/dashboard/review-log",
+        routeLabel: "Open review log",
+        secondaryHref: "/dashboard/approval",
+        secondaryLabel: "Back to approval",
+        source: "workflow",
+        status: "Reopened",
+        timeLabel: formatInboxTimestamp(entry.createdAt),
+        title: entry.releaseTitle,
+      },
+    ]
   })
 }
 
@@ -227,7 +230,7 @@ export function buildReviewInboxItems(
   return [
     ...buildApprovalItems(workflow, currentUserId, latestHistoryByKey),
     ...buildBlockedClaimItems(workflow, latestHistoryByKey),
-    ...buildReopenedDraftItems(history, workflowByReleaseId),
+    ...buildReopenedDraftItems(latestHistoryByKey, workflowByReleaseId),
   ].sort((left, right) => right.orderTimestamp.localeCompare(left.orderTimestamp))
 }
 
