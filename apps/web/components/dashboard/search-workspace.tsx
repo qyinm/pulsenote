@@ -36,6 +36,8 @@ export function SearchWorkspace({
   const [query, setQuery] = useState("")
   const deferredQuery = useDeferredValue(query)
 
+  // `searchText` is normalized to lowercase in `lib/search.ts`, so callers must
+  // preserve that invariant while this filter lowercases `deferredQuery`.
   const filtered = useMemo(() => {
     const normalized = deferredQuery.trim().toLowerCase()
 

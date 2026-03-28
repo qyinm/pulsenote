@@ -66,7 +66,13 @@ function getToneRank(tone: LiveSearchResultTone) {
 }
 
 function toTimestamp(value: string) {
-  return Date.parse(value)
+  const timestamp = Date.parse(value)
+
+  if (Number.isNaN(timestamp)) {
+    throw new Error(`Invalid timestamp string in orderTimestamp: ${value}`)
+  }
+
+  return timestamp
 }
 
 function buildSearchResultSort(left: LiveSearchResult, right: LiveSearchResult) {
@@ -247,24 +253,55 @@ function buildSignalSearchResults(
 
 function buildSuggestedQueries(results: LiveSearchResult[]) {
   const suggestions: string[] = []
+  let hasBlockedShortcut = false
+  let hasApproval = false
+  let hasEvidence = false
+  let hasReopened = false
+  let hasAssigned = false
 
-  if (results.some((result) => result.tone === "blocked")) {
+  for (const result of results) {
+    if (!hasBlockedShortcut && result.tone === "blocked" && result.searchText.includes("blocked")) {
+      hasBlockedShortcut = true
+    }
+
+    if (!hasApproval && result.type === "Approval handoff") {
+      hasApproval = true
+    }
+
+    if (!hasEvidence && result.type === "Evidence source") {
+      hasEvidence = true
+    }
+
+    if (!hasReopened && result.searchText.includes("reopened")) {
+      hasReopened = true
+    }
+
+    if (!hasAssigned && result.searchText.includes("assigned to you")) {
+      hasAssigned = true
+    }
+
+    if (hasBlockedShortcut && hasApproval && hasEvidence && hasReopened && hasAssigned) {
+      break
+    }
+  }
+
+  if (hasBlockedShortcut) {
     suggestions.push("blocked")
   }
 
-  if (results.some((result) => result.type === "Approval handoff")) {
+  if (hasApproval) {
     suggestions.push("approval")
   }
 
-  if (results.some((result) => result.type === "Evidence source")) {
+  if (hasEvidence) {
     suggestions.push("evidence")
   }
 
-  if (results.some((result) => result.searchText.includes("reopened"))) {
+  if (hasReopened) {
     suggestions.push("reopened")
   }
 
-  if (results.some((result) => result.searchText.includes("assigned to you"))) {
+  if (hasAssigned) {
     suggestions.push("assigned")
   }
 
