@@ -277,10 +277,12 @@ export function createFoundationService(store: FoundationStore) {
         return
       }
 
-      await store.deleteGitHubConnectionConfig(connection.id)
-      await store.updateIntegrationConnection({
-        id: connection.id,
-        status: "disconnected",
+      await store.transaction(async (transactionStore) => {
+        await transactionStore.deleteGitHubConnectionConfig(connection.id)
+        await transactionStore.updateIntegrationConnection({
+          id: connection.id,
+          status: "disconnected",
+        })
       })
     },
 

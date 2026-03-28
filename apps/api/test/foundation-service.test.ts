@@ -195,3 +195,39 @@ test("connectGitHubWorkspace rolls back the connection when config persistence f
   assert.equal(snapshot.integrations.length, 0)
   assert.equal(await service.getGitHubWorkspaceConnection(bootstrap.workspace.id), null)
 })
+
+test("disconnectGitHubWorkspace rolls back when the status update fails", async () => {
+  const store = createInMemoryFoundationStore()
+  const service = createFoundationService(store)
+  const bootstrap = await service.bootstrapWorkspace({
+    user: { email: "owner@pulsenote.dev", fullName: "Owner User" },
+    workspace: { name: "PulseNote", slug: "pulsenote" },
+  })
+  const githubConnection = await service.connectGitHubWorkspace({
+    connectedByUserId: bootstrap.user.id,
+    installationId: "321",
+    repositoryName: "pulsenote",
+    repositoryOwner: "qyinm",
+    repositoryUrl: "https://github.com/qyinm/pulsenote",
+    workspaceId: bootstrap.workspace.id,
+  })
+  const originalUpdateIntegrationConnection = store.updateIntegrationConnection.bind(store)
+
+  store.updateIntegrationConnection = async (input) => {
+    if (input.id === githubConnection.connection.id && input.status === "disconnected") {
+      throw new Error("status update failed")
+    }
+
+    return originalUpdateIntegrationConnection(input)
+  }
+
+  await assert.rejects(
+    () => service.disconnectGitHubWorkspace(bootstrap.workspace.id),
+    /status update failed/,
+  )
+
+  const persistedConnection = await service.getGitHubWorkspaceConnection(bootstrap.workspace.id)
+  assert.ok(persistedConnection)
+  assert.equal(persistedConnection?.connection.status, "active")
+  assert.equal(persistedConnection?.config.installationId, "321")
+})
