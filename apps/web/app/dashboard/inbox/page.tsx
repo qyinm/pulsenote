@@ -34,7 +34,7 @@ export default async function InboxPage() {
     errorMessage =
       error instanceof Error
         ? error.message
-        : "The authenticated inbox request failed before review notifications could be rendered."
+        : "An unexpected error occurred while fetching review notifications."
   }
 
   if (errorMessage) {

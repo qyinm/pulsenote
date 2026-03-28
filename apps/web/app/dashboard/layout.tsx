@@ -41,7 +41,8 @@ export default async function DashboardLayout({
         accessState.session.user.id,
       )
       inboxBadge = inboxData.count > 0 ? String(inboxData.count) : null
-    } catch {
+    } catch (error) {
+      console.error("Failed to fetch inbox data for badge:", error)
       inboxBadge = null
     }
   }

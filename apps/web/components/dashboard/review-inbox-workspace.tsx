@@ -35,6 +35,12 @@ const sourceIcons: Record<ReviewInboxSource, LucideIcon> = {
   workflow: TimerResetIcon,
 }
 
+const actionIcons: Record<string, LucideIcon> = {
+  "/dashboard/approval": StampIcon,
+  "/dashboard/claim-check": ShieldAlertIcon,
+  "/dashboard/review-log": ArchiveIcon,
+}
+
 const inboxSourceFilters: Record<ReviewInboxView, ReviewInboxSource[] | null> = {
   all: null,
   approvals: ["approval"],
@@ -72,20 +78,9 @@ function filterItems(items: ReviewInboxItem[], view: ReviewInboxView, query: str
   })
 }
 
-function getActionIcon(href: string) {
-  if (href === "/dashboard/approval") {
-    return <StampIcon data-icon="inline-start" />
-  }
-
-  if (href === "/dashboard/claim-check") {
-    return <ShieldAlertIcon data-icon="inline-start" />
-  }
-
-  if (href === "/dashboard/review-log") {
-    return <ArchiveIcon data-icon="inline-start" />
-  }
-
-  return <FolderKanbanIcon data-icon="inline-start" />
+function ActionIcon({ href }: { href: string }) {
+  const Icon = actionIcons[href] ?? FolderKanbanIcon
+  return <Icon data-icon="inline-start" />
 }
 
 function stateBadge(item: ReviewInboxItem) {
@@ -244,14 +239,14 @@ export function ReviewInboxWorkspace({ initialItems }: { initialItems: ReviewInb
                     href={selectedItem.routeHref}
                     className={cn(buttonVariants({ variant: "default", size: "sm" }))}
                   >
-                    {getActionIcon(selectedItem.routeHref)}
+                    <ActionIcon href={selectedItem.routeHref} />
                     {selectedItem.routeLabel}
                   </Link>
                   <Link
                     href={selectedItem.secondaryHref}
                     className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
                   >
-                    {getActionIcon(selectedItem.secondaryHref)}
+                    <ActionIcon href={selectedItem.secondaryHref} />
                     {selectedItem.secondaryLabel}
                   </Link>
                 </div>
@@ -322,7 +317,7 @@ export function ReviewInboxWorkspace({ initialItems }: { initialItems: ReviewInb
                           "justify-start",
                         )}
                       >
-                        {getActionIcon(selectedItem.routeHref)}
+                        <ActionIcon href={selectedItem.routeHref} />
                         {selectedItem.routeLabel}
                       </Link>
                       <Link
@@ -332,7 +327,7 @@ export function ReviewInboxWorkspace({ initialItems }: { initialItems: ReviewInb
                           "justify-start",
                         )}
                       >
-                        {getActionIcon(selectedItem.secondaryHref)}
+                        <ActionIcon href={selectedItem.secondaryHref} />
                         {selectedItem.secondaryLabel}
                       </Link>
                       <Link
