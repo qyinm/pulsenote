@@ -1,7 +1,11 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import type { ReleaseWorkflowDetail, ReleaseWorkflowListItem } from "../lib/api/client.js"
+import type {
+  ReleaseWorkflowDetail,
+  ReleaseWorkflowHistoryEntry,
+  ReleaseWorkflowListItem,
+} from "../lib/api/client.js"
 import {
   buildReleaseWorkflowMetrics,
   buildReleaseWorkflowQueueItem,
@@ -140,10 +144,53 @@ function createReleaseWorkflowDetail(
   }
 }
 
+type ReleaseWorkflowHistoryEntryOverrides = {
+  actorName?: ReleaseWorkflowHistoryEntry["actorName"]
+  actorUserId?: ReleaseWorkflowHistoryEntry["actorUserId"]
+  createdAt?: ReleaseWorkflowHistoryEntry["createdAt"]
+  draftRevisionId?: ReleaseWorkflowHistoryEntry["draftRevisionId"]
+  draftVersion?: ReleaseWorkflowHistoryEntry["draftVersion"]
+  eventLabel?: ReleaseWorkflowHistoryEntry["eventLabel"]
+  eventType?: ReleaseWorkflowHistoryEntry["eventType"]
+  evidenceCount?: ReleaseWorkflowHistoryEntry["evidenceCount"]
+  id?: ReleaseWorkflowHistoryEntry["id"]
+  note?: ReleaseWorkflowHistoryEntry["note"]
+  outcome?: ReleaseWorkflowHistoryEntry["outcome"]
+  publishPackExportId?: ReleaseWorkflowHistoryEntry["publishPackExportId"]
+  releaseRecordId?: ReleaseWorkflowHistoryEntry["releaseRecordId"]
+  releaseTitle?: ReleaseWorkflowHistoryEntry["releaseTitle"]
+  sourceLinkCount?: ReleaseWorkflowHistoryEntry["sourceLinkCount"]
+  stage?: ReleaseWorkflowHistoryEntry["stage"]
+}
+
+function createReleaseWorkflowHistoryEntry(
+  overrides: ReleaseWorkflowHistoryEntryOverrides = {},
+): ReleaseWorkflowHistoryEntry {
+  return {
+    actorName: overrides.actorName ?? "Casey Reviewer",
+    actorUserId: overrides.actorUserId ?? "user_1",
+    createdAt: overrides.createdAt ?? "2026-03-20T01:00:00.000Z",
+    draftRevisionId: overrides.draftRevisionId ?? "draft_1",
+    draftVersion: overrides.draftVersion ?? 1,
+    eventLabel: overrides.eventLabel ?? "Draft created",
+    eventType: overrides.eventType ?? "draft_created",
+    evidenceCount: overrides.evidenceCount ?? 3,
+    id: overrides.id ?? "history_1",
+    note: overrides.note ?? "The release record now has a reviewable draft.",
+    outcome: overrides.outcome ?? "revision",
+    publishPackExportId: overrides.publishPackExportId ?? null,
+    releaseRecordId: overrides.releaseRecordId ?? "release_1",
+    releaseTitle: overrides.releaseTitle ?? "SDK rollout v2.4",
+    sourceLinkCount: overrides.sourceLinkCount ?? 2,
+    stage: overrides.stage ?? "draft",
+  }
+}
+
 test("getServerReleaseWorkflowData forwards cookies and loads the first selected workflow detail", async () => {
-  const requests: Array<{ init?: RequestInit; kind: "detail" | "list" }> = []
+  const requests: Array<{ init?: RequestInit; kind: "detail" | "history" | "list" }> = []
   const listItem = createReleaseWorkflowListItem()
   const detail = createReleaseWorkflowDetail()
+  const history = [createReleaseWorkflowHistoryEntry()]
 
   const data = await getServerReleaseWorkflowData(
     new Headers({
@@ -157,6 +204,12 @@ test("getServerReleaseWorkflowData forwards cookies and loads the first selected
         assert.equal(releaseRecordId, "release_1")
         return detail
       },
+      async getReleaseWorkflowHistory(workspaceId, releaseRecordId, init) {
+        requests.push({ init, kind: "history" })
+        assert.equal(workspaceId, "workspace_1")
+        assert.equal(releaseRecordId, "release_1")
+        return history
+      },
       async listReleaseWorkflow(workspaceId, init) {
         requests.push({ init, kind: "list" })
         assert.equal(workspaceId, "workspace_1")
@@ -166,6 +219,8 @@ test("getServerReleaseWorkflowData forwards cookies and loads the first selected
   )
 
   assert.equal(data.selectedId, "release_1")
+  assert.deepEqual(data.selectedHistory, history)
+  assert.equal(data.selectedHistoryUnavailable, false)
   assert.deepEqual(data.workflow, [listItem])
   assert.deepEqual(data.selectedWorkflow, detail)
   assert.equal(
@@ -176,6 +231,61 @@ test("getServerReleaseWorkflowData forwards cookies and loads the first selected
     ((requests[1]?.init?.headers as Record<string, string> | undefined) ?? {}).cookie,
     "better-auth.session=abc123",
   )
+  assert.equal(
+    ((requests[2]?.init?.headers as Record<string, string> | undefined) ?? {}).cookie,
+    "better-auth.session=abc123",
+  )
+})
+
+test("getServerReleaseWorkflowData returns an empty selected history when no workflow record exists", async () => {
+  const data = await getServerReleaseWorkflowData(
+    new Headers(),
+    "workspace_1",
+    {
+      async getReleaseWorkflowDetail() {
+        throw new Error("detail should not be requested when there is no selected workflow")
+      },
+      async getReleaseWorkflowHistory() {
+        throw new Error("history should not be requested when there is no selected workflow")
+      },
+      async listReleaseWorkflow() {
+        return []
+      },
+    },
+  )
+
+  assert.equal(data.selectedId, null)
+  assert.equal(data.selectedWorkflow, null)
+  assert.deepEqual(data.selectedHistory, [])
+  assert.equal(data.selectedHistoryUnavailable, false)
+  assert.deepEqual(data.workflow, [])
+})
+
+test("getServerReleaseWorkflowData keeps workflow detail when the history endpoint fails", async () => {
+  const listItem = createReleaseWorkflowListItem()
+  const detail = createReleaseWorkflowDetail()
+
+  const data = await getServerReleaseWorkflowData(
+    new Headers(),
+    "workspace_1",
+    {
+      async getReleaseWorkflowDetail() {
+        return detail
+      },
+      async getReleaseWorkflowHistory() {
+        throw new Error("history unavailable")
+      },
+      async listReleaseWorkflow() {
+        return [listItem]
+      },
+    },
+  )
+
+  assert.equal(data.selectedId, "release_1")
+  assert.deepEqual(data.selectedWorkflow, detail)
+  assert.deepEqual(data.selectedHistory, [])
+  assert.equal(data.selectedHistoryUnavailable, true)
+  assert.deepEqual(data.workflow, [listItem])
 })
 
 test("buildReleaseWorkflowQueueItem surfaces workflow labels and next actions", () => {

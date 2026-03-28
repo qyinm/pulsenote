@@ -1,5 +1,6 @@
 import type {
   ReleaseWorkflowDetail,
+  ReleaseWorkflowHistoryEntry,
   ReleaseWorkflowListItem,
   WorkflowAllowedAction,
 } from "../api/client"
@@ -8,10 +9,12 @@ import { getForwardedAuthHeaders } from "../auth/headers"
 
 type ReleaseWorkflowApiClient = Pick<
   ReturnType<typeof createApiClient>,
-  "getReleaseWorkflowDetail" | "listReleaseWorkflow"
+  "getReleaseWorkflowDetail" | "getReleaseWorkflowHistory" | "listReleaseWorkflow"
 >
 
 export type ReleaseWorkflowData = {
+  selectedHistory: ReleaseWorkflowHistoryEntry[]
+  selectedHistoryUnavailable: boolean
   selectedId: string | null
   selectedWorkflow: ReleaseWorkflowDetail | null
   workflow: ReleaseWorkflowListItem[]
@@ -304,6 +307,8 @@ export async function getServerReleaseWorkflowData(
 
   if (!selectedId) {
     return {
+      selectedHistory: [],
+      selectedHistoryUnavailable: false,
       selectedId: null,
       selectedWorkflow: null,
       workflow,
@@ -311,8 +316,19 @@ export async function getServerReleaseWorkflowData(
   }
 
   const selectedWorkflow = await apiClient.getReleaseWorkflowDetail(workspaceId, selectedId, init)
+  let selectedHistory: ReleaseWorkflowHistoryEntry[] = []
+  let selectedHistoryUnavailable = false
+
+  try {
+    selectedHistory = await apiClient.getReleaseWorkflowHistory(workspaceId, selectedId, init)
+  } catch {
+    selectedHistory = []
+    selectedHistoryUnavailable = true
+  }
 
   return {
+    selectedHistory,
+    selectedHistoryUnavailable,
     selectedId,
     selectedWorkflow,
     workflow,
