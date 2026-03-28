@@ -43,6 +43,13 @@ function notFound(message: string) {
   } as const
 }
 
+function internalServerError(message: string) {
+  return {
+    message,
+    status: 500,
+  } as const
+}
+
 export function createWorkspacesRoute(
   foundationService: FoundationService,
   githubSyncService?: GitHubSyncService,
@@ -297,7 +304,11 @@ export function createWorkspacesRoute(
       )
     } catch (error) {
       const message = error instanceof Error ? error.message : "Workspace members were not found"
-      return context.json(notFound(message), 404)
+      if (message.includes("was not found")) {
+        return context.json(notFound(message), 404)
+      }
+
+      return context.json(internalServerError(message), 500)
     }
   })
 

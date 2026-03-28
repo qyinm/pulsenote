@@ -5,7 +5,7 @@ import { Hono } from "hono"
 
 import { createApp } from "../src/app.js"
 import type { AuthService, AuthSession } from "../src/auth/service.js"
-import { createFoundationService } from "../src/foundation/service.js"
+import { createFoundationService, type FoundationService } from "../src/foundation/service.js"
 import { createInMemoryFoundationStore } from "../src/foundation/store.js"
 import type { GitHubInstallationService } from "../src/github/installation.js"
 import { createWorkspacesRoute } from "../src/routes/workspaces.js"
@@ -228,6 +228,38 @@ test("workspace routes expose the member roster for an authenticated workspace",
       },
     },
   ])
+})
+
+test("workspace member roster route returns 500 for unexpected failures", async () => {
+  const app = new Hono()
+  const foundationService = {
+    async assertWorkspaceAccess() {
+      return {
+        createdAt: "2026-03-20T00:00:00.000Z",
+        id: "membership_1",
+        role: "owner" as const,
+        userId: "user_1",
+        workspaceId: "workspace_1",
+      }
+    },
+    async listWorkspaceMembers() {
+      throw new Error("database unavailable")
+    },
+  } as unknown as FoundationService
+
+  app.use("*", async (context, next) => {
+    context.set("authUser", createAuthenticatedSession("user_1").user)
+    await next()
+  })
+  app.route("/v1/workspaces", createWorkspacesRoute(foundationService))
+
+  const response = await app.request("/v1/workspaces/workspace_1/members")
+
+  assert.equal(response.status, 500)
+  assert.deepEqual(await response.json(), {
+    message: "database unavailable",
+    status: 500,
+  })
 })
 
 test("workspace routes manage the GitHub intake connection for an authenticated workspace", async () => {

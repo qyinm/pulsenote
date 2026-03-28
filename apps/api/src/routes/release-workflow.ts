@@ -249,8 +249,9 @@ export function createReleaseWorkflowRoute(releaseWorkflowService: ReleaseWorkfl
         return context.json(error, error.status)
       }
 
-      const expectedDraftRevisionId = asOptionalString(payload?.expectedDraftRevisionId)
-      const reviewerUserId = asOptionalString(payload?.reviewerUserId)
+      const expectedDraftRevisionId =
+        asOptionalString(payload?.expectedDraftRevisionId)?.trim() ?? null
+      const reviewerUserId = asOptionalString(payload?.reviewerUserId)?.trim() ?? null
 
       if (!expectedDraftRevisionId) {
         return context.json(badRequest("expectedDraftRevisionId is required"), 400)

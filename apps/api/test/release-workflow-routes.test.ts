@@ -190,6 +190,55 @@ test("release workflow routes require a reviewer when approval is requested", as
   })
 })
 
+test("release workflow routes reject whitespace-only required approval ids", async () => {
+  const fixture = await seedReleaseWorkflowFixture()
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(fixture.bootstrap.user.id)),
+    foundationService: fixture.foundationService,
+    releaseWorkflowService: fixture.workflowService,
+  })
+
+  const missingDraftResponse = await app.request(
+    `/v1/workspaces/${fixture.bootstrap.workspace.id}/release-workflow/${fixture.releaseRecord.id}/request-approval`,
+    {
+      body: JSON.stringify({
+        expectedDraftRevisionId: "   ",
+        reviewerUserId: fixture.reviewer.id,
+      }),
+      headers: {
+        "content-type": "application/json",
+      },
+      method: "POST",
+    },
+  )
+
+  assert.equal(missingDraftResponse.status, 400)
+  assert.deepEqual(await missingDraftResponse.json(), {
+    message: "expectedDraftRevisionId is required",
+    status: 400,
+  })
+
+  const missingReviewerResponse = await app.request(
+    `/v1/workspaces/${fixture.bootstrap.workspace.id}/release-workflow/${fixture.releaseRecord.id}/request-approval`,
+    {
+      body: JSON.stringify({
+        expectedDraftRevisionId: "draft_1",
+        reviewerUserId: "   ",
+      }),
+      headers: {
+        "content-type": "application/json",
+      },
+      method: "POST",
+    },
+  )
+
+  assert.equal(missingReviewerResponse.status, 400)
+  assert.deepEqual(await missingReviewerResponse.json(), {
+    message: "reviewerUserId is required",
+    status: 400,
+  })
+})
+
 test("release workflow routes reject reviewers outside the workspace", async () => {
   const fixture = await seedReleaseWorkflowFixture({
     async composeDraft() {
