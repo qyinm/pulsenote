@@ -1,149 +1,114 @@
 "use client"
 
-import {
-  startTransition,
-  useDeferredValue,
-  useMemo,
-  useState,
-} from "react"
-import {
-  ArrowUpRightIcon,
-  Link2Icon,
-  SearchIcon,
-} from "lucide-react"
+import Link from "next/link"
+import { startTransition, useDeferredValue, useMemo, useState } from "react"
+import { ArrowUpRightIcon, Link2Icon, SearchIcon } from "lucide-react"
 
-import type { EvidenceItem } from "@/lib/dashboard"
-import { evidenceItems } from "@/lib/dashboard"
+import type { EvidenceLibraryEntry } from "@/lib/evidence-library"
 import { EvidenceFreshnessBadge } from "@/components/dashboard/status-badges"
-import { BulletList, EmptyState, InlineList, SurfaceCard } from "@/components/dashboard/surfaces"
+import {
+  BulletList,
+  EmptyState,
+  InlineList,
+  SurfaceCard,
+} from "@/components/dashboard/surfaces"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button-variants"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cn } from "@/lib/utils"
 
 type EvidenceView = "all" | "stale" | "watch" | "linked"
 
-type EvidenceDetail = {
-  confidence: number
-  linkedReleases: string[]
-  reviewers: string[]
-  syncEvents: string[]
-  nextChecks: string[]
+const timestampFormatter = new Intl.DateTimeFormat("en-US", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "UTC",
+})
+
+function formatTimestamp(value: string) {
+  return `${timestampFormatter.format(new Date(value))} UTC`
 }
 
-const evidenceDetails: Record<string, EvidenceDetail> = {
-  "evidence-1": {
-    confidence: 92,
-    linkedReleases: ["SDK rollout v2.4", "Audit log filters"],
-    reviewers: ["Mina Park", "Noah Lim"],
-    syncEvents: [
-      "10:48 KST: rollout cohort note synced from engineering spec.",
-      "10:56 KST: fallback sentence linked to release note draft.",
-      "11:04 KST: claim check cross-reference attached for staged availability wording.",
-    ],
-    nextChecks: [
-      "Keep rollout cohort wording aligned with the next engineering update.",
-      "Verify the fallback sentence still matches the install path before approval closes.",
-    ],
-  },
-  "evidence-2": {
-    confidence: 95,
-    linkedReleases: ["Billing migration notes"],
-    reviewers: ["Daniel Kim", "Support lead"],
-    syncEvents: [
-      "10:14 KST: support escalation contact refreshed.",
-      "10:27 KST: invoice timing note attached to the customer email draft.",
-    ],
-    nextChecks: [
-      "Confirm the final send window before export.",
-      "Keep support contact details consistent with the latest macro set.",
-    ],
-  },
-  "evidence-3": {
-    confidence: 63,
-    linkedReleases: ["SSO admin controls"],
-    reviewers: ["Grace Lee", "Legal"],
-    syncEvents: [
-      "09:58 KST: legal note added to the release record.",
-      "10:21 KST: availability sentence flagged for legal-safe rewrite.",
-    ],
-    nextChecks: [
-      "Do not reuse this note until the final approval sentence lands.",
-      "Keep eligibility wording narrow and cohort-specific.",
-    ],
-  },
-  "evidence-4": {
-    confidence: 68,
-    linkedReleases: ["Incident follow-up fixes"],
-    reviewers: ["Chris Han", "Support lead"],
-    syncEvents: [
-      "08:54 KST: remediation checklist pulled into draft context.",
-      "09:22 KST: support workaround line still missing from the source bundle.",
-    ],
-    nextChecks: [
-      "Attach the workaround block before this evidence is quoted publicly.",
-      "Keep remediation claims specific to the timeout classes already fixed.",
-    ],
-  },
-  "evidence-5": {
-    confidence: 41,
-    linkedReleases: ["Usage analytics export"],
-    reviewers: ["Ivy Song", "Pricing lead"],
-    syncEvents: [
-      "Yesterday: plan coverage table last synced.",
-      "09:46 KST: export claim reopened because the plan scope may be outdated.",
-    ],
-    nextChecks: [
-      "Refresh the table before approval restarts.",
-      "Avoid broad paid-plan language until the updated source is in place.",
-    ],
-  },
-  "evidence-6": {
-    confidence: 90,
-    linkedReleases: ["Audit log filters", "SDK rollout v2.4"],
-    reviewers: ["Noah Lim", "Mina Park"],
-    syncEvents: [
-      "10:37 KST: demo capture synced from the latest walkthrough.",
-      "10:41 KST: supported filter combinations linked to the release note and help center block.",
-    ],
-    nextChecks: [
-      "Keep screenshot steps aligned with the shipped UI.",
-      "Confirm unsupported legacy events stay excluded from public wording.",
-    ],
-  },
-}
-
-function matchesView(item: EvidenceItem, view: EvidenceView) {
+function matchesView(entry: EvidenceLibraryEntry, view: EvidenceView) {
   if (view === "stale") {
-    return item.freshness === "Stale"
+    return entry.freshness === "Stale"
   }
 
   if (view === "watch") {
-    return item.freshness === "Watch"
+    return entry.freshness === "Watch"
   }
 
   if (view === "linked") {
-    return item.linkedReleases >= 2
+    return entry.linkedReleaseCount >= 2
   }
 
   return true
 }
 
-export function EvidenceLibraryWorkspace() {
+function buildEvidenceSearchText(entry: EvidenceLibraryEntry) {
+  return [
+    entry.title,
+    entry.note,
+    entry.providerLabel,
+    entry.sourceTypeLabel,
+    entry.sourceRef,
+    ...entry.linkedReleases.map((release) => release.title),
+    ...entry.reviewNotes,
+  ]
+    .join(" ")
+    .toLowerCase()
+}
+
+function emptyCopy(view: EvidenceView) {
+  if (view === "stale") {
+    return {
+      description:
+        "Sources with missing, unsupported, or fully stale proof will appear here once real release evidence is linked.",
+      title: "No stale evidence",
+    }
+  }
+
+  if (view === "watch") {
+    return {
+      description:
+        "Watch-state sources will appear here when evidence is usable but should be reconfirmed before approval closes.",
+      title: "No watch-state evidence",
+    }
+  }
+
+  if (view === "linked") {
+    return {
+      description:
+        "High-reuse sources will appear here when one proof bundle is linked across multiple release records.",
+      title: "No reused evidence",
+    }
+  }
+
+  return {
+    description:
+      "Release evidence will appear here once source blocks are attached to live release records in this workspace.",
+    title: "No evidence sources yet",
+  }
+}
+
+export function EvidenceLibraryWorkspace({
+  initialEntries,
+}: {
+  initialEntries: EvidenceLibraryEntry[]
+}) {
   const [query, setQuery] = useState("")
   const [view, setView] = useState<EvidenceView>("all")
-  const [selectedId, setSelectedId] = useState(evidenceItems[0]?.id ?? "")
+  const [selectedId, setSelectedId] = useState(initialEntries[0]?.id ?? "")
   const deferredQuery = useDeferredValue(query)
 
   const filteredItems = useMemo(() => {
     const normalized = deferredQuery.trim().toLowerCase()
 
-    return evidenceItems.filter((item) => {
-      if (!matchesView(item, view)) {
+    return initialEntries.filter((entry) => {
+      if (!matchesView(entry, view)) {
         return false
       }
 
@@ -151,24 +116,19 @@ export function EvidenceLibraryWorkspace() {
         return true
       }
 
-      return [item.source, item.sourceType, item.tag, item.note, item.owner]
-        .join(" ")
-        .toLowerCase()
-        .includes(normalized)
+      return buildEvidenceSearchText(entry).includes(normalized)
     })
-  }, [deferredQuery, view])
+  }, [deferredQuery, initialEntries, view])
 
   const selectedItem =
-    filteredItems.find((item) => item.id === selectedId) ?? filteredItems[0] ?? null
-
-  const selectedDetail = selectedItem ? evidenceDetails[selectedItem.id] : null
+    filteredItems.find((entry) => entry.id === selectedId) ?? filteredItems[0] ?? null
 
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.9fr)]">
       <div className="grid gap-4">
         <SurfaceCard
           title="Evidence workspace"
-          description="Search by source, tag, or owner and focus the catalog on the evidence that still changes review outcomes."
+          description="Search by source, type, or linked release and keep the proof that changes review outcomes visible."
           action={<Badge variant="outline">{filteredItems.length} visible</Badge>}
         >
           <div className="grid gap-4">
@@ -186,7 +146,7 @@ export function EvidenceLibraryWorkspace() {
                         setQuery(nextValue)
                       })
                     }}
-                    placeholder="Search sources, tags, or owners"
+                    placeholder="Search sources, refs, or linked releases"
                     className="pl-9"
                   />
                 </div>
@@ -215,43 +175,42 @@ export function EvidenceLibraryWorkspace() {
 
             {selectedItem ? (
               <div className="grid gap-3">
-                {filteredItems.map((item) => {
-                  const confidence = evidenceDetails[item.id]?.confidence ?? 0
-                  const isSelected = item.id === selectedItem.id
+                {filteredItems.map((entry) => {
+                  const isSelected = entry.id === selectedItem.id
 
                   return (
                     <button
-                      key={item.id}
+                      key={entry.id}
                       type="button"
-                      onClick={() => setSelectedId(item.id)}
+                      onClick={() => setSelectedId(entry.id)}
                       className={cn(
                         "cursor-pointer rounded-xl border p-4 text-left transition-all duration-200 ease-out focus-visible:ring-2 focus-visible:ring-ring/50",
                         isSelected
                           ? "border-foreground/20 bg-muted/40 shadow-xs"
-                          : "border-border bg-card hover:border-foreground/15 hover:bg-muted/20"
+                          : "border-border bg-card hover:border-foreground/15 hover:bg-muted/20",
                       )}
                     >
                       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                         <div className="grid gap-1">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="text-sm font-medium text-foreground">
-                              {item.source}
+                              {entry.title}
                             </span>
-                            <EvidenceFreshnessBadge freshness={item.freshness} />
-                            <Badge variant="outline">{item.tag}</Badge>
+                            <EvidenceFreshnessBadge freshness={entry.freshness} />
+                            <Badge variant="outline">{entry.sourceTypeLabel}</Badge>
+                            <Badge variant="outline">{entry.providerLabel}</Badge>
                           </div>
-                          <p className="text-sm text-muted-foreground">{item.note}</p>
+                          <p className="text-sm text-muted-foreground">{entry.note}</p>
                         </div>
                         <div className="grid gap-1 text-sm text-muted-foreground lg:text-right">
-                          <span>{item.sourceType}</span>
-                          <span>{item.lastSynced}</span>
+                          <span>{entry.sourceRef}</span>
+                          <span>{formatTimestamp(entry.updatedAt)}</span>
                         </div>
                       </div>
                       <Separator className="my-3" />
                       <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                        <span>{item.owner}</span>
-                        <span>{item.linkedReleases} linked releases</span>
-                        <span>{confidence}% confidence</span>
+                        <span>{entry.linkedReleaseCount} linked releases</span>
+                        <span>{entry.captureTrail.length} captures</span>
                       </div>
                     </button>
                   )
@@ -259,8 +218,8 @@ export function EvidenceLibraryWorkspace() {
               </div>
             ) : (
               <EmptyState
-                title="No evidence matched this view"
-                description="Try a broader keyword or switch back to all sources to recover the full catalog."
+                title={emptyCopy(view).title}
+                description={emptyCopy(view).description}
               />
             )}
           </div>
@@ -268,77 +227,76 @@ export function EvidenceLibraryWorkspace() {
       </div>
 
       <div className="grid gap-4">
-        {selectedItem && selectedDetail ? (
+        {selectedItem ? (
           <>
             <SurfaceCard
               title="Selected evidence"
               description="Inspect the current proof bundle before a claim is drafted, revised, or approved."
               action={<EvidenceFreshnessBadge freshness={selectedItem.freshness} />}
             >
-              <div className="grid gap-4">
-                <div className="grid gap-3">
-                  <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="font-medium text-foreground">Evidence confidence</span>
-                    <span className="text-muted-foreground">
-                      {selectedDetail.confidence}%
-                    </span>
-                  </div>
-                  <Progress value={selectedDetail.confidence} />
-                </div>
-                <InlineList
-                  items={[
-                    { label: "Owner", value: selectedItem.owner },
-                    { label: "Type", value: selectedItem.sourceType },
-                    { label: "Tag", value: selectedItem.tag },
-                    { label: "Last synced", value: selectedItem.lastSynced },
-                    {
-                      label: "Reviewers",
-                      value: selectedDetail.reviewers.join(", "),
-                    },
-                  ]}
-                />
-              </div>
+              <InlineList
+                items={[
+                  { label: "Provider", value: selectedItem.providerLabel },
+                  { label: "Type", value: selectedItem.sourceTypeLabel },
+                  { label: "Source ref", value: selectedItem.sourceRef },
+                  { label: "Latest capture", value: formatTimestamp(selectedItem.updatedAt) },
+                  { label: "Linked releases", value: String(selectedItem.linkedReleaseCount) },
+                ]}
+              />
             </SurfaceCard>
 
             <SurfaceCard
               title="Linked release coverage"
-              description="These release records currently depend on the selected source."
+              description="These release records currently depend on the selected proof bundle."
               footer={
                 <div className="flex w-full flex-wrap gap-2">
-                  <Button variant="outline" size="sm">
+                  <Link
+                    href="/dashboard/review-log"
+                    className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                  >
                     <Link2Icon data-icon="inline-start" />
-                    Copy evidence link
-                  </Button>
-                  <Button variant="secondary" size="sm">
+                    Open review log
+                  </Link>
+                  <Link
+                    href="/dashboard/release-context"
+                    className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}
+                  >
                     <ArrowUpRightIcon data-icon="inline-start" />
-                    Open release record
-                  </Button>
+                    Open release context
+                  </Link>
                 </div>
               }
             >
               <div className="grid gap-4">
                 <div className="flex flex-wrap gap-2">
-                  {selectedDetail.linkedReleases.map((release) => (
-                    <Badge key={release} variant="secondary">
-                      {release}
+                  {selectedItem.linkedReleases.map((release) => (
+                    <Badge key={release.id} variant="secondary">
+                      {release.title} · {release.stageLabel} · {release.readiness}
                     </Badge>
                   ))}
                 </div>
-                <BulletList items={selectedDetail.nextChecks} />
+                <BulletList items={selectedItem.nextChecks} />
               </div>
             </SurfaceCard>
 
             <SurfaceCard
-              title="Sync trail"
-              description="A short audit trail for the selected evidence source."
+              title="Review notes"
+              description="Linked review notes stay visible so evidence and approval responsibility remain inspectable."
             >
-              <BulletList items={selectedDetail.syncEvents} />
+              <BulletList items={selectedItem.reviewNotes} />
+            </SurfaceCard>
+
+            <SurfaceCard
+              title="Capture trail"
+              description="The latest capture sequence for this evidence source across linked release records."
+            >
+              <BulletList items={selectedItem.captureTrail} />
             </SurfaceCard>
           </>
         ) : (
           <EmptyState
             title="Select a source"
-            description="Choose a source from the catalog to inspect its linked releases, review owners, and sync trail."
+            description="Choose a source from the catalog to inspect its linked releases, review notes, and capture trail."
           />
         )}
 
@@ -349,8 +307,8 @@ export function EvidenceLibraryWorkspace() {
           <BulletList
             items={[
               "Treat stale evidence as a blocker when it affects scope, availability, or plan coverage.",
-              "Prefer high-reuse sources that already support multiple release records when wording must stay consistent.",
-              "Keep reviewer ownership explicit so the next sync action is obvious before approval restarts.",
+              "Prefer reused sources only when every linked release still matches the same captured scope.",
+              "Keep evidence visible beside the linked release records so reviewers can trace wording back to proof.",
             ]}
           />
         </SurfaceCard>
