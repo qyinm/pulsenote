@@ -32,7 +32,17 @@ function PulseNoteMark(props: React.ComponentProps<"svg">) {
   )
 }
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+type SidebarUser = {
+  avatar?: string
+  email: string
+  name: string
+}
+
+type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
+  user?: SidebarUser | null
+}
+
+export function AppSidebar({ user, ...props }: AppSidebarProps) {
   const pathname = usePathname()
 
   return (
@@ -86,13 +96,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser
-          user={{
-            name: "Release Ops",
-            email: "ops@pulsenote.app",
-            avatar: "",
-          }}
-        />
+        <NavUser user={user} />
       </SidebarFooter>
     </Sidebar>
   )

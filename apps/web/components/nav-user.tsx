@@ -1,5 +1,7 @@
 "use client"
 
+import { useRouter } from "next/navigation"
+import { useState, useTransition } from "react"
 import {
   BellIcon,
   CircleUserRoundIcon,
@@ -24,6 +26,20 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { authClient, type AuthClientType } from "@/lib/auth/client"
+
+type NavUserData = {
+  avatar?: string
+  email: string
+  name: string
+}
+
+type SignOutPayload = Parameters<AuthClientType["signOut"]>[0]
+type SignOutResult = Awaited<ReturnType<AuthClientType["signOut"]>> & {
+  error?: {
+    message?: string | null
+  } | null
+}
 
 function getInitials(name: string) {
   const parts = name
@@ -42,17 +58,32 @@ function getInitials(name: string) {
     .toUpperCase()
 }
 
-export function NavUser({
-  user,
-}: {
-  user: {
-    name: string
-    email: string
-    avatar?: string
+function getSignOutPayload(): SignOutPayload {
+  return {
+    fetchOptions: {
+      onSuccess: () => undefined,
+    },
+  } as SignOutPayload
+}
+
+function getSignOutErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) {
+    return error.message
   }
-}) {
+
+  return "Sign out failed. Try again."
+}
+
+export function NavUser({ user }: { user?: NavUserData | null }) {
+  const router = useRouter()
   const { isMobile } = useSidebar()
-  const initials = getInitials(user.name)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
+  const profile = user ?? {
+    email: "No active session",
+    name: "Signed out",
+  }
+  const initials = getInitials(profile.name)
 
   return (
     <SidebarMenu>
@@ -64,13 +95,13 @@ export function NavUser({
             }
           >
             <Avatar className="size-8 rounded-lg">
-              <AvatarImage src={user.avatar} alt={user.name} />
+              <AvatarImage src={profile.avatar} alt={profile.name} />
               <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
             </Avatar>
             <div className="grid flex-1 text-left text-sm leading-tight">
-              <span className="truncate font-medium">{user.name}</span>
+              <span className="truncate font-medium">{profile.name}</span>
               <span className="truncate text-xs text-foreground/70">
-                {user.email}
+                {profile.email}
               </span>
             </div>
             <EllipsisVerticalIcon className="ml-auto size-4" />
@@ -85,13 +116,13 @@ export function NavUser({
               <DropdownMenuLabel className="p-0 font-normal">
                 <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                   <Avatar className="size-8 rounded-lg">
-                    <AvatarImage src={user.avatar} alt={user.name} />
+                    <AvatarImage src={profile.avatar} alt={profile.name} />
                     <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
                   </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-medium">{user.name}</span>
+                    <span className="truncate font-medium">{profile.name}</span>
                     <span className="truncate text-xs text-muted-foreground">
-                      {user.email}
+                      {profile.email}
                     </span>
                   </div>
                 </div>
@@ -99,23 +130,57 @@ export function NavUser({
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push("/dashboard/settings")}>
                 <CircleUserRoundIcon />
                 Workspace
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push("/dashboard/inbox")}>
                 <BellIcon />
                 Approval alerts
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push("/dashboard/review-log")}>
                 <PackageCheckIcon />
                 Export history
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            {errorMessage ? (
+              <>
+                <DropdownMenuLabel className="px-1.5 py-1 text-xs text-destructive">
+                  {errorMessage}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+              </>
+            ) : null}
+            <DropdownMenuItem
+              variant="destructive"
+              disabled={isPending || !user}
+              onClick={() => {
+                if (!user) {
+                  return
+                }
+
+                setErrorMessage(null)
+                startTransition(async () => {
+                  try {
+                    const result = (await authClient.signOut(
+                      getSignOutPayload(),
+                    )) as SignOutResult
+
+                    if (result?.error) {
+                      throw new Error(result.error.message?.trim() || "Sign out failed")
+                    }
+
+                    router.push("/auth/sign-in")
+                    router.refresh()
+                  } catch (error) {
+                    setErrorMessage(getSignOutErrorMessage(error))
+                  }
+                })
+              }}
+            >
               <LogOutIcon />
-              Log out
+              {isPending ? "Logging out..." : "Log out"}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
