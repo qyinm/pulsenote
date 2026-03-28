@@ -193,6 +193,7 @@ test("workspace routes manage the GitHub intake connection for an authenticated 
   const githubInstallationService: GitHubInstallationService = {
     async createInstallationAuth(installationId) {
       return {
+        source: "github_app_installation",
         strategy: "installation_token",
         token: `installation_token_${installationId}`,
       }
@@ -335,6 +336,7 @@ test("workspace routes reject GitHub installation repository listing without sig
   const githubInstallationService: GitHubInstallationService = {
     async createInstallationAuth(installationId) {
       return {
+        source: "github_app_installation",
         strategy: "installation_token",
         token: `installation_token_${installationId}`,
       }

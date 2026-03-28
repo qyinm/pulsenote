@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import test from "node:test"
 
 import { createGitHubSyncService } from "../src/github/service.js"
+import type { GitHubSyncAuth } from "../src/github/models.js"
 import { createInMemoryFoundationStore } from "../src/foundation/store.js"
 
 const runtimeEnv = {
@@ -210,7 +211,7 @@ test("syncCompareRange rejects client-supplied installation tokens in production
         auth: {
           strategy: "installation_token",
           token: "ghp_test_token",
-        },
+        } as GitHubSyncAuth,
         compare: {
           base: "main",
           head: "feat/api-foundation",

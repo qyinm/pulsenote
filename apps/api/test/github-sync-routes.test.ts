@@ -267,10 +267,10 @@ test("github compare sync route rejects development-only ingest in production", 
     method: "POST",
   })
 
-  assert.equal(response.status, 403)
+  assert.equal(response.status, 400)
   assert.deepEqual(await response.json(), {
-    message: "Development-only GitHub ingest is not available in production",
-    status: 403,
+    message: "Client-supplied installation tokens are not supported",
+    status: 400,
   })
 })
 

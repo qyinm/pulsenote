@@ -15,11 +15,17 @@ export type GitHubCompareRange = {
   head: string
 }
 
-export type GitHubSyncAuth = {
-  source?: "github_app_installation"
-  token: string
-  strategy: GitHubTokenStrategy
-}
+export type GitHubSyncAuth =
+  | {
+      source?: never
+      token: string
+      strategy: "personal_access_token"
+    }
+  | {
+      source: "github_app_installation"
+      token: string
+      strategy: "installation_token"
+    }
 
 export type GitHubCompareFile = {
   additions: number

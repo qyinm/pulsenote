@@ -39,6 +39,17 @@ function asGitHubTokenStrategy(value: unknown): GitHubTokenStrategy | null {
     : null
 }
 
+function createClientSuppliedGitHubSyncAuth(token: string, strategy: GitHubTokenStrategy): GitHubSyncAuth {
+  if (strategy !== "personal_access_token") {
+    throw new Error("Client-supplied installation tokens are not supported")
+  }
+
+  return {
+    strategy,
+    token,
+  }
+}
+
 async function resolveStoredGitHubSyncContext(
   foundationService: FoundationService | undefined,
   githubInstallationService: GitHubInstallationService | undefined,
@@ -82,6 +93,10 @@ function getErrorStatus(message: string, fallbackStatus: number) {
   }
 
   if (normalizedMessage.includes("required")) {
+    return 400
+  }
+
+  if (normalizedMessage.includes("not supported")) {
     return 400
   }
 
@@ -144,9 +159,8 @@ export function createGitHubSyncRoute(
         token && strategy && owner && repo
           ? {
               auth: {
-                strategy,
-                token,
-              } satisfies GitHubSyncAuth,
+                ...createClientSuppliedGitHubSyncAuth(token, strategy),
+              },
               repository: {
                 installationId,
                 owner,
@@ -220,9 +234,8 @@ export function createGitHubSyncRoute(
         token && strategy && owner && repo
           ? {
               auth: {
-                strategy,
-                token,
-              } satisfies GitHubSyncAuth,
+                ...createClientSuppliedGitHubSyncAuth(token, strategy),
+              },
               repository: {
                 installationId,
                 owner,
@@ -306,9 +319,8 @@ export function createGitHubSyncRoute(
         token && strategy && owner && repo
           ? {
               auth: {
-                strategy,
-                token,
-              } satisfies GitHubSyncAuth,
+                ...createClientSuppliedGitHubSyncAuth(token, strategy),
+              },
               repository: {
                 installationId,
                 owner,
