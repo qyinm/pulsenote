@@ -46,7 +46,8 @@ import { cn } from "@/lib/utils"
 type ReleaseWorkflowMode = "approval" | "claim_check" | "overview" | "publish_pack"
 
 type ReleaseWorkflowLiveWorkspaceProps = {
-  initialSelectedHistory: ReleaseWorkflowHistoryEntry[] | null
+  initialSelectedHistory: ReleaseWorkflowHistoryEntry[]
+  initialSelectedHistoryUnavailable: boolean
   initialSelectedId: string
   initialSelectedWorkflow: ReleaseWorkflowDetail
   initialWorkflow: ReleaseWorkflowListItem[]
@@ -416,6 +417,7 @@ function buildModeFocus(detail: ReleaseWorkflowDetail | null, mode: ReleaseWorkf
 
 export function ReleaseWorkflowLiveWorkspace({
   initialSelectedHistory,
+  initialSelectedHistoryUnavailable,
   initialSelectedId,
   initialSelectedWorkflow,
   initialWorkflow,
@@ -455,9 +457,9 @@ export function ReleaseWorkflowLiveWorkspace({
     setIsLoading: setIsLoadingHistory,
     setResourceById: setHistoryById,
   } = useSelectedWorkflowResource({
-    initialIsLoading: initialSelectedHistory === null,
+    initialIsLoading: initialSelectedHistoryUnavailable,
     initialSelectedId,
-    initialValue: initialSelectedHistory,
+    initialValue: initialSelectedHistoryUnavailable ? null : initialSelectedHistory,
     loadFailureMessage: "Selected workflow history could not be loaded.",
     loadResource: loadSelectedWorkflowHistory,
     selectedId,

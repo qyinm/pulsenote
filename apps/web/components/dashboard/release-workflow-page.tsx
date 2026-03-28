@@ -78,6 +78,7 @@ export async function ReleaseWorkflowPage({
     <DashboardPage>
       <ReleaseWorkflowLiveWorkspace
         initialSelectedHistory={workflowData.selectedHistory}
+        initialSelectedHistoryUnavailable={workflowData.selectedHistoryUnavailable}
         initialWorkflow={workflowData.workflow}
         initialSelectedId={workflowData.selectedId}
         initialSelectedWorkflow={workflowData.selectedWorkflow}

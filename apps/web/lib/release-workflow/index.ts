@@ -13,7 +13,8 @@ type ReleaseWorkflowApiClient = Pick<
 >
 
 export type ReleaseWorkflowData = {
-  selectedHistory: ReleaseWorkflowHistoryEntry[] | null
+  selectedHistory: ReleaseWorkflowHistoryEntry[]
+  selectedHistoryUnavailable: boolean
   selectedId: string | null
   selectedWorkflow: ReleaseWorkflowDetail | null
   workflow: ReleaseWorkflowListItem[]
@@ -306,7 +307,8 @@ export async function getServerReleaseWorkflowData(
 
   if (!selectedId) {
     return {
-      selectedHistory: null,
+      selectedHistory: [],
+      selectedHistoryUnavailable: false,
       selectedId: null,
       selectedWorkflow: null,
       workflow,
@@ -314,16 +316,19 @@ export async function getServerReleaseWorkflowData(
   }
 
   const selectedWorkflow = await apiClient.getReleaseWorkflowDetail(workspaceId, selectedId, init)
-  let selectedHistory: ReleaseWorkflowHistoryEntry[] | null = null
+  let selectedHistory: ReleaseWorkflowHistoryEntry[] = []
+  let selectedHistoryUnavailable = false
 
   try {
     selectedHistory = await apiClient.getReleaseWorkflowHistory(workspaceId, selectedId, init)
   } catch {
-    selectedHistory = null
+    selectedHistory = []
+    selectedHistoryUnavailable = true
   }
 
   return {
     selectedHistory,
+    selectedHistoryUnavailable,
     selectedId,
     selectedWorkflow,
     workflow,

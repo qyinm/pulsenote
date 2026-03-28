@@ -220,6 +220,7 @@ test("getServerReleaseWorkflowData forwards cookies and loads the first selected
 
   assert.equal(data.selectedId, "release_1")
   assert.deepEqual(data.selectedHistory, history)
+  assert.equal(data.selectedHistoryUnavailable, false)
   assert.deepEqual(data.workflow, [listItem])
   assert.deepEqual(data.selectedWorkflow, detail)
   assert.equal(
@@ -255,7 +256,8 @@ test("getServerReleaseWorkflowData returns an empty selected history when no wor
 
   assert.equal(data.selectedId, null)
   assert.equal(data.selectedWorkflow, null)
-  assert.equal(data.selectedHistory, null)
+  assert.deepEqual(data.selectedHistory, [])
+  assert.equal(data.selectedHistoryUnavailable, false)
   assert.deepEqual(data.workflow, [])
 })
 
@@ -281,7 +283,8 @@ test("getServerReleaseWorkflowData keeps workflow detail when the history endpoi
 
   assert.equal(data.selectedId, "release_1")
   assert.deepEqual(data.selectedWorkflow, detail)
-  assert.equal(data.selectedHistory, null)
+  assert.deepEqual(data.selectedHistory, [])
+  assert.equal(data.selectedHistoryUnavailable, true)
   assert.deepEqual(data.workflow, [listItem])
 })
 
