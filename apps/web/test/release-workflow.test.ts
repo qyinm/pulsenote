@@ -255,8 +255,34 @@ test("getServerReleaseWorkflowData returns an empty selected history when no wor
 
   assert.equal(data.selectedId, null)
   assert.equal(data.selectedWorkflow, null)
-  assert.deepEqual(data.selectedHistory, [])
+  assert.equal(data.selectedHistory, null)
   assert.deepEqual(data.workflow, [])
+})
+
+test("getServerReleaseWorkflowData keeps workflow detail when the history endpoint fails", async () => {
+  const listItem = createReleaseWorkflowListItem()
+  const detail = createReleaseWorkflowDetail()
+
+  const data = await getServerReleaseWorkflowData(
+    new Headers(),
+    "workspace_1",
+    {
+      async getReleaseWorkflowDetail() {
+        return detail
+      },
+      async getReleaseWorkflowHistory() {
+        throw new Error("history unavailable")
+      },
+      async listReleaseWorkflow() {
+        return [listItem]
+      },
+    },
+  )
+
+  assert.equal(data.selectedId, "release_1")
+  assert.deepEqual(data.selectedWorkflow, detail)
+  assert.equal(data.selectedHistory, null)
+  assert.deepEqual(data.workflow, [listItem])
 })
 
 test("buildReleaseWorkflowQueueItem surfaces workflow labels and next actions", () => {
