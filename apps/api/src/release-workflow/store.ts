@@ -9,6 +9,7 @@ import type {
   User,
   WorkflowEvent,
   WorkflowEventType,
+  WorkspaceMembership,
 } from "../domain/models.js"
 import type { ReleaseRecordSnapshot } from "../foundation/store.js"
 
@@ -64,6 +65,7 @@ export type ReleaseWorkflowStore = {
   createPublishPackExport(input: CreatePublishPackExportInput): Promise<PublishPackExport>
   createWorkflowEvent(input: CreateWorkflowEventInput): Promise<WorkflowEvent>
   deleteDraftClaimCheckResultsByDraftRevisionId(draftRevisionId: string): Promise<void>
+  findWorkspaceMembership(workspaceId: string, userId: string): Promise<WorkspaceMembership | null>
   getDraftRevision(draftRevisionId: string): Promise<DraftRevision | null>
   getLatestDraftRevision(releaseRecordId: string): Promise<DraftRevision | null>
   getReleaseRecord(releaseRecordId: string): Promise<ReleaseRecord | null>

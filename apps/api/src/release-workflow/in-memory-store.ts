@@ -174,6 +174,10 @@ export function createInMemoryReleaseWorkflowStore(
       )
     },
 
+    async findWorkspaceMembership(workspaceId: string, userId: string) {
+      return foundationStore.findWorkspaceMembership(workspaceId, userId)
+    },
+
     async getDraftRevision(draftRevisionId: string) {
       return state.draftRevisions.get(draftRevisionId) ?? null
     },

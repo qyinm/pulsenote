@@ -282,6 +282,25 @@ export function createWorkspacesRoute(
     }
   })
 
+  route.get("/:workspaceId/members", async (context) => {
+    try {
+      const members = await foundationService.listWorkspaceMembers(context.req.param("workspaceId"))
+      return context.json(
+        members.map((member) => ({
+          membership: member.membership,
+          user: {
+            email: member.user.email,
+            fullName: member.user.fullName,
+            id: member.user.id,
+          },
+        })),
+      )
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Workspace members were not found"
+      return context.json(notFound(message), 404)
+    }
+  })
+
   route.get("/:workspaceId/release-records", async (context) => {
     try {
       const releaseRecords = await foundationService.listReleaseRecordSnapshots(
