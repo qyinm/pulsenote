@@ -10,72 +10,14 @@ import { DashboardAccessState } from "@/components/dashboard/dashboard-access-st
 import { GitHubConnectionSettingsCard } from "@/components/dashboard/github-connection-settings-card"
 import {
   DashboardPage,
+  InlineList,
   MetricCard,
   MetricGrid,
   SurfaceCard,
 } from "@/components/dashboard/surfaces"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
-import { Textarea } from "@/components/ui/textarea"
 import { resolveDashboardAccessState } from "@/lib/dashboard/access"
-import { workspaceSettings } from "@/lib/dashboard"
+import { getServerSettingsData } from "@/lib/dashboard/settings"
 import { getServerReleaseContextGitHubState } from "@/lib/dashboard/release-context"
-
-function FieldRenderer({
-  field,
-}: {
-  field: (typeof workspaceSettings)[number]["fields"][number]
-}) {
-  return (
-    <div className="grid gap-2">
-      <div className="flex items-center justify-between gap-4">
-        <Label htmlFor={field.id} className="text-sm font-medium">
-          {field.label}
-        </Label>
-        {field.type === "switch" ? (
-          <Switch id={field.id} defaultChecked={field.checked} />
-        ) : null}
-      </div>
-
-      {field.type === "text" || field.type === "email" ? (
-        <Input id={field.id} type={field.type} defaultValue={field.value} />
-      ) : null}
-
-      {field.type === "textarea" ? (
-        <Textarea id={field.id} defaultValue={field.value} />
-      ) : null}
-
-      {field.type === "select" ? (
-        <Select defaultValue={field.value}>
-          <SelectTrigger id={field.id}>
-            <SelectValue placeholder={field.value} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              {field.options.map((option) => (
-                <SelectItem key={option} value={option}>
-                  {option}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-      ) : null}
-
-      <p className="text-sm text-muted-foreground">{field.hint}</p>
-    </div>
-  )
-}
 
 export default async function SettingsPage() {
   const requestHeaders = await headers()
@@ -90,6 +32,8 @@ export default async function SettingsPage() {
     installUrl: null,
   }
   let githubStateError: string | null = null
+  let settingsData: Awaited<ReturnType<typeof getServerSettingsData>> | null = null
+  let settingsUnavailable = false
 
   try {
     githubState = await getServerReleaseContextGitHubState(
@@ -103,36 +47,65 @@ export default async function SettingsPage() {
         : "GitHub connection settings could not be loaded from the authenticated API."
   }
 
+  try {
+    settingsData = await getServerSettingsData(
+      requestHeaders,
+      accessState.workspace,
+      accessState.session.user.id,
+    )
+  } catch (error) {
+    settingsUnavailable = true
+    console.error(
+      "Failed to load live settings data",
+      error instanceof Error ? error.message : "Unknown error",
+    )
+  }
+
+  const metrics = settingsData?.metrics ?? {
+    activeIntegrations: 0,
+    activeMembers: 0,
+    openReviewSignals: 0,
+    readyToExport: 0,
+  }
+  const liveSections = settingsData
+    ? [
+        settingsData.workspaceProfile,
+        settingsData.reviewPolicy,
+        settingsData.notifications,
+        settingsData.exportReadiness,
+      ]
+    : []
+
   return (
     <DashboardPage>
       <MetricGrid>
         <MetricCard
-          title="Workspace rules"
-          value="4"
-          detail="Operational sections"
-          description="Settings stay scoped to release workflow policy, not a general content studio."
-          badge="Policy"
+          title="Workspace members"
+          value={String(metrics.activeMembers)}
+          detail="Live workspace roster"
+          description="Settings stay anchored to the release workspace that owns reviewer handoff and publish decisions."
+          badge="Live"
           icon={Settings2Icon}
         />
         <MetricCard
-          title="Review safeguards"
-          value="2"
-          detail="Mandatory sign-off rules"
-          description="These safeguards prevent risky language from reaching export without the right approver."
+          title="Active integrations"
+          value={String(metrics.activeIntegrations)}
+          detail="Connected release sources"
+          description="Connected source systems define how release evidence and sync coverage enter the workspace."
           icon={ShieldCheckIcon}
         />
         <MetricCard
-          title="Notification rules"
-          value="2"
-          detail="Claim and export alerts"
-          description="Notifications should surface blocked states early, without creating noisy handoffs."
+          title="Open review signals"
+          value={String(metrics.openReviewSignals)}
+          detail="Inbox-visible handoffs"
+          description="Notification coverage stays tied to live blocked states, approvals, and reopened drafts."
           icon={BellIcon}
         />
         <MetricCard
-          title="Export defaults"
-          value="2"
-          detail="Format + evidence link policy"
-          description="Default export rules keep the final publish pack consistent and traceable."
+          title="Ready to export"
+          value={String(metrics.readyToExport)}
+          detail="Publish-pack candidates"
+          description="Export readiness stays explicit so publish packs only move forward once review and evidence are aligned."
           icon={FileCogIcon}
         />
       </MetricGrid>
@@ -140,9 +113,11 @@ export default async function SettingsPage() {
       {githubStateError ? (
         <SurfaceCard
           title="GitHub settings are unavailable"
-          description="The authenticated API request failed before PulseNote could load the current GitHub connection state."
+          description="PulseNote could not load the current GitHub connection state right now."
         >
-          <p className="text-sm text-muted-foreground">{githubStateError}</p>
+          <p className="text-sm text-muted-foreground">
+            Try again after the current request completes or check back once the workspace data is available.
+          </p>
         </SurfaceCard>
       ) : null}
 
@@ -152,25 +127,25 @@ export default async function SettingsPage() {
         workspaceId={accessState.workspace.workspace.id}
       />
 
+      {settingsUnavailable ? (
+        <SurfaceCard
+          title="Workspace settings are unavailable"
+          description="Live workflow settings could not be loaded right now."
+        >
+          <p className="text-sm text-muted-foreground">
+            Try again after the current request completes or check back once the workspace data is available.
+          </p>
+        </SurfaceCard>
+      ) : null}
+
       <div className="grid gap-4 xl:grid-cols-2">
-        {workspaceSettings.map((section) => (
+        {liveSections.map((section) => (
           <SurfaceCard
-            key={section.id}
+            key={section.title}
             title={section.title}
             description={section.description}
-            footer={
-              <div className="flex w-full justify-end">
-                <Button variant="outline" size="sm" disabled>
-                  Sample settings only
-                </Button>
-              </div>
-            }
           >
-            <div className="grid gap-5">
-              {section.fields.map((field) => (
-                <FieldRenderer key={field.id} field={field} />
-              ))}
-            </div>
+            <InlineList items={section.items} />
           </SurfaceCard>
         ))}
       </div>
