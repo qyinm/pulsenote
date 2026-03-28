@@ -4,10 +4,7 @@ import Link from "next/link"
 import { startTransition, useDeferredValue, useMemo, useState } from "react"
 import { ArrowUpRightIcon, Link2Icon, SearchIcon } from "lucide-react"
 
-import type {
-  EvidenceLibraryEntry,
-  EvidenceLibraryFreshness,
-} from "@/lib/evidence-library"
+import type { EvidenceLibraryEntry } from "@/lib/evidence-library"
 import { EvidenceFreshnessBadge } from "@/components/dashboard/status-badges"
 import {
   BulletList,
@@ -199,7 +196,7 @@ export function EvidenceLibraryWorkspace({
                             <span className="text-sm font-medium text-foreground">
                               {entry.title}
                             </span>
-                            <EvidenceFreshnessBadge freshness={entry.freshness as EvidenceLibraryFreshness} />
+                            <EvidenceFreshnessBadge freshness={entry.freshness} />
                             <Badge variant="outline">{entry.sourceTypeLabel}</Badge>
                             <Badge variant="outline">{entry.providerLabel}</Badge>
                           </div>
@@ -235,7 +232,7 @@ export function EvidenceLibraryWorkspace({
             <SurfaceCard
               title="Selected evidence"
               description="Inspect the current proof bundle before a claim is drafted, revised, or approved."
-              action={<EvidenceFreshnessBadge freshness={selectedItem.freshness as EvidenceLibraryFreshness} />}
+              action={<EvidenceFreshnessBadge freshness={selectedItem.freshness} />}
             >
               <InlineList
                 items={[

@@ -82,6 +82,10 @@ function formatEvidenceTimestamp(value: string) {
   return `${evidenceTimestampFormatter.format(new Date(value))} UTC`
 }
 
+function toTimestamp(value: string) {
+  return Date.parse(value)
+}
+
 function getEvidenceFreshness(
   states: Set<ReleaseRecordSnapshot["evidenceBlocks"][number]["evidenceState"]>,
 ): EvidenceLibraryFreshness {
@@ -96,7 +100,10 @@ function getEvidenceFreshness(
   return "Fresh"
 }
 
-function buildEvidenceLibraryReviewNotes(snapshot: ReleaseRecordSnapshot) {
+function buildEvidenceLibraryReviewNotes(
+  snapshot: ReleaseRecordSnapshot,
+  evidenceBlockId: string,
+) {
   const notes: string[] = []
 
   for (const reviewStatus of snapshot.reviewStatuses) {
@@ -109,7 +116,10 @@ function buildEvidenceLibraryReviewNotes(snapshot: ReleaseRecordSnapshot) {
   }
 
   for (const claimCandidate of snapshot.claimCandidates) {
-    if (claimCandidate.status === "flagged") {
+    if (
+      claimCandidate.status === "flagged" &&
+      claimCandidate.evidenceBlockIds.includes(evidenceBlockId)
+    ) {
       notes.push(`${snapshot.releaseRecord.title}: Flagged claim — ${claimCandidate.sentence}`)
     }
   }
@@ -176,9 +186,9 @@ export function buildEvidenceLibraryData(
         })
         current.evidenceStates.add(evidenceBlock.evidenceState)
         current.linkedReleases.set(release.id, release)
-        current.reviewNotes.push(...buildEvidenceLibraryReviewNotes(snapshot))
+        current.reviewNotes.push(...buildEvidenceLibraryReviewNotes(snapshot, evidenceBlock.id))
 
-        if (current.latestBlock.capturedAt < evidenceBlock.capturedAt) {
+        if (toTimestamp(current.latestBlock.capturedAt) < toTimestamp(evidenceBlock.capturedAt)) {
           current.latestBlock = evidenceBlock
         }
 
@@ -195,7 +205,7 @@ export function buildEvidenceLibraryData(
         evidenceStates: new Set([evidenceBlock.evidenceState]),
         latestBlock: evidenceBlock,
         linkedReleases: new Map([[release.id, release]]),
-        reviewNotes: buildEvidenceLibraryReviewNotes(snapshot),
+        reviewNotes: buildEvidenceLibraryReviewNotes(snapshot, evidenceBlock.id),
       })
     }
   }
@@ -208,7 +218,7 @@ export function buildEvidenceLibraryData(
       )
       const captureTrail = accumulator.captures
         .slice()
-        .sort((left, right) => right.capturedAt.localeCompare(left.capturedAt))
+        .sort((left, right) => toTimestamp(right.capturedAt) - toTimestamp(left.capturedAt))
         .map(
           (capture) =>
             `${formatEvidenceTimestamp(capture.capturedAt)}: captured for ${capture.releaseTitle}.`,
@@ -233,7 +243,7 @@ export function buildEvidenceLibraryData(
         updatedAt: accumulator.latestBlock.capturedAt,
       } satisfies EvidenceLibraryEntry
     })
-    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+    .sort((left, right) => toTimestamp(right.updatedAt) - toTimestamp(left.updatedAt))
 
   const linkedReleaseRecords = new Set(
     entries.flatMap((entry) => entry.linkedReleases.map((release) => release.id)),
