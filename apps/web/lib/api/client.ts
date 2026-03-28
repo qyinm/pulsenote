@@ -27,6 +27,12 @@ const publishPackStateSchema = z.enum(["not_ready", "ready", "exported"])
 const workspaceMembershipRoleSchema = z.enum(["owner", "member"])
 const integrationStatusSchema = z.enum(["active", "disconnected"])
 const syncRunStatusSchema = z.enum(["queued", "running", "succeeded", "failed"])
+const releaseWorkflowHistoryOutcomeSchema = z.enum([
+  "blocked",
+  "progressed",
+  "revision",
+  "signed_off",
+])
 
 const apiSessionSchema = z.object({
   session: z.object({
@@ -186,6 +192,32 @@ const releaseWorkflowDetailSchema = z.object({
   releaseRecord: releaseRecordSnapshotSchema.shape.releaseRecord,
   reviewStatuses: releaseRecordSnapshotSchema.shape.reviewStatuses,
   sourceLinks: releaseRecordSnapshotSchema.shape.sourceLinks,
+})
+
+const releaseWorkflowHistoryEntrySchema = z.object({
+  actorName: z.string().nullable(),
+  actorUserId: z.string().nullable(),
+  createdAt: z.string(),
+  draftRevisionId: z.string().nullable(),
+  draftVersion: z.number().int().nullable(),
+  eventLabel: z.string(),
+  eventType: z.enum([
+    "draft_created",
+    "claim_check_completed",
+    "approval_requested",
+    "draft_approved",
+    "draft_reopened",
+    "publish_pack_created",
+  ]),
+  evidenceCount: z.number().int(),
+  id: z.string(),
+  note: z.string().nullable(),
+  outcome: releaseWorkflowHistoryOutcomeSchema,
+  publishPackExportId: z.string().nullable(),
+  releaseRecordId: z.string(),
+  releaseTitle: z.string(),
+  sourceLinkCount: z.number().int(),
+  stage: releaseStageSchema,
 })
 
 const workspaceSnapshotSchema = z.object({
@@ -355,6 +387,7 @@ export type GitHubConnection = z.infer<typeof githubConnectionSchema>
 export type GitHubInstallationRepository = z.infer<typeof githubInstallationRepositorySchema>
 export type ReleaseRecordSnapshot = z.infer<typeof releaseRecordSnapshotSchema>
 export type ReleaseWorkflowDetail = z.infer<typeof releaseWorkflowDetailSchema>
+export type ReleaseWorkflowHistoryEntry = z.infer<typeof releaseWorkflowHistoryEntrySchema>
 export type ReleaseWorkflowListItem = z.infer<typeof releaseWorkflowListItemSchema>
 export type WorkflowAllowedAction = z.infer<typeof workflowAllowedActionSchema>
 export type WorkspaceChoice = z.infer<typeof workspaceChoiceSchema>
@@ -561,10 +594,24 @@ export function createApiClient(options: CreateApiClientOptions = {}) {
         init,
       )
     },
+    getReleaseWorkflowHistory(workspaceId: string, releaseRecordId: string, init?: RequestInit) {
+      return request(
+        `/v1/workspaces/${encodeURIComponent(workspaceId)}/release-workflow/${encodeURIComponent(releaseRecordId)}/history`,
+        z.array(releaseWorkflowHistoryEntrySchema),
+        init,
+      )
+    },
     listReleaseRecords(workspaceId: string, init?: RequestInit) {
       return request(
         `/v1/workspaces/${encodeURIComponent(workspaceId)}/release-records`,
         z.array(releaseRecordSnapshotSchema),
+        init,
+      )
+    },
+    listReleaseWorkflowHistory(workspaceId: string, init?: RequestInit) {
+      return request(
+        `/v1/workspaces/${encodeURIComponent(workspaceId)}/release-workflow/history`,
+        z.array(releaseWorkflowHistoryEntrySchema),
         init,
       )
     },
