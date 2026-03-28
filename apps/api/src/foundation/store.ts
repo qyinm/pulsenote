@@ -415,6 +415,17 @@ export function createInMemoryFoundationStore(): FoundationStore {
     },
 
     async createIntegrationConnection(input) {
+      const existingConnection = Array.from(state.integrationConnections.values()).find(
+        (connection) =>
+          connection.workspaceId === input.workspaceId && connection.provider === input.provider,
+      )
+
+      if (existingConnection) {
+        throw new Error(
+          `Integration connection for provider ${input.provider} already exists in workspace ${input.workspaceId}`,
+        )
+      }
+
       const integrationConnection: IntegrationConnection = {
         connectedAt: nowIso(),
         externalAccountId: input.externalAccountId,
@@ -617,6 +628,27 @@ export function createInMemoryFoundationStore(): FoundationStore {
     },
 
     async findWorkspaceIntegrationConnection(workspaceId, provider) {
+      if (provider === "github") {
+        const configuredConnection =
+          Array.from(state.githubConnectionConfigs.values())
+            .map((config) => ({
+              config,
+              connection: state.integrationConnections.get(config.connectionId) ?? null,
+            }))
+            .filter(
+              (entry): entry is { config: GitHubConnectionConfig; connection: IntegrationConnection } =>
+                entry.connection !== null &&
+                entry.connection.workspaceId === workspaceId &&
+                entry.connection.provider === "github",
+            )
+            .sort((left, right) => right.connection.connectedAt.localeCompare(left.connection.connectedAt))[0]
+            ?.connection ?? null
+
+        if (configuredConnection) {
+          return configuredConnection
+        }
+      }
+
       return (
         Array.from(state.integrationConnections.values()).find(
           (connection) => connection.workspaceId === workspaceId && connection.provider === provider,
@@ -629,21 +661,28 @@ export function createInMemoryFoundationStore(): FoundationStore {
     },
 
     async getGitHubWorkspaceConnection(workspaceId) {
-      const connection = await this.findWorkspaceIntegrationConnection(workspaceId, "github")
+      const configuredConnection =
+        Array.from(state.githubConnectionConfigs.values())
+          .map((config) => ({
+            config,
+            connection: state.integrationConnections.get(config.connectionId) ?? null,
+          }))
+          .filter(
+            (entry): entry is { config: GitHubConnectionConfig; connection: IntegrationConnection } =>
+              entry.connection !== null &&
+              entry.connection.workspaceId === workspaceId &&
+              entry.connection.provider === "github",
+          )
+          .sort((left, right) => right.connection.connectedAt.localeCompare(left.connection.connectedAt))[0] ??
+        null
 
-      if (!connection) {
-        return null
-      }
-
-      const config = state.githubConnectionConfigs.get(connection.id) ?? null
-
-      if (!config) {
+      if (!configuredConnection) {
         return null
       }
 
       return {
-        config,
-        connection,
+        config: configuredConnection.config,
+        connection: configuredConnection.connection,
       }
     },
 

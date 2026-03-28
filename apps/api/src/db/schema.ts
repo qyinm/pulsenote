@@ -159,7 +159,10 @@ export const integrationConnections = pgTable(
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
   },
-  (table) => [unique("integration_connections_id_workspace_id_unique").on(table.id, table.workspaceId)],
+  (table) => [
+    unique("integration_connections_id_workspace_id_unique").on(table.id, table.workspaceId),
+    unique("integration_connections_workspace_id_provider_unique").on(table.workspaceId, table.provider),
+  ],
 )
 
 export const githubConnectionConfigs = pgTable("github_connection_configs", {

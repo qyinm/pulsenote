@@ -502,6 +502,30 @@ export function createPostgresFoundationStore(
     },
 
     async findWorkspaceIntegrationConnection(workspaceId, provider) {
+      if (provider === "github") {
+        const configuredConnection = await db
+          .select({
+            connection: integrationConnections,
+          })
+          .from(githubConnectionConfigs)
+          .innerJoin(
+            integrationConnections,
+            eq(githubConnectionConfigs.connectionId, integrationConnections.id),
+          )
+          .where(
+            and(
+              eq(integrationConnections.workspaceId, workspaceId),
+              eq(integrationConnections.provider, "github"),
+            ),
+          )
+          .orderBy(desc(integrationConnections.connectedAt))
+          .limit(1)
+
+        if (configuredConnection[0]?.connection) {
+          return configuredConnection[0].connection
+        }
+      }
+
       const integrationConnection = await db.query.integrationConnections.findFirst({
         where: and(
           eq(integrationConnections.workspaceId, workspaceId),
@@ -521,21 +545,34 @@ export function createPostgresFoundationStore(
     },
 
     async getGitHubWorkspaceConnection(workspaceId) {
-      const connection = await this.findWorkspaceIntegrationConnection(workspaceId, "github")
+      const configuredConnection = await db
+        .select({
+          config: githubConnectionConfigs,
+          connection: integrationConnections,
+        })
+        .from(githubConnectionConfigs)
+        .innerJoin(
+          integrationConnections,
+          eq(githubConnectionConfigs.connectionId, integrationConnections.id),
+        )
+        .where(
+          and(
+            eq(integrationConnections.workspaceId, workspaceId),
+            eq(integrationConnections.provider, "github"),
+          ),
+        )
+        .orderBy(desc(integrationConnections.connectedAt))
+        .limit(1)
 
-      if (!connection) {
-        return null
-      }
+      const result = configuredConnection[0]
 
-      const config = await this.getGitHubConnectionConfig(connection.id)
-
-      if (!config) {
+      if (!result) {
         return null
       }
 
       return {
-        config,
-        connection,
+        config: result.config,
+        connection: result.connection,
       } satisfies GitHubWorkspaceConnection
     },
 

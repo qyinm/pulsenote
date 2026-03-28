@@ -119,6 +119,32 @@ test("createIntegrationConnection rejects unsupported providers before persisten
   )
 })
 
+test("createIntegrationConnection rejects duplicate providers within a workspace", async () => {
+  const store = createInMemoryFoundationStore()
+  const service = createFoundationService(store)
+
+  const bootstrap = await service.bootstrapWorkspace({
+    user: { email: "owner@pulsenote.dev", fullName: "Owner User" },
+    workspace: { name: "PulseNote", slug: "pulsenote-duplicate-provider" },
+  })
+
+  await service.createIntegrationConnection({
+    externalAccountId: "github-installation-7",
+    provider: "github",
+    workspaceId: bootstrap.workspace.id,
+  })
+
+  await assert.rejects(
+    () =>
+      service.createIntegrationConnection({
+        externalAccountId: "github-installation-8",
+        provider: "github",
+        workspaceId: bootstrap.workspace.id,
+      }),
+    /already exists in workspace/,
+  )
+})
+
 test("getCurrentWorkspaceSnapshotForUser returns the current workspace when the user has one membership", async () => {
   const store = createInMemoryFoundationStore()
   const service = createFoundationService(store)
