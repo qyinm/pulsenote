@@ -39,10 +39,11 @@ type SidebarUser = {
 }
 
 type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
+  inboxBadge?: string | null
   user?: SidebarUser | null
 }
 
-export function AppSidebar({ user, ...props }: AppSidebarProps) {
+export function AppSidebar({ inboxBadge, user, ...props }: AppSidebarProps) {
   const pathname = usePathname()
 
   return (
@@ -67,6 +68,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain
+          inboxBadge={inboxBadge}
           items={coreRoutes.map((route) => ({
             title: route.sidebarTitle ?? route.title,
             href: route.href,

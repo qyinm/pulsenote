@@ -14,8 +14,10 @@ import {
 } from "@/components/ui/sidebar"
 
 export function NavMain({
+  inboxBadge,
   items,
 }: {
+  inboxBadge?: string | null
   items: {
     title: string
     href: string
@@ -39,12 +41,12 @@ export function NavMain({
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem className="group-data-[collapsible=icon]:hidden">
-            <ReviewInboxButton />
+            <ReviewInboxButton badge={inboxBadge} />
           </SidebarMenuItem>
         </SidebarMenu>
         <SidebarMenu className="hidden group-data-[collapsible=icon]:flex">
           <SidebarMenuItem>
-            <ReviewInboxButton compact />
+            <ReviewInboxButton compact badge={inboxBadge} />
           </SidebarMenuItem>
         </SidebarMenu>
         <SidebarMenu>
