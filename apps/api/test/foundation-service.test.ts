@@ -163,3 +163,35 @@ test("getCurrentWorkspaceSnapshotForUser rejects ambiguous workspace membership 
     /Multiple workspaces found; specify the current workspace before loading the dashboard/,
   )
 })
+
+test("connectGitHubWorkspace rolls back the connection when config persistence fails", async () => {
+  const store = createInMemoryFoundationStore()
+  const service = createFoundationService(store)
+  const bootstrap = await service.bootstrapWorkspace({
+    user: { email: "owner@pulsenote.dev", fullName: "Owner User" },
+    workspace: { name: "PulseNote", slug: "pulsenote" },
+  })
+  const originalUpsertGitHubConnectionConfig = store.upsertGitHubConnectionConfig.bind(store)
+
+  store.upsertGitHubConnectionConfig = async (input) => {
+    await originalUpsertGitHubConnectionConfig(input)
+    throw new Error("config persistence failed")
+  }
+
+  await assert.rejects(
+    () =>
+      service.connectGitHubWorkspace({
+        connectedByUserId: bootstrap.user.id,
+        installationId: "321",
+        repositoryName: "pulsenote",
+        repositoryOwner: "qyinm",
+        repositoryUrl: "https://github.com/qyinm/pulsenote",
+        workspaceId: bootstrap.workspace.id,
+      }),
+    /config persistence failed/,
+  )
+
+  const snapshot = await service.getWorkspaceSnapshot(bootstrap.workspace.id)
+  assert.equal(snapshot.integrations.length, 0)
+  assert.equal(await service.getGitHubWorkspaceConnection(bootstrap.workspace.id), null)
+})

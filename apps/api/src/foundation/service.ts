@@ -234,33 +234,38 @@ export function createFoundationService(store: FoundationStore) {
         throw new Error(`User ${input.connectedByUserId} was not found`)
       }
 
-      const existingConnection = await store.findWorkspaceIntegrationConnection(input.workspaceId, "github")
-      const connection =
-        existingConnection === null
-          ? await store.createIntegrationConnection({
-              externalAccountId: input.installationId.trim(),
-              provider: "github",
-              workspaceId: input.workspaceId,
-            })
-          : await store.updateIntegrationConnection({
-              externalAccountId: input.installationId.trim(),
-              id: existingConnection.id,
-              status: "active",
-            })
+      return store.transaction(async (transactionStore) => {
+        const existingConnection = await transactionStore.findWorkspaceIntegrationConnection(
+          input.workspaceId,
+          "github",
+        )
+        const connection =
+          existingConnection === null
+            ? await transactionStore.createIntegrationConnection({
+                externalAccountId: input.installationId.trim(),
+                provider: "github",
+                workspaceId: input.workspaceId,
+              })
+            : await transactionStore.updateIntegrationConnection({
+                externalAccountId: input.installationId.trim(),
+                id: existingConnection.id,
+                status: "active",
+              })
 
-      const config = await store.upsertGitHubConnectionConfig({
-        connectedByUserId: input.connectedByUserId.trim(),
-        connectionId: connection.id,
-        installationId: input.installationId.trim(),
-        repositoryName: input.repositoryName.trim(),
-        repositoryOwner: input.repositoryOwner.trim(),
-        repositoryUrl: input.repositoryUrl.trim(),
+        const config = await transactionStore.upsertGitHubConnectionConfig({
+          connectedByUserId: input.connectedByUserId.trim(),
+          connectionId: connection.id,
+          installationId: input.installationId.trim(),
+          repositoryName: input.repositoryName.trim(),
+          repositoryOwner: input.repositoryOwner.trim(),
+          repositoryUrl: input.repositoryUrl.trim(),
+        })
+
+        return {
+          config,
+          connection,
+        }
       })
-
-      return {
-        config,
-        connection,
-      }
     },
 
     async disconnectGitHubWorkspace(workspaceId: string): Promise<void> {
