@@ -122,6 +122,27 @@ function createReleaseWorkflowDetailPayload() {
   }
 }
 
+function createReleaseWorkflowHistoryEntryPayload() {
+  return {
+    actorName: "Owner User",
+    actorUserId: "user_1",
+    createdAt: "2026-03-20T00:00:00.000Z",
+    draftRevisionId: "draft_1",
+    draftVersion: 1,
+    eventLabel: "Draft approved",
+    eventType: "draft_approved",
+    evidenceCount: 3,
+    id: "event_1",
+    note: "Approved and ready for publish pack export.",
+    outcome: "signed_off",
+    publishPackExportId: null,
+    releaseRecordId: "release_1",
+    releaseTitle: "SDK rollout v2.4",
+    sourceLinkCount: 2,
+    stage: "approval",
+  }
+}
+
 test("getApiBaseUrl prefers NEXT_PUBLIC_API_BASE_URL when configured", () => {
   assert.equal(
     getApiBaseUrl({
@@ -200,6 +221,7 @@ test("api client sends credentialed requests to session, workspace, and release 
 test("api client sends workflow read requests to founder release workflow routes", async () => {
   const requests: Array<{ init?: RequestInit; input: RequestInfo | URL }> = []
   const detailPayload = createReleaseWorkflowDetailPayload()
+  const historyPayload = [createReleaseWorkflowHistoryEntryPayload()]
   const listPayload = {
     allowedActions: detailPayload.allowedActions,
     approvalSummary: detailPayload.approvalSummary,
@@ -228,7 +250,14 @@ test("api client sends workflow read requests to founder release workflow routes
     fetch: async (input, init) => {
       requests.push({ init, input })
 
-      if (String(input).includes("/release-workflow/")) {
+      if (String(input).includes("/history")) {
+        return Response.json(historyPayload)
+      }
+
+      if (
+        String(input).includes("/release-workflow/") &&
+        !String(input).endsWith("/release-workflow")
+      ) {
         return Response.json(detailPayload)
       }
 
@@ -238,12 +267,16 @@ test("api client sends workflow read requests to founder release workflow routes
 
   await client.listReleaseWorkflow("workspace 1")
   await client.getReleaseWorkflowDetail("workspace 1", "release/2")
+  await client.listReleaseWorkflowHistory("workspace 1")
+  await client.getReleaseWorkflowHistory("workspace 1", "release/2")
 
   assert.deepEqual(
     requests.map((request) => String(request.input)),
     [
       "https://api.pulsenotes.xyz/v1/workspaces/workspace%201/release-workflow",
       "https://api.pulsenotes.xyz/v1/workspaces/workspace%201/release-workflow/release%2F2",
+      "https://api.pulsenotes.xyz/v1/workspaces/workspace%201/release-workflow/history",
+      "https://api.pulsenotes.xyz/v1/workspaces/workspace%201/release-workflow/release%2F2/history",
     ],
   )
 
