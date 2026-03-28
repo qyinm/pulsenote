@@ -7,7 +7,9 @@ import type {
   ReleaseWorkflowListItem,
   WorkspaceMember,
 } from "../lib/api/client.js"
+import { ApiError } from "../lib/api/client.js"
 import {
+  buildReleaseWorkflowApprovalNotes,
   buildReleaseWorkflowMetrics,
   buildReleaseWorkflowQueueItem,
   createReleaseWorkflowDetailCache,
@@ -343,7 +345,10 @@ test("getServerReleaseWorkflowData degrades when the member roster endpoint fail
         return []
       },
       async listWorkspaceMembers() {
-        throw new Error("members unavailable")
+        throw new ApiError("members unavailable", 503, {
+          message: "members unavailable",
+          status: 503,
+        })
       },
       async listReleaseWorkflow() {
         return [listItem]
@@ -354,6 +359,62 @@ test("getServerReleaseWorkflowData degrades when the member roster endpoint fail
   assert.deepEqual(data.members, [])
   assert.equal(data.membersUnavailable, true)
   assert.equal(data.selectedId, "release_1")
+})
+
+test("getServerReleaseWorkflowData rethrows unexpected member roster errors", async () => {
+  const listItem = createReleaseWorkflowListItem()
+  const detail = createReleaseWorkflowDetail()
+
+  await assert.rejects(
+    () =>
+      getServerReleaseWorkflowData(new Headers(), "workspace_1", {
+        async getReleaseWorkflowDetail() {
+          return detail
+        },
+        async getReleaseWorkflowHistory() {
+          return []
+        },
+        async listWorkspaceMembers() {
+          throw new ApiError("auth failed", 401, {
+            message: "auth failed",
+            status: 401,
+          })
+        },
+        async listReleaseWorkflow() {
+          return [listItem]
+        },
+      }),
+    (error: unknown) => {
+      assert.equal(error instanceof ApiError, true)
+      assert.equal((error as ApiError).status, 401)
+      return true
+    },
+  )
+})
+
+test("buildReleaseWorkflowApprovalNotes keeps assigned reviewer context for pending approval", () => {
+  const notes = buildReleaseWorkflowApprovalNotes(
+    createReleaseWorkflowDetail({
+      approvalSummary: {
+        ownerName: "Reviewer User",
+        ownerUserId: "user_2",
+        state: "pending",
+      },
+      reviewStatuses: [
+        {
+          id: "review_status_1",
+          note: null,
+          ownerUserId: "user_2",
+          releaseRecordId: "release_1",
+          stage: "approval",
+          state: "pending",
+          updatedAt: "2026-03-20T00:00:00.000Z",
+        },
+      ],
+    }),
+  )
+
+  assert.deepEqual(notes, ["Approval has been requested and is waiting on Reviewer User."])
 })
 
 test("buildReleaseWorkflowQueueItem surfaces workflow labels and next actions", () => {

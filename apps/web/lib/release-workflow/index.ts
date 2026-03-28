@@ -5,7 +5,7 @@ import type {
   WorkspaceMember,
   WorkflowAllowedAction,
 } from "../api/client"
-import { createApiClient } from "../api/client"
+import { ApiError, createApiClient } from "../api/client"
 import { getForwardedAuthHeaders } from "../auth/headers"
 
 type ReleaseWorkflowApiClient = Pick<
@@ -272,9 +272,17 @@ export function buildReleaseWorkflowClaimCheckNotes(detail: ReleaseWorkflowDetai
 
 export function buildReleaseWorkflowApprovalNotes(detail: ReleaseWorkflowDetail) {
   const approvalReviewStatus = detail.reviewStatuses.find((reviewStatus) => reviewStatus.stage === "approval")
+  const pendingReviewerNote = detail.approvalSummary.ownerName
+    ? `Approval has been requested and is waiting on ${detail.approvalSummary.ownerName}.`
+    : "Approval has been requested but no reviewer is assigned yet."
 
   if (approvalReviewStatus) {
     const state = approvalReviewStatus.state.charAt(0).toUpperCase() + approvalReviewStatus.state.slice(1)
+
+    if (approvalReviewStatus.state === "pending") {
+      return [pendingReviewerNote]
+    }
+
     return [
       `Approval: ${state}${approvalReviewStatus.note ? ` — ${approvalReviewStatus.note}` : ""}`,
     ]
@@ -284,11 +292,7 @@ export function buildReleaseWorkflowApprovalNotes(detail: ReleaseWorkflowDetail)
     case "approved":
       return ["The current draft revision is approved for publish-pack assembly."]
     case "pending":
-      return [
-        detail.approvalSummary.ownerName
-          ? `Approval has been requested and is waiting on ${detail.approvalSummary.ownerName}.`
-          : "Approval has been requested but no reviewer is assigned yet.",
-      ]
+      return [pendingReviewerNote]
     case "reopened":
       return ["This draft was reopened after approval and needs another review pass."]
     default:
@@ -323,7 +327,11 @@ export async function getServerReleaseWorkflowData(
 
   try {
     members = await apiClient.listWorkspaceMembers(workspaceId, init)
-  } catch {
+  } catch (error) {
+    if (!(error instanceof ApiError) || (error.status !== 404 && error.status !== 503)) {
+      throw error
+    }
+
     members = []
     membersUnavailable = true
   }
