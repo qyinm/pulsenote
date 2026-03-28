@@ -77,6 +77,9 @@ export async function ReleaseWorkflowPage({
   return (
     <DashboardPage>
       <ReleaseWorkflowLiveWorkspace
+        currentUserId={accessState.session.user.id}
+        initialMembers={workflowData.members}
+        initialMembersUnavailable={workflowData.membersUnavailable}
         initialSelectedHistory={workflowData.selectedHistory}
         initialSelectedHistoryUnavailable={workflowData.selectedHistoryUnavailable}
         initialWorkflow={workflowData.workflow}

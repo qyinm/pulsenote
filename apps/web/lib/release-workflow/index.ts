@@ -2,6 +2,7 @@ import type {
   ReleaseWorkflowDetail,
   ReleaseWorkflowHistoryEntry,
   ReleaseWorkflowListItem,
+  WorkspaceMember,
   WorkflowAllowedAction,
 } from "../api/client"
 import { createApiClient } from "../api/client"
@@ -9,10 +10,12 @@ import { getForwardedAuthHeaders } from "../auth/headers"
 
 type ReleaseWorkflowApiClient = Pick<
   ReturnType<typeof createApiClient>,
-  "getReleaseWorkflowDetail" | "getReleaseWorkflowHistory" | "listReleaseWorkflow"
+  "getReleaseWorkflowDetail" | "getReleaseWorkflowHistory" | "listReleaseWorkflow" | "listWorkspaceMembers"
 >
 
 export type ReleaseWorkflowData = {
+  members: WorkspaceMember[]
+  membersUnavailable: boolean
   selectedHistory: ReleaseWorkflowHistoryEntry[]
   selectedHistoryUnavailable: boolean
   selectedId: string | null
@@ -139,6 +142,14 @@ export function getReleaseWorkflowActionLabel(action: WorkflowAllowedAction) {
 export function getReleaseWorkflowNextAction(item: ReleaseWorkflowListItem) {
   if (item.claimCheckSummary.blockerNotes.length > 0) {
     return item.claimCheckSummary.blockerNotes[0] as string
+  }
+
+  if (item.approvalSummary.state === "pending") {
+    if (item.approvalSummary.ownerName) {
+      return `Waiting on ${item.approvalSummary.ownerName} to review the current draft.`
+    }
+
+    return "Assign a reviewer before moving approval forward."
   }
 
   const nextAction = item.allowedActions[0]
@@ -273,7 +284,11 @@ export function buildReleaseWorkflowApprovalNotes(detail: ReleaseWorkflowDetail)
     case "approved":
       return ["The current draft revision is approved for publish-pack assembly."]
     case "pending":
-      return ["Approval has been requested and is still waiting on a human decision."]
+      return [
+        detail.approvalSummary.ownerName
+          ? `Approval has been requested and is waiting on ${detail.approvalSummary.ownerName}.`
+          : "Approval has been requested but no reviewer is assigned yet.",
+      ]
     case "reopened":
       return ["This draft was reopened after approval and needs another review pass."]
     default:
@@ -303,10 +318,21 @@ export async function getServerReleaseWorkflowData(
   } satisfies RequestInit
 
   const workflow = await apiClient.listReleaseWorkflow(workspaceId, init)
+  let members: WorkspaceMember[] = []
+  let membersUnavailable = false
+
+  try {
+    members = await apiClient.listWorkspaceMembers(workspaceId, init)
+  } catch {
+    members = []
+    membersUnavailable = true
+  }
   const selectedId = workflow[0]?.releaseRecord.id ?? null
 
   if (!selectedId) {
     return {
+      members,
+      membersUnavailable,
       selectedHistory: [],
       selectedHistoryUnavailable: false,
       selectedId: null,
@@ -327,6 +353,8 @@ export async function getServerReleaseWorkflowData(
   }
 
   return {
+    members,
+    membersUnavailable,
     selectedHistory,
     selectedHistoryUnavailable,
     selectedId,
