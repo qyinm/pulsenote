@@ -9,11 +9,14 @@ import type {
 } from "../lib/api/client.js"
 import { ApiError } from "../lib/api/client.js"
 import {
+  buildReleaseWorkflowApprovalFilterCounts,
   buildReleaseWorkflowApprovalNotes,
   buildReleaseWorkflowMetrics,
   buildReleaseWorkflowQueueItem,
   createReleaseWorkflowDetailCache,
+  filterReleaseWorkflowApprovalQueue,
   getReleaseWorkflowActionLabel,
+  getReleaseWorkflowOwnershipCue,
   getSelectedReleaseWorkflowDetail,
   getServerReleaseWorkflowData,
 } from "../lib/release-workflow/index.js"
@@ -417,6 +420,131 @@ test("buildReleaseWorkflowApprovalNotes keeps assigned reviewer context for pend
   assert.deepEqual(notes, ["Approval has been requested and is waiting on Reviewer User."])
 })
 
+test("approval queue filters keep ownership handoff explicit", () => {
+  const workflow = [
+    createReleaseWorkflowListItem({
+      approvalSummary: {
+        ownerName: "Owner User",
+        ownerUserId: "user_1",
+        requestedByName: "Requester User",
+        requestedByUserId: "user_3",
+        state: "pending",
+      },
+      releaseRecord: {
+        id: "release_assigned_to_me",
+      },
+    }),
+    createReleaseWorkflowListItem({
+      approvalSummary: {
+        ownerName: "Reviewer User",
+        ownerUserId: "user_2",
+        requestedByName: "Owner User",
+        requestedByUserId: "user_1",
+        state: "pending",
+      },
+      releaseRecord: {
+        id: "release_requested_by_me",
+      },
+    }),
+    createReleaseWorkflowListItem({
+      approvalSummary: {
+        ownerName: null,
+        ownerUserId: null,
+        requestedByName: "Owner User",
+        requestedByUserId: "user_1",
+        state: "pending",
+      },
+      releaseRecord: {
+        id: "release_unassigned",
+      },
+    }),
+    createReleaseWorkflowListItem({
+      approvalSummary: {
+        state: "approved",
+      },
+      releaseRecord: {
+        id: "release_signed_off",
+      },
+    }),
+  ]
+
+  assert.deepEqual(
+    filterReleaseWorkflowApprovalQueue(workflow, "user_1", "all").map((item) => item.releaseRecord.id),
+    ["release_assigned_to_me", "release_requested_by_me", "release_unassigned"],
+  )
+  assert.deepEqual(
+    filterReleaseWorkflowApprovalQueue(workflow, "user_1", "assigned_to_me").map(
+      (item) => item.releaseRecord.id,
+    ),
+    ["release_assigned_to_me"],
+  )
+  assert.deepEqual(
+    filterReleaseWorkflowApprovalQueue(workflow, "user_1", "requested_by_me").map(
+      (item) => item.releaseRecord.id,
+    ),
+    ["release_requested_by_me", "release_unassigned"],
+  )
+  assert.deepEqual(
+    filterReleaseWorkflowApprovalQueue(workflow, "user_1", "unassigned").map(
+      (item) => item.releaseRecord.id,
+    ),
+    ["release_unassigned"],
+  )
+})
+
+test("approval filter metrics and ownership cues use the current reviewer identity", () => {
+  const assignedToMe = createReleaseWorkflowListItem({
+    approvalSummary: {
+      ownerName: "Owner User",
+      ownerUserId: "user_1",
+      requestedByName: "Requester User",
+      requestedByUserId: "user_3",
+      state: "pending",
+    },
+  })
+  const requestedByMe = createReleaseWorkflowListItem({
+    approvalSummary: {
+      ownerName: "Reviewer User",
+      ownerUserId: "user_2",
+      requestedByName: "Owner User",
+      requestedByUserId: "user_1",
+      state: "pending",
+    },
+  })
+  const unassigned = createReleaseWorkflowListItem({
+    approvalSummary: {
+      ownerName: null,
+      ownerUserId: null,
+      requestedByName: "Owner User",
+      requestedByUserId: "user_1",
+      state: "pending",
+    },
+  })
+
+  assert.deepEqual(buildReleaseWorkflowApprovalFilterCounts([assignedToMe, requestedByMe, unassigned], "user_1"), {
+    all: 3,
+    assigned_to_me: 1,
+    requested_by_me: 2,
+    unassigned: 1,
+  })
+  assert.deepEqual(getReleaseWorkflowOwnershipCue(assignedToMe, "user_1"), {
+    description: "You currently own the approval decision for this draft revision.",
+    label: "Assigned to you",
+    tone: "assigned_to_me",
+  })
+  assert.deepEqual(getReleaseWorkflowOwnershipCue(requestedByMe, "user_1"), {
+    description: "You routed this approval request to Reviewer User.",
+    label: "Requested by you",
+    tone: "requested_by_me",
+  })
+  assert.deepEqual(getReleaseWorkflowOwnershipCue(unassigned, "user_1"), {
+    description:
+      "Approval is pending without an assigned reviewer, so this record can drift unless someone claims it.",
+    label: "Reviewer missing",
+    tone: "unassigned",
+  })
+})
+
 test("buildReleaseWorkflowQueueItem surfaces workflow labels and next actions", () => {
   const queueItem = buildReleaseWorkflowQueueItem(
     createReleaseWorkflowListItem({
@@ -440,7 +568,11 @@ test("buildReleaseWorkflowQueueItem surfaces workflow labels and next actions", 
     evidenceCount: 3,
     id: "release_1",
     nextAction: "Request approval on the current checked draft.",
+    ownerName: null,
+    ownerUserId: null,
     publishPackLabel: "Not ready",
+    requestedByName: null,
+    requestedByUserId: null,
     readinessLabel: "Ready",
     readinessTone: "ready",
     sourceLinkCount: 2,
