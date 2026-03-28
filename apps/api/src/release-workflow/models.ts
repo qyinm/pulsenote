@@ -4,6 +4,8 @@ import type {
   PublishPackExport,
   ReleaseRecord,
   ReviewStatus,
+  ReviewStage,
+  WorkflowEventType,
 } from "../domain/models.js"
 import type { ReleaseRecordSnapshot } from "../foundation/store.js"
 
@@ -92,6 +94,34 @@ export type ReleaseWorkflowDetail = {
   releaseRecord: ReleaseRecord
   reviewStatuses: ReleaseRecordSnapshot["reviewStatuses"]
   sourceLinks: ReleaseRecordSnapshot["sourceLinks"]
+}
+
+export const releaseWorkflowHistoryOutcomes = [
+  "blocked",
+  "progressed",
+  "revision",
+  "signed_off",
+] as const
+
+export type ReleaseWorkflowHistoryOutcome = (typeof releaseWorkflowHistoryOutcomes)[number]
+
+export type ReleaseWorkflowHistoryEntry = {
+  actorName: string | null
+  actorUserId: string | null
+  createdAt: string
+  draftRevisionId: string | null
+  draftVersion: number | null
+  eventLabel: string
+  eventType: WorkflowEventType
+  evidenceCount: number
+  id: string
+  note: string | null
+  outcome: ReleaseWorkflowHistoryOutcome
+  publishPackExportId: string | null
+  releaseRecordId: string
+  releaseTitle: string
+  sourceLinkCount: number
+  stage: ReviewStage
 }
 
 export type CreateDraftInput = {

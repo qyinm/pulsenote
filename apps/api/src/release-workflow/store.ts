@@ -6,6 +6,7 @@ import type {
   ReleaseRecord,
   ReviewStage,
   ReviewState,
+  User,
   WorkflowEvent,
   WorkflowEventType,
 } from "../domain/models.js"
@@ -73,9 +74,12 @@ export type ReleaseWorkflowStore = {
   listDraftClaimCheckResultsByDraftRevisionIds(
     draftRevisionIds: string[],
   ): Promise<DraftClaimCheckResult[]>
+  listDraftRevisionsByReleaseRecordIds(releaseRecordIds: string[]): Promise<DraftRevision[]>
   listLatestDraftRevisionsByReleaseRecordIds(releaseRecordIds: string[]): Promise<DraftRevision[]>
+  listPublishPackExportsByReleaseRecordIds(releaseRecordIds: string[]): Promise<PublishPackExport[]>
   listLatestPublishPackExportsByReleaseRecordIds(releaseRecordIds: string[]): Promise<PublishPackExport[]>
   listReleaseSnapshots(workspaceId: string): Promise<ReleaseRecordSnapshot[]>
+  listUsersByIds(userIds: string[]): Promise<User[]>
   listWorkflowEventsByReleaseRecordIds(releaseRecordIds: string[]): Promise<WorkflowEvent[]>
   transaction<T>(callback: (store: ReleaseWorkflowStore) => Promise<T>): Promise<T>
   updateReleaseRecordStage(releaseRecordId: string, stage: ReleaseRecord["stage"]): Promise<ReleaseRecord>

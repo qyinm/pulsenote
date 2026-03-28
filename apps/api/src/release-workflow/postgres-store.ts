@@ -12,6 +12,7 @@ import {
   releaseRecords,
   reviewStatuses,
   sourceLinks,
+  users,
   workflowEvents,
 } from "../db/schema.js"
 import type {
@@ -321,6 +322,17 @@ export function createPostgresReleaseWorkflowStore(
       }))
     },
 
+    async listDraftRevisionsByReleaseRecordIds(releaseRecordIds: string[]) {
+      if (releaseRecordIds.length === 0) {
+        return []
+      }
+
+      return db.query.draftRevisions.findMany({
+        orderBy: [desc(draftRevisions.createdAt), desc(draftRevisions.version)],
+        where: inArray(draftRevisions.releaseRecordId, releaseRecordIds),
+      })
+    },
+
     async listLatestDraftRevisionsByReleaseRecordIds(releaseRecordIds: string[]) {
       if (releaseRecordIds.length === 0) {
         return []
@@ -361,6 +373,17 @@ export function createPostgresReleaseWorkflowStore(
       return Array.from(latestExportsByReleaseRecordId.values())
     },
 
+    async listPublishPackExportsByReleaseRecordIds(releaseRecordIds: string[]) {
+      if (releaseRecordIds.length === 0) {
+        return []
+      }
+
+      return db.query.publishPackExports.findMany({
+        orderBy: [desc(publishPackExports.createdAt)],
+        where: inArray(publishPackExports.releaseRecordId, releaseRecordIds),
+      })
+    },
+
     async listReleaseSnapshots(workspaceId: string) {
       const releaseRecordRows = await db.query.releaseRecords.findMany({
         orderBy: [desc(releaseRecords.updatedAt), desc(releaseRecords.createdAt)],
@@ -378,6 +401,16 @@ export function createPostgresReleaseWorkflowStore(
       return db.query.workflowEvents.findMany({
         orderBy: [workflowEvents.createdAt],
         where: inArray(workflowEvents.releaseRecordId, releaseRecordIds),
+      })
+    },
+
+    async listUsersByIds(userIds) {
+      if (userIds.length === 0) {
+        return []
+      }
+
+      return db.query.users.findMany({
+        where: inArray(users.id, userIds),
       })
     },
 
