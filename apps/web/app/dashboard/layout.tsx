@@ -22,6 +22,14 @@ export default async function DashboardLayout({
         : accessState.kind === "workspace-selection-required"
           ? "Select workspace"
         : null
+  const sidebarUser =
+    accessState.kind === "signed-out"
+      ? null
+      : {
+          avatar: accessState.session.user.image ?? undefined,
+          email: accessState.session.user.email,
+          name: accessState.session.user.name,
+        }
 
   return (
     <SidebarProvider
@@ -32,7 +40,7 @@ export default async function DashboardLayout({
         } as CSSProperties
       }
     >
-      <AppSidebar variant="inset" />
+      <AppSidebar variant="inset" user={sidebarUser} />
       <SidebarInset className="min-h-0">
         <SiteHeader workspaceLabel={workspaceLabel} />
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
