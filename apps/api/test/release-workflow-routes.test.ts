@@ -146,6 +146,7 @@ test("release workflow routes return 422 when approval is requested before claim
     {
       body: JSON.stringify({
         expectedDraftRevisionId: draftBody.currentDraft.id,
+        reviewerUserId: fixture.reviewer.id,
       }),
       headers: {
         "content-type": "application/json",
@@ -157,6 +158,94 @@ test("release workflow routes return 422 when approval is requested before claim
   assert.equal(approvalResponse.status, 422)
   assert.deepEqual(await approvalResponse.json(), {
     message: "Run claim check before requesting approval",
+    status: 422,
+  })
+})
+
+test("release workflow routes require a reviewer when approval is requested", async () => {
+  const fixture = await seedReleaseWorkflowFixture()
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(fixture.bootstrap.user.id)),
+    foundationService: fixture.foundationService,
+    releaseWorkflowService: fixture.workflowService,
+  })
+
+  const response = await app.request(
+    `/v1/workspaces/${fixture.bootstrap.workspace.id}/release-workflow/${fixture.releaseRecord.id}/request-approval`,
+    {
+      body: JSON.stringify({
+        expectedDraftRevisionId: "draft_missing",
+      }),
+      headers: {
+        "content-type": "application/json",
+      },
+      method: "POST",
+    },
+  )
+
+  assert.equal(response.status, 400)
+  assert.deepEqual(await response.json(), {
+    message: "reviewerUserId is required",
+    status: 400,
+  })
+})
+
+test("release workflow routes reject reviewers outside the workspace", async () => {
+  const fixture = await seedReleaseWorkflowFixture({
+    async composeDraft() {
+      return {
+        changelogBody: "- Adds founder release workflow and approval checkpoints",
+        releaseNotesBody: "- Adds founder release workflow and approval checkpoints",
+      }
+    },
+    async runClaimCheck(releaseSnapshot, draftRevision) {
+      return [
+        {
+          evidenceBlockIds: releaseSnapshot.claimCandidates[0]?.evidenceBlockIds ?? [],
+          note: null,
+          sentence: draftRevision.releaseNotesBody.replace(/^- /, ""),
+          status: "approved" as const,
+        },
+      ]
+    },
+  })
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(fixture.bootstrap.user.id)),
+    foundationService: fixture.foundationService,
+    releaseWorkflowService: fixture.workflowService,
+  })
+
+  const draft = await fixture.workflowService.createDraft({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedLatestDraftRevisionId: null,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  await fixture.workflowService.runClaimCheck({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  const response = await app.request(
+    `/v1/workspaces/${fixture.bootstrap.workspace.id}/release-workflow/${fixture.releaseRecord.id}/request-approval`,
+    {
+      body: JSON.stringify({
+        expectedDraftRevisionId: draft.currentDraft.id,
+        reviewerUserId: "user_outside_workspace",
+      }),
+      headers: {
+        "content-type": "application/json",
+      },
+      method: "POST",
+    },
+  )
+
+  assert.equal(response.status, 422)
+  assert.deepEqual(await response.json(), {
+    message: `Reviewer user_outside_workspace does not belong to workspace ${fixture.bootstrap.workspace.id}`,
     status: 422,
   })
 })
@@ -206,6 +295,7 @@ test("release workflow routes complete the founder happy path", async () => {
     {
       body: JSON.stringify({
         expectedDraftRevisionId: draftBody.currentDraft.id,
+        reviewerUserId: fixture.reviewer.id,
       }),
       headers: {
         "content-type": "application/json",
@@ -222,6 +312,7 @@ test("release workflow routes complete the founder happy path", async () => {
     {
       body: JSON.stringify({
         expectedDraftRevisionId: draftBody.currentDraft.id,
+        reviewerUserId: fixture.reviewer.id,
       }),
       headers: {
         "content-type": "application/json",
@@ -230,6 +321,9 @@ test("release workflow routes complete the founder happy path", async () => {
     },
   )
   assert.equal(requestApprovalResponse.status, 200)
+  const requestApprovalBody = await requestApprovalResponse.json()
+  assert.equal(requestApprovalBody.approvalSummary.ownerUserId, fixture.reviewer.id)
+  assert.equal(requestApprovalBody.approvalSummary.requestedByUserId, fixture.bootstrap.user.id)
 
   const approveResponse = await app.request(
     `/v1/workspaces/${fixture.bootstrap.workspace.id}/release-workflow/${fixture.releaseRecord.id}/approve`,

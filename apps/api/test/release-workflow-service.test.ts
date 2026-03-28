@@ -1,7 +1,13 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import { createReleaseWorkflowService, ClaimCheckRequiredError, StaleDraftRevisionError } from "../src/release-workflow/service.js"
+import {
+  ClaimCheckRequiredError,
+  ReviewerAssignmentNotAllowedError,
+  ReviewerAssignmentRequiredError,
+  StaleDraftRevisionError,
+  createReleaseWorkflowService,
+} from "../src/release-workflow/service.js"
 import { seedReleaseWorkflowFixture } from "./release-workflow-fixtures.js"
 
 test("release workflow service creates a draft revision and advances the release to draft", async () => {
@@ -79,9 +85,104 @@ test("release workflow service requires claim check before approval can be reque
         actorUserId: fixture.bootstrap.user.id,
         expectedDraftRevisionId: draft.currentDraft!.id,
         releaseRecordId: fixture.releaseRecord.id,
+        reviewerUserId: fixture.reviewer.id,
         workspaceId: fixture.bootstrap.workspace.id,
       }),
     ClaimCheckRequiredError,
+  )
+})
+
+test("release workflow service requires assigning a reviewer before approval is requested", async () => {
+  const fixture = await seedReleaseWorkflowFixture({
+    async composeDraft() {
+      return {
+        changelogBody: "- Adds founder release workflow and approval checkpoints",
+        releaseNotesBody: "- Adds founder release workflow and approval checkpoints",
+      }
+    },
+    async runClaimCheck(releaseSnapshot, draftRevision) {
+      return [
+        {
+          evidenceBlockIds: releaseSnapshot.claimCandidates[0]?.evidenceBlockIds ?? [],
+          note: null,
+          sentence: draftRevision.releaseNotesBody.replace(/^- /, ""),
+          status: "approved" as const,
+        },
+      ]
+    },
+  })
+
+  const draft = await fixture.workflowService.createDraft({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedLatestDraftRevisionId: null,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  await fixture.workflowService.runClaimCheck({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  await assert.rejects(
+    () =>
+      fixture.workflowService.requestApproval({
+        actorUserId: fixture.bootstrap.user.id,
+        expectedDraftRevisionId: draft.currentDraft!.id,
+        releaseRecordId: fixture.releaseRecord.id,
+        reviewerUserId: "",
+        workspaceId: fixture.bootstrap.workspace.id,
+      }),
+    ReviewerAssignmentRequiredError,
+  )
+})
+
+test("release workflow service rejects reviewers outside the workspace", async () => {
+  const fixture = await seedReleaseWorkflowFixture({
+    async composeDraft() {
+      return {
+        changelogBody: "- Adds founder release workflow and approval checkpoints",
+        releaseNotesBody: "- Adds founder release workflow and approval checkpoints",
+      }
+    },
+    async runClaimCheck(releaseSnapshot, draftRevision) {
+      return [
+        {
+          evidenceBlockIds: releaseSnapshot.claimCandidates[0]?.evidenceBlockIds ?? [],
+          note: null,
+          sentence: draftRevision.releaseNotesBody.replace(/^- /, ""),
+          status: "approved" as const,
+        },
+      ]
+    },
+  })
+
+  const draft = await fixture.workflowService.createDraft({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedLatestDraftRevisionId: null,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  await fixture.workflowService.runClaimCheck({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  await assert.rejects(
+    () =>
+      fixture.workflowService.requestApproval({
+        actorUserId: fixture.bootstrap.user.id,
+        expectedDraftRevisionId: draft.currentDraft!.id,
+        releaseRecordId: fixture.releaseRecord.id,
+        reviewerUserId: "user_outside_workspace",
+        workspaceId: fixture.bootstrap.workspace.id,
+      }),
+    ReviewerAssignmentNotAllowedError,
   )
 })
 
@@ -165,6 +266,7 @@ test("release workflow service supports the founder happy path end to end", asyn
     actorUserId: fixture.bootstrap.user.id,
     expectedDraftRevisionId: draft.currentDraft!.id,
     releaseRecordId: fixture.releaseRecord.id,
+    reviewerUserId: fixture.reviewer.id,
     workspaceId: fixture.bootstrap.workspace.id,
   })
   const approved = await fixture.workflowService.approveDraft({
@@ -182,6 +284,10 @@ test("release workflow service supports the founder happy path end to end", asyn
 
   assert.equal(claimChecked.claimCheckSummary.state, "cleared")
   assert.equal(approvalRequested.releaseRecord.stage, "approval")
+  assert.equal(approvalRequested.approvalSummary.ownerUserId, fixture.reviewer.id)
+  assert.equal(approvalRequested.approvalSummary.ownerName, fixture.reviewer.fullName)
+  assert.equal(approvalRequested.approvalSummary.requestedByUserId, fixture.bootstrap.user.id)
+  assert.equal(approvalRequested.approvalSummary.requestedByName, fixture.bootstrap.user.fullName)
   assert.equal(approved.approvalSummary.state, "approved")
   assert.equal(exported.latestPublishPackSummary.state, "exported")
   assert.equal(exported.latestPublishPackSummary.draftRevisionId, draft.currentDraft!.id)
@@ -260,6 +366,7 @@ test("release workflow service treats approved events as newer than approval req
     actorUserId: fixture.bootstrap.user.id,
     expectedDraftRevisionId: draft.currentDraft!.id,
     releaseRecordId: fixture.releaseRecord.id,
+    reviewerUserId: fixture.reviewer.id,
     workspaceId: fixture.bootstrap.workspace.id,
   })
 
@@ -323,6 +430,7 @@ test("release workflow service exposes release history entries with actor, draft
     actorUserId: fixture.bootstrap.user.id,
     expectedDraftRevisionId: draft.currentDraft!.id,
     releaseRecordId: fixture.releaseRecord.id,
+    reviewerUserId: fixture.reviewer.id,
     workspaceId: fixture.bootstrap.workspace.id,
   })
 

@@ -74,6 +74,15 @@ export async function seedReleaseWorkflowFixture(
     provider: "github",
     workspaceId: bootstrap.workspace.id,
   })
+  const reviewer = await foundationStore.createUser({
+    email: "reviewer@pulsenote.dev",
+    fullName: "Reviewer User",
+  })
+  const reviewerMembership = await foundationStore.createWorkspaceMembership({
+    role: "member",
+    userId: reviewer.id,
+    workspaceId: bootstrap.workspace.id,
+  })
   const releaseRecord = await foundationStore.createReleaseRecord({
     compareRange: "main...HEAD",
     connectionId: connection.id,
@@ -125,6 +134,8 @@ export async function seedReleaseWorkflowFixture(
     foundationService,
     foundationStore,
     releaseRecord,
+    reviewer,
+    reviewerMembership,
     workflowService,
     workflowStore,
   }

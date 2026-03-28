@@ -168,6 +168,68 @@ test("workspace routes create integrations and sync runs", async () => {
   assert.equal(snapshotBody.syncRuns[0]?.scope, "repo:qyinm/pulsenote compare:main...HEAD")
 })
 
+test("workspace routes expose the member roster for an authenticated workspace", async () => {
+  const foundationStore = createInMemoryFoundationStore()
+  const foundationService = createFoundationService(foundationStore)
+  const bootstrap = await foundationService.bootstrapWorkspace({
+    user: {
+      email: "owner@pulsenote.dev",
+      fullName: "Owner User",
+    },
+    workspace: {
+      name: "Member roster workspace",
+      slug: "member-roster-workspace",
+    },
+  })
+  const reviewer = await foundationStore.createUser({
+    email: "reviewer@pulsenote.dev",
+    fullName: "Reviewer User",
+  })
+  await foundationStore.createWorkspaceMembership({
+    role: "member",
+    userId: reviewer.id,
+    workspaceId: bootstrap.workspace.id,
+  })
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(bootstrap.user.id)),
+    foundationService,
+  })
+
+  const response = await app.request(`/v1/workspaces/${bootstrap.workspace.id}/members`)
+
+  assert.equal(response.status, 200)
+  assert.deepEqual(await response.json(), [
+    {
+      membership: {
+        createdAt: bootstrap.membership.createdAt,
+        id: bootstrap.membership.id,
+        role: "owner",
+        userId: bootstrap.user.id,
+        workspaceId: bootstrap.workspace.id,
+      },
+      user: {
+        email: "owner@pulsenote.dev",
+        fullName: "Owner User",
+        id: bootstrap.user.id,
+      },
+    },
+    {
+      membership: {
+        createdAt: (await foundationStore.findWorkspaceMembership(bootstrap.workspace.id, reviewer.id))!.createdAt,
+        id: (await foundationStore.findWorkspaceMembership(bootstrap.workspace.id, reviewer.id))!.id,
+        role: "member",
+        userId: reviewer.id,
+        workspaceId: bootstrap.workspace.id,
+      },
+      user: {
+        email: "reviewer@pulsenote.dev",
+        fullName: "Reviewer User",
+        id: reviewer.id,
+      },
+    },
+  ])
+})
+
 test("workspace routes manage the GitHub intake connection for an authenticated workspace", async () => {
   const foundationService = createFoundationService(createInMemoryFoundationStore())
   const bootstrapApp = createApp(runtimeEnv, {
