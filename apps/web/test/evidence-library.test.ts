@@ -8,19 +8,17 @@ import {
 } from "../lib/evidence-library.js"
 
 function createReleaseRecordSnapshot(
-  overrides: Omit<Partial<ReleaseRecordSnapshot>, "releaseRecord"> & {
+  {
+    releaseRecord: releaseRecordOverrides = {},
+    ...snapshotOverrides
+  }: Omit<Partial<ReleaseRecordSnapshot>, "releaseRecord"> & {
     releaseRecord?: Partial<ReleaseRecordSnapshot["releaseRecord"]>
   } = {},
 ): ReleaseRecordSnapshot {
-  const releaseRecordOverrides = overrides.releaseRecord ?? {}
-  const snapshotOverrides = Object.fromEntries(
-    Object.entries(overrides).filter(([key]) => key !== "releaseRecord"),
-  ) as Omit<Partial<ReleaseRecordSnapshot>, "releaseRecord">
-
   return {
     ...snapshotOverrides,
-    claimCandidates: overrides.claimCandidates ?? [],
-    evidenceBlocks: overrides.evidenceBlocks ?? [],
+    claimCandidates: snapshotOverrides.claimCandidates ?? [],
+    evidenceBlocks: snapshotOverrides.evidenceBlocks ?? [],
     releaseRecord: {
       compareRange: releaseRecordOverrides.compareRange ?? "main...feature/evidence",
       connectionId: releaseRecordOverrides.connectionId ?? "connection_1",
@@ -32,8 +30,8 @@ function createReleaseRecordSnapshot(
       updatedAt: releaseRecordOverrides.updatedAt ?? "2026-03-20T00:00:00.000Z",
       workspaceId: releaseRecordOverrides.workspaceId ?? "workspace_1",
     },
-    reviewStatuses: overrides.reviewStatuses ?? [],
-    sourceLinks: overrides.sourceLinks ?? [],
+    reviewStatuses: snapshotOverrides.reviewStatuses ?? [],
+    sourceLinks: snapshotOverrides.sourceLinks ?? [],
   }
 }
 
@@ -146,6 +144,107 @@ test("buildEvidenceLibraryData marks missing or unsupported evidence as stale", 
   assert.equal(data.metrics.staleSources, 1)
   assert.equal(data.priorityEntry?.freshness, "Stale")
   assert.match(data.priorityEntry?.nextChecks[0] ?? "", /refresh or replace/i)
+})
+
+test("buildEvidenceLibraryData scopes flagged claim notes to the linked evidence block", () => {
+  const data = buildEvidenceLibraryData([
+    createReleaseRecordSnapshot({
+      claimCandidates: [
+        {
+          createdAt: "2026-03-20T00:05:00.000Z",
+          evidenceBlockIds: ["evidence_1"],
+          id: "claim_1",
+          releaseRecordId: "release_1",
+          sentence: "Retry messaging is already approved.",
+          status: "flagged",
+          updatedAt: "2026-03-20T00:05:00.000Z",
+        },
+        {
+          createdAt: "2026-03-20T00:06:00.000Z",
+          evidenceBlockIds: ["evidence_2"],
+          id: "claim_2",
+          releaseRecordId: "release_1",
+          sentence: "Unrelated wording should stay out of this source.",
+          status: "flagged",
+          updatedAt: "2026-03-20T00:06:00.000Z",
+        },
+      ],
+      evidenceBlocks: [
+        {
+          body: "Retry rollout note",
+          capturedAt: "2026-03-20T00:00:00.000Z",
+          evidenceState: "fresh",
+          id: "evidence_1",
+          provider: "github",
+          releaseRecordId: "release_1",
+          sourceRef: "pull/42",
+          sourceType: "pull_request",
+          title: "PR #42",
+        },
+        {
+          body: "Migration note",
+          capturedAt: "2026-03-20T00:30:00.000Z",
+          evidenceState: "fresh",
+          id: "evidence_2",
+          provider: "github",
+          releaseRecordId: "release_1",
+          sourceRef: "pull/99",
+          sourceType: "pull_request",
+          title: "PR #99",
+        },
+      ],
+    }),
+  ])
+
+  const retryEntry = data.entries.find((entry) => entry.sourceRef === "pull/42")
+  assert.ok(retryEntry)
+  assert.match(retryEntry?.reviewNotes.join(" ") ?? "", /Retry messaging is already approved/)
+  assert.doesNotMatch(
+    retryEntry?.reviewNotes.join(" ") ?? "",
+    /Unrelated wording should stay out of this source/,
+  )
+})
+
+test("buildEvidenceLibraryData uses actual timestamps when choosing the latest capture", () => {
+  const data = buildEvidenceLibraryData([
+    createReleaseRecordSnapshot({
+      evidenceBlocks: [
+        {
+          body: "Earlier captured note",
+          capturedAt: "2026-03-09T00:00:00.000Z",
+          evidenceState: "fresh",
+          id: "evidence_1",
+          provider: "github",
+          releaseRecordId: "release_1",
+          sourceRef: "pull/42",
+          sourceType: "pull_request",
+          title: "PR #42",
+        },
+      ],
+    }),
+    createReleaseRecordSnapshot({
+      evidenceBlocks: [
+        {
+          body: "Later captured note",
+          capturedAt: "2026-03-10T00:00:00.000Z",
+          evidenceState: "fresh",
+          id: "evidence_2",
+          provider: "github",
+          releaseRecordId: "release_2",
+          sourceRef: "pull/42",
+          sourceType: "pull_request",
+          title: "PR #42",
+        },
+      ],
+      releaseRecord: {
+        id: "release_2",
+        title: "Later release",
+      },
+    }),
+  ])
+
+  assert.equal(data.entries[0]?.note, "Later captured note")
+  assert.match(data.entries[0]?.captureTrail[0] ?? "", /Later release/)
 })
 
 test("getServerEvidenceLibraryData forwards auth headers and returns live evidence data", async () => {
