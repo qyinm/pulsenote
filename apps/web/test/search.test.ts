@@ -45,14 +45,32 @@ function createWorkflowItem(
   return {
     allowedActions: itemOverrides.allowedActions ?? ["request_approval"],
     approvalSummary: {
-      draftRevisionId: approvalSummary.draftRevisionId ?? "draft_1",
-      note: approvalSummary.note ?? null,
-      ownerName: approvalSummary.ownerName ?? "Mina Park",
-      ownerUserId: approvalSummary.ownerUserId ?? "user_1",
-      requestedByName: approvalSummary.requestedByName ?? "Grace Lee",
-      requestedByUserId: approvalSummary.requestedByUserId ?? "user_2",
+      draftRevisionId:
+        approvalSummary.draftRevisionId === undefined
+          ? "draft_1"
+          : approvalSummary.draftRevisionId,
+      note: approvalSummary.note === undefined ? null : approvalSummary.note,
+      ownerName:
+        approvalSummary.ownerName === undefined
+          ? "Mina Park"
+          : approvalSummary.ownerName,
+      ownerUserId:
+        approvalSummary.ownerUserId === undefined
+          ? "user_1"
+          : approvalSummary.ownerUserId,
+      requestedByName:
+        approvalSummary.requestedByName === undefined
+          ? "Grace Lee"
+          : approvalSummary.requestedByName,
+      requestedByUserId:
+        approvalSummary.requestedByUserId === undefined
+          ? "user_2"
+          : approvalSummary.requestedByUserId,
       state: approvalSummary.state ?? "pending",
-      updatedAt: approvalSummary.updatedAt ?? "2026-03-20T01:00:00.000Z",
+      updatedAt:
+        approvalSummary.updatedAt === undefined
+          ? "2026-03-20T01:00:00.000Z"
+          : approvalSummary.updatedAt,
     },
     claimCheckSummary: {
       blockerNotes: claimCheckSummary.blockerNotes ?? ["Proof is still blocked."],
@@ -218,9 +236,54 @@ test("buildLiveSearchData indexes workflow, evidence, history, and review signal
   assert.equal(data.metrics.evidenceSources, 1)
   assert.ok(data.metrics.blockedResults >= 2)
   assert.ok(data.metrics.reviewSignals >= 2)
-  assert.ok(data.suggestedQueries.includes("blocked"))
   assert.ok(data.suggestedQueries.includes("approval"))
   assert.ok(data.suggestedQueries.includes("evidence"))
+})
+
+test("buildLiveSearchData omits the blocked shortcut when blocked state is not searchable text", () => {
+  const data = buildLiveSearchData(
+    [
+      createWorkflowItem({
+        approvalSummary: {
+          ownerName: null,
+          ownerUserId: null,
+          requestedByName: "Grace Lee",
+          requestedByUserId: "user_2",
+          state: "pending",
+          updatedAt: "2026-03-20T01:20:00.000Z",
+        },
+        claimCheckSummary: {
+          blockerNotes: [],
+          draftRevisionId: "draft_2",
+          flaggedClaims: 0,
+          state: "cleared",
+          totalClaims: 0,
+        },
+        currentDraft: {
+          createdAt: "2026-03-20T01:00:00.000Z",
+          id: "draft_2",
+          version: 4,
+        },
+        readiness: "attention",
+        releaseRecord: {
+          compareRange: "main...feature/approval",
+          createdAt: "2026-03-20T00:00:00.000Z",
+          id: "release_2",
+          stage: "approval",
+          summary: "Reviewer assignment is still missing.",
+          title: "Billing migration notes",
+          updatedAt: "2026-03-20T01:20:00.000Z",
+          workspaceId: "workspace_1",
+        },
+      }),
+    ],
+    [],
+    [],
+    "user_9",
+  )
+
+  assert.ok(data.metrics.blockedResults > 0)
+  assert.ok(!data.suggestedQueries.includes("blocked"))
 })
 
 test("getServerLiveSearchData forwards auth headers to live search reads", async () => {
@@ -272,9 +335,12 @@ test("getServerLiveSearchData forwards auth headers to live search reads", async
 
   assert.ok(data.metrics.indexedRecords > 0)
   for (const request of requests) {
-    assert.equal(
-      ((request.headers as Record<string, string> | undefined) ?? {}).cookie,
-      "better-auth.session=abc123",
-    )
+    const headers = request.headers
+    const cookie =
+      headers instanceof Headers
+        ? headers.get("cookie")
+        : (headers as Record<string, string> | undefined)?.cookie
+
+    assert.equal(cookie, "better-auth.session=abc123")
   }
 })
