@@ -165,7 +165,7 @@ export const integrationConnections = pgTable(
 export const githubConnectionConfigs = pgTable("github_connection_configs", {
   connectedByUserId: uuid("connected_by_user_id")
     .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
+    .references(() => users.id, { onDelete: "restrict" }),
   connectionId: uuid("connection_id")
     .notNull()
     .primaryKey()

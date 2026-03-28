@@ -64,6 +64,13 @@
       "when": 1774166400000,
       "tag": "0008_lucky_starfire",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1774658400000,
+      "tag": "0009_fancy_hobgoblin",
+      "breakpoints": true
     }
   ]
 }

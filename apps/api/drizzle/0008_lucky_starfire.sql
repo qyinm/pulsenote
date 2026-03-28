@@ -11,4 +11,4 @@ CREATE TABLE "github_connection_configs" (
 --> statement-breakpoint
 ALTER TABLE "github_connection_configs" ADD CONSTRAINT "github_connection_configs_connection_id_integration_connections_id_fk" FOREIGN KEY ("connection_id") REFERENCES "public"."integration_connections"("id") ON DELETE cascade ON UPDATE no action;
 --> statement-breakpoint
-ALTER TABLE "github_connection_configs" ADD CONSTRAINT "github_connection_configs_connected_by_user_id_users_id_fk" FOREIGN KEY ("connected_by_user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "github_connection_configs" ADD CONSTRAINT "github_connection_configs_connected_by_user_id_users_id_fk" FOREIGN KEY ("connected_by_user_id") REFERENCES "public"."users"("id") ON DELETE restrict ON UPDATE no action;
