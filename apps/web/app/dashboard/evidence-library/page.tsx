@@ -27,7 +27,7 @@ export default async function EvidenceLibraryPage() {
   }
 
   let evidenceData: Awaited<ReturnType<typeof getServerEvidenceLibraryData>> | null = null
-  let errorMessage: string | null = null
+  let isUnavailable = false
 
   try {
     evidenceData = await getServerEvidenceLibraryData(
@@ -35,20 +35,20 @@ export default async function EvidenceLibraryPage() {
       accessState.workspace.workspace.id,
     )
   } catch (error) {
-    errorMessage =
-      error instanceof Error
-        ? error.message
-        : "An unexpected error occurred while loading evidence sources."
+    isUnavailable = true
+    console.error("Failed to load evidence library", error)
   }
 
-  if (errorMessage) {
+  if (isUnavailable) {
     return (
       <DashboardPage>
         <SurfaceCard
           title="Evidence library is unavailable"
-          description="The authenticated API request failed before live evidence sources could be rendered."
+          description="Live evidence sources could not be loaded right now."
         >
-          <p className="text-sm text-muted-foreground">{errorMessage}</p>
+          <p className="text-sm text-muted-foreground">
+            Try again after the current request completes or check back once the workspace data is available.
+          </p>
         </SurfaceCard>
       </DashboardPage>
     )
@@ -87,10 +87,10 @@ export default async function EvidenceLibraryPage() {
           icon={FolderKanbanIcon}
         />
         <MetricCard
-          title="Stale sources"
+          title="Blocked sources"
           value={String(metrics.staleSources)}
-          detail="Need refresh before approval"
-          description="Missing, unsupported, or stale proof stays visible before public wording moves forward."
+          detail="Missing or unsupported proof"
+          description="These sources stay visible until current evidence replaces the proof gap blocking linked wording."
           icon={ShieldAlertIcon}
         />
         <MetricCard
