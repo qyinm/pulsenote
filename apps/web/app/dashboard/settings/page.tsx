@@ -55,7 +55,10 @@ export default async function SettingsPage() {
     )
   } catch (error) {
     settingsUnavailable = true
-    console.error("Failed to load live settings data", error)
+    console.error(
+      "Failed to load live settings data",
+      error instanceof Error ? error.message : "Unknown error",
+    )
   }
 
   const metrics = settingsData?.metrics ?? {

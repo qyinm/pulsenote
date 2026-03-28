@@ -52,7 +52,7 @@ function toTimestamp(value: string) {
   const timestamp = Date.parse(value)
 
   if (Number.isNaN(timestamp)) {
-    throw new Error(`Invalid settings timestamp: ${value}`)
+    throw new Error("Invalid settings timestamp provided.")
   }
 
   return timestamp
