@@ -618,6 +618,55 @@ test("github merged PR sync route rejects malformed payloads", async () => {
   })
 })
 
+test("github merged PR sync route requires auth and repository together", async () => {
+  const { bootstrap, connection, foundationService, store } = await bootstrapWorkspace()
+  const githubSyncService = createGitHubSyncService({
+    githubClient: {
+      async compareCommits() {
+        throw new Error("compare should not be called")
+      },
+      async getPullRequests() {
+        throw new Error("should not be called")
+      },
+      async getRelease() {
+        throw new Error("release sync should not be called")
+      },
+    },
+    runtimeEnv,
+    store,
+  })
+
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(bootstrap.user.id)),
+    foundationService,
+    githubSyncService,
+  })
+
+  const response = await app.request(
+    `/v1/workspaces/${bootstrap.workspace.id}/github/sync/merged-pulls`,
+    {
+      body: JSON.stringify({
+        auth: {
+          strategy: "personal_access_token",
+          token: "ghp_dev_token",
+        },
+        connectionId: connection.id,
+        pullNumbers: [101],
+      }),
+      headers: {
+        "content-type": "application/json",
+      },
+      method: "POST",
+    },
+  )
+
+  assert.equal(response.status, 400)
+  assert.deepEqual(await response.json(), {
+    message: "auth and repository must be provided together for merged pull sync",
+    status: 400,
+  })
+})
+
 test("github merged PR sync route rejects development-only ingest in production", async () => {
   const { bootstrap, connection, foundationService, store } = await bootstrapWorkspace()
   const productionEnv = {

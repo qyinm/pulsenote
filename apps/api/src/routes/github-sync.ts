@@ -208,7 +208,7 @@ export function createGitHubSyncRoute(
     const repo = asString(repository?.repo)
     const installationId = asString(repository?.installationId)
 
-    if (auth !== null || repository !== null) {
+    if (auth !== null && repository !== null) {
       if (!workspaceId || !connectionId || !pullNumbers || !token || !strategy || !owner || !repo) {
         return context.json(
           {
@@ -219,6 +219,14 @@ export function createGitHubSyncRoute(
           400,
         )
       }
+    } else if (auth !== null || repository !== null) {
+      return context.json(
+        {
+          message: "auth and repository must be provided together for merged pull sync",
+          status: 400,
+        },
+        400,
+      )
     } else if (!workspaceId || !connectionId || !pullNumbers) {
       return context.json(
         {
