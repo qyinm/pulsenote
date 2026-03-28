@@ -209,6 +209,13 @@ function formatHistoryTimestamp(value: string) {
   return historyTimestampFormatter.format(new Date(value))
 }
 
+function getQueuedWorkflowItem(
+  queueSourceById: Map<string, ReleaseWorkflowListItem>,
+  releaseRecordId: string,
+) {
+  return queueSourceById.get(releaseRecordId) ?? null
+}
+
 function useSelectedWorkflowResource<T>({
   initialIsLoading = false,
   initialSelectedId,
@@ -492,8 +499,21 @@ export function ReleaseWorkflowLiveWorkspace({
 }: ReleaseWorkflowLiveWorkspaceProps) {
   const [selectedId, setSelectedId] = useState(initialSelectedId)
   const [workflow, setWorkflow] = useState(initialWorkflow)
+  const [approvalOwnershipFilter, setApprovalOwnershipFilter] =
+    useState<ReleaseWorkflowApprovalOwnershipFilter>("all")
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [approvalReviewerUserId, setApprovalReviewerUserId] = useState("")
+  const [isRunningAction, setIsRunningAction] = useState(false)
   const members = initialMembers
   const membersUnavailable = initialMembersUnavailable
+  const queueSource =
+    mode === "approval"
+      ? filterReleaseWorkflowApprovalQueue(workflow, currentUserId, approvalOwnershipFilter)
+      : workflow
+  const queueSourceById = new Map(queueSource.map((item) => [item.releaseRecord.id, item]))
+  const queueItems = queueSource.map(buildReleaseWorkflowQueueItem)
+  const activeSelectedId =
+    queueItems.some((item) => item.id === selectedId) ? selectedId : (queueItems[0]?.id ?? "")
   const loadSelectedWorkflowDetail = useCallback(
     (releaseRecordId: string) => createApiClient().getReleaseWorkflowDetail(workspaceId, releaseRecordId),
     [workspaceId],
@@ -515,7 +535,7 @@ export function ReleaseWorkflowLiveWorkspace({
     initialValue: initialSelectedWorkflow,
     loadFailureMessage: "Selected workflow detail could not be loaded.",
     loadResource: loadSelectedWorkflowDetail,
-    selectedId,
+    selectedId: activeSelectedId,
   })
   const {
     error: historyError,
@@ -530,28 +550,17 @@ export function ReleaseWorkflowLiveWorkspace({
     initialValue: initialSelectedHistoryUnavailable ? null : initialSelectedHistory,
     loadFailureMessage: "Selected workflow history could not be loaded.",
     loadResource: loadSelectedWorkflowHistory,
-    selectedId,
+    selectedId: activeSelectedId,
   })
-  const [actionError, setActionError] = useState<string | null>(null)
-  const [approvalOwnershipFilter, setApprovalOwnershipFilter] =
-    useState<ReleaseWorkflowApprovalOwnershipFilter>("all")
-  const [approvalReviewerUserId, setApprovalReviewerUserId] = useState("")
-  const [isRunningAction, setIsRunningAction] = useState(false)
-
-  const queueSource =
-    mode === "approval"
-      ? filterReleaseWorkflowApprovalQueue(workflow, currentUserId, approvalOwnershipFilter)
-      : workflow
-  const queueSourceById = new Map(queueSource.map((item) => [item.releaseRecord.id, item]))
-  const queueItems = queueSource.map(buildReleaseWorkflowQueueItem)
-  const activeSelectedId =
-    queueItems.some((item) => item.id === selectedId) ? selectedId : (queueItems[0]?.id ?? "")
   const selectedWorkflow = getSelectedReleaseWorkflowDetail(detailById, activeSelectedId)
   const selectedHistory = activeSelectedId ? historyById[activeSelectedId] ?? [] : []
   const recentHistory = selectedHistory.slice(0, 5)
   const selectedQueueItem = queueItems.find((item) => item.id === activeSelectedId) ?? queueItems[0] ?? null
-  const selectedOwnershipCue = selectedQueueItem
-    ? getReleaseWorkflowOwnershipCue(queueSourceById.get(selectedQueueItem.id)!, currentUserId)
+  const selectedQueueSourceItem = selectedQueueItem
+    ? getQueuedWorkflowItem(queueSourceById, selectedQueueItem.id)
+    : null
+  const selectedOwnershipCue = selectedQueueSourceItem
+    ? getReleaseWorkflowOwnershipCue(selectedQueueSourceItem, currentUserId)
     : null
   const focusContent = buildModeFocus(selectedWorkflow, mode)
   const otherActions = (selectedWorkflow?.allowedActions ?? []).filter((action) => action !== "request_approval")
@@ -570,7 +579,7 @@ export function ReleaseWorkflowLiveWorkspace({
   }, [members, selectedWorkflow])
 
   async function runWorkflowAction(action: WorkflowAllowedAction) {
-    if (!selectedId || !selectedWorkflow) {
+    if (!activeSelectedId || !selectedWorkflow) {
       return
     }
 
@@ -582,7 +591,7 @@ export function ReleaseWorkflowLiveWorkspace({
       let nextDetail: ReleaseWorkflowDetail
 
       if (action === "create_draft") {
-        nextDetail = await apiClient.createReleaseWorkflowDraft(workspaceId, selectedId, {
+        nextDetail = await apiClient.createReleaseWorkflowDraft(workspaceId, activeSelectedId, {
           expectedLatestDraftRevisionId: selectedWorkflow.currentDraft?.id ?? null,
         })
       } else {
@@ -594,7 +603,7 @@ export function ReleaseWorkflowLiveWorkspace({
 
         switch (action) {
           case "run_claim_check":
-            nextDetail = await apiClient.runReleaseWorkflowClaimCheck(workspaceId, selectedId, {
+            nextDetail = await apiClient.runReleaseWorkflowClaimCheck(workspaceId, activeSelectedId, {
               expectedDraftRevisionId,
             })
             break
@@ -603,25 +612,29 @@ export function ReleaseWorkflowLiveWorkspace({
               throw new Error("Select a reviewer before requesting approval.")
             }
 
-            nextDetail = await apiClient.requestReleaseWorkflowApproval(workspaceId, selectedId, {
+            nextDetail = await apiClient.requestReleaseWorkflowApproval(workspaceId, activeSelectedId, {
               expectedDraftRevisionId,
               reviewerUserId: approvalReviewerUserId,
             })
             break
           case "approve_draft":
-            nextDetail = await apiClient.approveReleaseWorkflowDraft(workspaceId, selectedId, {
+            nextDetail = await apiClient.approveReleaseWorkflowDraft(workspaceId, activeSelectedId, {
               expectedDraftRevisionId,
             })
             break
           case "reopen_draft":
-            nextDetail = await apiClient.reopenReleaseWorkflowDraft(workspaceId, selectedId, {
+            nextDetail = await apiClient.reopenReleaseWorkflowDraft(workspaceId, activeSelectedId, {
               expectedDraftRevisionId,
             })
             break
           case "create_publish_pack":
-            nextDetail = await apiClient.createReleaseWorkflowPublishPack(workspaceId, selectedId, {
-              expectedDraftRevisionId,
-            })
+            nextDetail = await apiClient.createReleaseWorkflowPublishPack(
+              workspaceId,
+              activeSelectedId,
+              {
+                expectedDraftRevisionId,
+              },
+            )
             break
           default:
             throw new Error(`Unsupported workflow action: ${action}`)
@@ -630,20 +643,20 @@ export function ReleaseWorkflowLiveWorkspace({
 
       setDetailById((currentDetails) => ({
         ...currentDetails,
-        [selectedId]: nextDetail,
+        [activeSelectedId]: nextDetail,
       }))
       setWorkflow((currentWorkflow) =>
         currentWorkflow.map((item) =>
-          item.releaseRecord.id === selectedId ? detailToReleaseWorkflowListItem(nextDetail) : item,
+          item.releaseRecord.id === activeSelectedId ? detailToReleaseWorkflowListItem(nextDetail) : item,
         ),
       )
       setDetailError(null)
 
       try {
-        const nextHistory = await loadSelectedWorkflowHistory(selectedId)
+        const nextHistory = await loadSelectedWorkflowHistory(activeSelectedId)
         setHistoryById((currentHistory) => ({
           ...currentHistory,
-          [selectedId]: nextHistory,
+          [activeSelectedId]: nextHistory,
         }))
         setHistoryError(null)
       } catch (historyError) {
@@ -735,11 +748,19 @@ export function ReleaseWorkflowLiveWorkspace({
                       <div className="grid gap-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-medium text-foreground">{item.title}</span>
-                          {mode === "approval"
-                            ? ownershipCueBadge(
-                                getReleaseWorkflowOwnershipCue(queueSourceById.get(item.id)!, currentUserId),
+                          {mode === "approval" ? (
+                            (() => {
+                              const queuedWorkflowItem = getQueuedWorkflowItem(queueSourceById, item.id)
+
+                              if (!queuedWorkflowItem) {
+                                return null
+                              }
+
+                              return ownershipCueBadge(
+                                getReleaseWorkflowOwnershipCue(queuedWorkflowItem, currentUserId),
                               )
-                            : null}
+                            })()
+                          ) : null}
                         </div>
                         <span className="text-xs text-muted-foreground">{item.summary}</span>
                       </div>
