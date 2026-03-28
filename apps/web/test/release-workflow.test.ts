@@ -5,8 +5,11 @@ import type {
   ReleaseWorkflowDetail,
   ReleaseWorkflowHistoryEntry,
   ReleaseWorkflowListItem,
+  WorkspaceMember,
 } from "../lib/api/client.js"
+import { ApiError } from "../lib/api/client.js"
 import {
+  buildReleaseWorkflowApprovalNotes,
   buildReleaseWorkflowMetrics,
   buildReleaseWorkflowQueueItem,
   createReleaseWorkflowDetailCache,
@@ -35,7 +38,10 @@ function createReleaseWorkflowListItem(
     approvalSummary: {
       draftRevisionId: overrides.approvalSummary?.draftRevisionId ?? null,
       note: overrides.approvalSummary?.note ?? null,
+      ownerName: overrides.approvalSummary?.ownerName ?? null,
       ownerUserId: overrides.approvalSummary?.ownerUserId ?? null,
+      requestedByName: overrides.approvalSummary?.requestedByName ?? null,
+      requestedByUserId: overrides.approvalSummary?.requestedByUserId ?? null,
       state: overrides.approvalSummary?.state ?? "not_requested",
       updatedAt: overrides.approvalSummary?.updatedAt ?? null,
     },
@@ -97,7 +103,10 @@ function createReleaseWorkflowDetail(
     approvalSummary: {
       draftRevisionId: overrides.approvalSummary?.draftRevisionId ?? "draft_1",
       note: overrides.approvalSummary?.note ?? null,
+      ownerName: overrides.approvalSummary?.ownerName ?? null,
       ownerUserId: overrides.approvalSummary?.ownerUserId ?? null,
+      requestedByName: overrides.approvalSummary?.requestedByName ?? null,
+      requestedByUserId: overrides.approvalSummary?.requestedByUserId ?? null,
       state: overrides.approvalSummary?.state ?? "not_requested",
       updatedAt: overrides.approvalSummary?.updatedAt ?? null,
     },
@@ -186,11 +195,29 @@ function createReleaseWorkflowHistoryEntry(
   }
 }
 
+function createWorkspaceMember(overrides: Partial<WorkspaceMember> = {}): WorkspaceMember {
+  return {
+    membership: {
+      createdAt: overrides.membership?.createdAt ?? "2026-03-20T00:00:00.000Z",
+      id: overrides.membership?.id ?? "membership_1",
+      role: overrides.membership?.role ?? "owner",
+      userId: overrides.membership?.userId ?? "user_1",
+      workspaceId: overrides.membership?.workspaceId ?? "workspace_1",
+    },
+    user: {
+      email: overrides.user?.email ?? "owner@pulsenote.dev",
+      fullName: overrides.user?.fullName ?? "Owner User",
+      id: overrides.user?.id ?? "user_1",
+    },
+  }
+}
+
 test("getServerReleaseWorkflowData forwards cookies and loads the first selected workflow detail", async () => {
   const requests: Array<{ init?: RequestInit; kind: "detail" | "history" | "list" }> = []
   const listItem = createReleaseWorkflowListItem()
   const detail = createReleaseWorkflowDetail()
   const history = [createReleaseWorkflowHistoryEntry()]
+  const members = [createWorkspaceMember()]
 
   const data = await getServerReleaseWorkflowData(
     new Headers({
@@ -210,6 +237,11 @@ test("getServerReleaseWorkflowData forwards cookies and loads the first selected
         assert.equal(releaseRecordId, "release_1")
         return history
       },
+      async listWorkspaceMembers(workspaceId, init) {
+        requests.push({ init, kind: "list" })
+        assert.equal(workspaceId, "workspace_1")
+        return members
+      },
       async listReleaseWorkflow(workspaceId, init) {
         requests.push({ init, kind: "list" })
         assert.equal(workspaceId, "workspace_1")
@@ -219,6 +251,8 @@ test("getServerReleaseWorkflowData forwards cookies and loads the first selected
   )
 
   assert.equal(data.selectedId, "release_1")
+  assert.deepEqual(data.members, members)
+  assert.equal(data.membersUnavailable, false)
   assert.deepEqual(data.selectedHistory, history)
   assert.equal(data.selectedHistoryUnavailable, false)
   assert.deepEqual(data.workflow, [listItem])
@@ -248,6 +282,9 @@ test("getServerReleaseWorkflowData returns an empty selected history when no wor
       async getReleaseWorkflowHistory() {
         throw new Error("history should not be requested when there is no selected workflow")
       },
+      async listWorkspaceMembers() {
+        return []
+      },
       async listReleaseWorkflow() {
         return []
       },
@@ -255,6 +292,8 @@ test("getServerReleaseWorkflowData returns an empty selected history when no wor
   )
 
   assert.equal(data.selectedId, null)
+  assert.deepEqual(data.members, [])
+  assert.equal(data.membersUnavailable, false)
   assert.equal(data.selectedWorkflow, null)
   assert.deepEqual(data.selectedHistory, [])
   assert.equal(data.selectedHistoryUnavailable, false)
@@ -275,6 +314,9 @@ test("getServerReleaseWorkflowData keeps workflow detail when the history endpoi
       async getReleaseWorkflowHistory() {
         throw new Error("history unavailable")
       },
+      async listWorkspaceMembers() {
+        return []
+      },
       async listReleaseWorkflow() {
         return [listItem]
       },
@@ -286,6 +328,93 @@ test("getServerReleaseWorkflowData keeps workflow detail when the history endpoi
   assert.deepEqual(data.selectedHistory, [])
   assert.equal(data.selectedHistoryUnavailable, true)
   assert.deepEqual(data.workflow, [listItem])
+})
+
+test("getServerReleaseWorkflowData degrades when the member roster endpoint fails", async () => {
+  const listItem = createReleaseWorkflowListItem()
+  const detail = createReleaseWorkflowDetail()
+
+  const data = await getServerReleaseWorkflowData(
+    new Headers(),
+    "workspace_1",
+    {
+      async getReleaseWorkflowDetail() {
+        return detail
+      },
+      async getReleaseWorkflowHistory() {
+        return []
+      },
+      async listWorkspaceMembers() {
+        throw new ApiError("members unavailable", 503, {
+          message: "members unavailable",
+          status: 503,
+        })
+      },
+      async listReleaseWorkflow() {
+        return [listItem]
+      },
+    },
+  )
+
+  assert.deepEqual(data.members, [])
+  assert.equal(data.membersUnavailable, true)
+  assert.equal(data.selectedId, "release_1")
+})
+
+test("getServerReleaseWorkflowData rethrows unexpected member roster errors", async () => {
+  const listItem = createReleaseWorkflowListItem()
+  const detail = createReleaseWorkflowDetail()
+
+  await assert.rejects(
+    () =>
+      getServerReleaseWorkflowData(new Headers(), "workspace_1", {
+        async getReleaseWorkflowDetail() {
+          return detail
+        },
+        async getReleaseWorkflowHistory() {
+          return []
+        },
+        async listWorkspaceMembers() {
+          throw new ApiError("auth failed", 401, {
+            message: "auth failed",
+            status: 401,
+          })
+        },
+        async listReleaseWorkflow() {
+          return [listItem]
+        },
+      }),
+    (error: unknown) => {
+      assert.equal(error instanceof ApiError, true)
+      assert.equal((error as ApiError).status, 401)
+      return true
+    },
+  )
+})
+
+test("buildReleaseWorkflowApprovalNotes keeps assigned reviewer context for pending approval", () => {
+  const notes = buildReleaseWorkflowApprovalNotes(
+    createReleaseWorkflowDetail({
+      approvalSummary: {
+        ownerName: "Reviewer User",
+        ownerUserId: "user_2",
+        state: "pending",
+      },
+      reviewStatuses: [
+        {
+          id: "review_status_1",
+          note: null,
+          ownerUserId: "user_2",
+          releaseRecordId: "release_1",
+          stage: "approval",
+          state: "pending",
+          updatedAt: "2026-03-20T00:00:00.000Z",
+        },
+      ],
+    }),
+  )
+
+  assert.deepEqual(notes, ["Approval has been requested and is waiting on Reviewer User."])
 })
 
 test("buildReleaseWorkflowQueueItem surfaces workflow labels and next actions", () => {
@@ -330,7 +459,7 @@ test("buildReleaseWorkflowQueueItem surfaces workflow labels and next actions", 
 test("buildReleaseWorkflowMetrics summarizes blocked, pending, and export-ready workflow records", () => {
   const metrics = buildReleaseWorkflowMetrics([
     createReleaseWorkflowListItem({
-      approvalSummary: { state: "pending" },
+      approvalSummary: { ownerName: "Reviewer User", state: "pending" },
       latestPublishPackSummary: { state: "not_ready" },
       readiness: "blocked",
       releaseRecord: { id: "release_1" },

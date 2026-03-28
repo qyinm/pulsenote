@@ -15,6 +15,7 @@ import type {
   ReleaseWorkflowDetail,
   ReleaseWorkflowHistoryEntry,
   ReleaseWorkflowListItem,
+  WorkspaceMember,
   WorkflowAllowedAction,
 } from "@/lib/api/client"
 import { createApiClient } from "@/lib/api/client"
@@ -41,11 +42,22 @@ import { SimpleTable } from "@/components/dashboard/simple-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { buttonVariants } from "@/components/ui/button-variants"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 
 type ReleaseWorkflowMode = "approval" | "claim_check" | "overview" | "publish_pack"
 
 type ReleaseWorkflowLiveWorkspaceProps = {
+  currentUserId: string
+  initialMembers: WorkspaceMember[]
+  initialMembersUnavailable: boolean
   initialSelectedHistory: ReleaseWorkflowHistoryEntry[]
   initialSelectedHistoryUnavailable: boolean
   initialSelectedId: string
@@ -146,6 +158,24 @@ function historyOutcomeBadge(outcome: ReleaseWorkflowHistoryEntry["outcome"]) {
   }
 
   return <Badge variant="secondary">Progressed</Badge>
+}
+
+function getWorkspaceMemberLabel(member: WorkspaceMember) {
+  const name = member.user.fullName?.trim() || member.user.email
+  return `${name} · ${member.membership.role}`
+}
+
+function getDefaultReviewerUserId(
+  members: WorkspaceMember[],
+  selectedWorkflow: ReleaseWorkflowDetail | null,
+) {
+  const currentOwnerUserId = selectedWorkflow?.approvalSummary.ownerUserId
+
+  if (currentOwnerUserId && members.some((member) => member.user.id === currentOwnerUserId)) {
+    return currentOwnerUserId
+  }
+
+  return ""
 }
 
 function formatHistoryTimestamp(value: string) {
@@ -416,6 +446,8 @@ function buildModeFocus(detail: ReleaseWorkflowDetail | null, mode: ReleaseWorkf
 }
 
 export function ReleaseWorkflowLiveWorkspace({
+  initialMembers,
+  initialMembersUnavailable,
   initialSelectedHistory,
   initialSelectedHistoryUnavailable,
   initialSelectedId,
@@ -426,6 +458,8 @@ export function ReleaseWorkflowLiveWorkspace({
 }: ReleaseWorkflowLiveWorkspaceProps) {
   const [selectedId, setSelectedId] = useState(initialSelectedId)
   const [workflow, setWorkflow] = useState(initialWorkflow)
+  const members = initialMembers
+  const membersUnavailable = initialMembersUnavailable
   const loadSelectedWorkflowDetail = useCallback(
     (releaseRecordId: string) => createApiClient().getReleaseWorkflowDetail(workspaceId, releaseRecordId),
     [workspaceId],
@@ -465,6 +499,7 @@ export function ReleaseWorkflowLiveWorkspace({
     selectedId,
   })
   const [actionError, setActionError] = useState<string | null>(null)
+  const [approvalReviewerUserId, setApprovalReviewerUserId] = useState("")
   const [isRunningAction, setIsRunningAction] = useState(false)
 
   const queueItems = workflow.map(buildReleaseWorkflowQueueItem)
@@ -473,6 +508,12 @@ export function ReleaseWorkflowLiveWorkspace({
   const recentHistory = selectedHistory.slice(0, 5)
   const selectedQueueItem = queueItems.find((item) => item.id === selectedId) ?? queueItems[0] ?? null
   const focusContent = buildModeFocus(selectedWorkflow, mode)
+  const otherActions = (selectedWorkflow?.allowedActions ?? []).filter((action) => action !== "request_approval")
+  const canRequestApproval = (selectedWorkflow?.allowedActions ?? []).includes("request_approval")
+
+  useEffect(() => {
+    setApprovalReviewerUserId(getDefaultReviewerUserId(members, selectedWorkflow))
+  }, [members, selectedWorkflow])
 
   async function runWorkflowAction(action: WorkflowAllowedAction) {
     if (!selectedId || !selectedWorkflow) {
@@ -504,8 +545,13 @@ export function ReleaseWorkflowLiveWorkspace({
             })
             break
           case "request_approval":
+            if (!approvalReviewerUserId) {
+              throw new Error("Select a reviewer before requesting approval.")
+            }
+
             nextDetail = await apiClient.requestReleaseWorkflowApproval(workspaceId, selectedId, {
               expectedDraftRevisionId,
+              reviewerUserId: approvalReviewerUserId,
             })
             break
           case "approve_draft":
@@ -670,6 +716,18 @@ export function ReleaseWorkflowLiveWorkspace({
                     value: selectedQueueItem?.approvalLabel ?? "Unknown",
                   },
                   {
+                    label: "Assigned reviewer",
+                    value:
+                      selectedWorkflow?.approvalSummary.ownerName ??
+                      (selectedWorkflow?.approvalSummary.ownerUserId ? "Unknown reviewer" : "Not assigned"),
+                  },
+                  {
+                    label: "Requested by",
+                    value:
+                      selectedWorkflow?.approvalSummary.requestedByName ??
+                      (selectedWorkflow?.approvalSummary.requestedByUserId ? "Unknown requester" : "Not requested"),
+                  },
+                  {
                     label: "Publish pack",
                     value: selectedQueueItem?.publishPackLabel ?? "Unknown",
                   },
@@ -684,25 +742,79 @@ export function ReleaseWorkflowLiveWorkspace({
               {actionError ? (
                 <p className="mb-3 text-sm text-destructive">{actionError}</p>
               ) : null}
-              <div className="flex flex-wrap gap-2">
-                {(selectedWorkflow?.allowedActions ?? []).map((action, index) => (
-                  <Button
-                    key={action}
-                    variant={index === 0 ? "default" : "outline"}
-                    size="sm"
-                    disabled={isRunningAction}
-                    onClick={() => {
-                      void runWorkflowAction(action)
-                    }}
-                  >
-                    {actionButtonLabels[action]}
-                  </Button>
-                ))}
-                {(selectedWorkflow?.allowedActions ?? []).length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No workflow commands are available for the selected record right now.
-                  </p>
+              <div className="grid gap-3">
+                {canRequestApproval ? (
+                  <div className="grid gap-2 rounded-xl border border-border/70 bg-muted/20 p-3">
+                    <Label htmlFor="approval-reviewer" className="text-sm font-medium">
+                      Assign reviewer
+                    </Label>
+                    <Select
+                      value={approvalReviewerUserId}
+                      onValueChange={(value) => {
+                        setApprovalReviewerUserId(value ?? "")
+                      }}
+                      disabled={members.length === 0 || membersUnavailable}
+                    >
+                      <SelectTrigger id="approval-reviewer">
+                        <SelectValue
+                          placeholder={
+                            membersUnavailable
+                              ? "Reviewer roster is unavailable"
+                              : members.length === 0
+                                ? "No workspace members available"
+                                : "Choose a reviewer"
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {members.map((member) => (
+                          <SelectItem key={member.user.id} value={member.user.id}>
+                            {getWorkspaceMemberLabel(member)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-xs text-muted-foreground">
+                        {membersUnavailable
+                          ? "Reload the release workflow once the reviewer roster is available."
+                          : members.length === 0
+                            ? "Add a workspace member before routing approval."
+                            : "Approval becomes a concrete handoff once a reviewer is assigned."}
+                      </p>
+                      <Button
+                        size="sm"
+                        disabled={isRunningAction || !approvalReviewerUserId || membersUnavailable || members.length === 0}
+                        onClick={() => {
+                          void runWorkflowAction("request_approval")
+                        }}
+                      >
+                        {actionButtonLabels.request_approval}
+                      </Button>
+                    </div>
+                  </div>
                 ) : null}
+
+                <div className="flex flex-wrap gap-2">
+                  {otherActions.map((action, index) => (
+                    <Button
+                      key={action}
+                      variant={!canRequestApproval && index === 0 ? "default" : "outline"}
+                      size="sm"
+                      disabled={isRunningAction}
+                      onClick={() => {
+                        void runWorkflowAction(action)
+                      }}
+                    >
+                      {actionButtonLabels[action]}
+                    </Button>
+                  ))}
+                  {!canRequestApproval && otherActions.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No workflow commands are available for the selected record right now.
+                    </p>
+                  ) : null}
+                </div>
               </div>
               <div className="mt-4">
                 <BulletList items={(selectedWorkflow?.allowedActions ?? []).map(getReleaseWorkflowActionLabel)} />

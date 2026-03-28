@@ -5,7 +5,7 @@ import { Hono } from "hono"
 
 import { createApp } from "../src/app.js"
 import type { AuthService, AuthSession } from "../src/auth/service.js"
-import { createFoundationService } from "../src/foundation/service.js"
+import { createFoundationService, type FoundationService } from "../src/foundation/service.js"
 import { createInMemoryFoundationStore } from "../src/foundation/store.js"
 import type { GitHubInstallationService } from "../src/github/installation.js"
 import { createWorkspacesRoute } from "../src/routes/workspaces.js"
@@ -166,6 +166,100 @@ test("workspace routes create integrations and sync runs", async () => {
   assert.equal(snapshotBody.integrations.length, 1)
   assert.equal(snapshotBody.syncRuns.length, 1)
   assert.equal(snapshotBody.syncRuns[0]?.scope, "repo:qyinm/pulsenote compare:main...HEAD")
+})
+
+test("workspace routes expose the member roster for an authenticated workspace", async () => {
+  const foundationStore = createInMemoryFoundationStore()
+  const foundationService = createFoundationService(foundationStore)
+  const bootstrap = await foundationService.bootstrapWorkspace({
+    user: {
+      email: "owner@pulsenote.dev",
+      fullName: "Owner User",
+    },
+    workspace: {
+      name: "Member roster workspace",
+      slug: "member-roster-workspace",
+    },
+  })
+  const reviewer = await foundationStore.createUser({
+    email: "reviewer@pulsenote.dev",
+    fullName: "Reviewer User",
+  })
+  await foundationStore.createWorkspaceMembership({
+    role: "member",
+    userId: reviewer.id,
+    workspaceId: bootstrap.workspace.id,
+  })
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(bootstrap.user.id)),
+    foundationService,
+  })
+
+  const response = await app.request(`/v1/workspaces/${bootstrap.workspace.id}/members`)
+
+  assert.equal(response.status, 200)
+  assert.deepEqual(await response.json(), [
+    {
+      membership: {
+        createdAt: bootstrap.membership.createdAt,
+        id: bootstrap.membership.id,
+        role: "owner",
+        userId: bootstrap.user.id,
+        workspaceId: bootstrap.workspace.id,
+      },
+      user: {
+        email: "owner@pulsenote.dev",
+        fullName: "Owner User",
+        id: bootstrap.user.id,
+      },
+    },
+    {
+      membership: {
+        createdAt: (await foundationStore.findWorkspaceMembership(bootstrap.workspace.id, reviewer.id))!.createdAt,
+        id: (await foundationStore.findWorkspaceMembership(bootstrap.workspace.id, reviewer.id))!.id,
+        role: "member",
+        userId: reviewer.id,
+        workspaceId: bootstrap.workspace.id,
+      },
+      user: {
+        email: "reviewer@pulsenote.dev",
+        fullName: "Reviewer User",
+        id: reviewer.id,
+      },
+    },
+  ])
+})
+
+test("workspace member roster route returns 500 for unexpected failures", async () => {
+  const app = new Hono()
+  const foundationService = {
+    async assertWorkspaceAccess() {
+      return {
+        createdAt: "2026-03-20T00:00:00.000Z",
+        id: "membership_1",
+        role: "owner" as const,
+        userId: "user_1",
+        workspaceId: "workspace_1",
+      }
+    },
+    async listWorkspaceMembers() {
+      throw new Error("database unavailable")
+    },
+  } as unknown as FoundationService
+
+  app.use("*", async (context, next) => {
+    context.set("authUser", createAuthenticatedSession("user_1").user)
+    await next()
+  })
+  app.route("/v1/workspaces", createWorkspacesRoute(foundationService))
+
+  const response = await app.request("/v1/workspaces/workspace_1/members")
+
+  assert.equal(response.status, 500)
+  assert.deepEqual(await response.json(), {
+    message: "database unavailable",
+    status: 500,
+  })
 })
 
 test("workspace routes manage the GitHub intake connection for an authenticated workspace", async () => {

@@ -14,6 +14,7 @@ import {
   sourceLinks,
   users,
   workflowEvents,
+  workspaceMemberships,
 } from "../db/schema.js"
 import type {
   ClaimCandidate,
@@ -248,6 +249,17 @@ export function createPostgresReleaseWorkflowStore(
       }
 
       await db.delete(draftClaimCheckResults).where(eq(draftClaimCheckResults.draftRevisionId, draftRevisionId))
+    },
+
+    async findWorkspaceMembership(workspaceId, userId) {
+      return (
+        (await db.query.workspaceMemberships.findFirst({
+          where: and(
+            eq(workspaceMemberships.userId, userId),
+            eq(workspaceMemberships.workspaceId, workspaceId),
+          ),
+        })) ?? null
+      )
     },
 
     async getDraftRevision(draftRevisionId: string) {

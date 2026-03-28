@@ -43,6 +43,13 @@ function notFound(message: string) {
   } as const
 }
 
+function internalServerError(message: string) {
+  return {
+    message,
+    status: 500,
+  } as const
+}
+
 export function createWorkspacesRoute(
   foundationService: FoundationService,
   githubSyncService?: GitHubSyncService,
@@ -279,6 +286,29 @@ export function createWorkspacesRoute(
     } catch (error) {
       const message = error instanceof Error ? error.message : "Workspace was not found"
       return context.json(notFound(message), 404)
+    }
+  })
+
+  route.get("/:workspaceId/members", async (context) => {
+    try {
+      const members = await foundationService.listWorkspaceMembers(context.req.param("workspaceId"))
+      return context.json(
+        members.map((member) => ({
+          membership: member.membership,
+          user: {
+            email: member.user.email,
+            fullName: member.user.fullName,
+            id: member.user.id,
+          },
+        })),
+      )
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Workspace members were not found"
+      if (message.includes("was not found")) {
+        return context.json(notFound(message), 404)
+      }
+
+      return context.json(internalServerError(message), 500)
     }
   })
 

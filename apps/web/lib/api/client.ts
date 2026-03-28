@@ -144,7 +144,10 @@ const workflowClaimCheckSummarySchema = z.object({
 const workflowApprovalSummarySchema = z.object({
   draftRevisionId: z.string().nullable(),
   note: z.string().nullable(),
+  ownerName: z.string().nullable(),
   ownerUserId: z.string().nullable(),
+  requestedByName: z.string().nullable(),
+  requestedByUserId: z.string().nullable(),
   state: approvalStateSchema,
   updatedAt: z.string().nullable(),
 })
@@ -298,6 +301,15 @@ const workspaceChoiceSchema = z.object({
   }),
 })
 
+const workspaceMemberSchema = z.object({
+  membership: workspaceChoiceSchema.shape.membership,
+  user: z.object({
+    email: z.string().email(),
+    fullName: z.string().nullable(),
+    id: z.string(),
+  }),
+})
+
 const githubInstallUrlSchema = z.object({
   url: z.string().url(),
 })
@@ -391,6 +403,7 @@ export type ReleaseWorkflowHistoryEntry = z.infer<typeof releaseWorkflowHistoryE
 export type ReleaseWorkflowListItem = z.infer<typeof releaseWorkflowListItemSchema>
 export type WorkflowAllowedAction = z.infer<typeof workflowAllowedActionSchema>
 export type WorkspaceChoice = z.infer<typeof workspaceChoiceSchema>
+export type WorkspaceMember = z.infer<typeof workspaceMemberSchema>
 export type WorkspaceSnapshot = z.infer<typeof workspaceSnapshotSchema>
 
 type CreateApiClientOptions = {
@@ -412,6 +425,10 @@ type CreateReleaseWorkflowDraftPayload = {
 type ReleaseWorkflowDraftCommandPayload = {
   expectedDraftRevisionId: string
   note?: string
+}
+
+type ReleaseWorkflowApprovalCommandPayload = ReleaseWorkflowDraftCommandPayload & {
+  reviewerUserId: string
 }
 
 export class ApiError extends Error {
@@ -565,6 +582,13 @@ export function createApiClient(options: CreateApiClientOptions = {}) {
     listWorkspaceChoices(init?: RequestInit) {
       return request("/v1/workspaces/choices", z.array(workspaceChoiceSchema), init)
     },
+    listWorkspaceMembers(workspaceId: string, init?: RequestInit) {
+      return request(
+        `/v1/workspaces/${encodeURIComponent(workspaceId)}/members`,
+        z.array(workspaceMemberSchema),
+        init,
+      )
+    },
     listGitHubInstallationRepositories(
       workspaceId: string,
       installationId: string,
@@ -689,7 +713,7 @@ export function createApiClient(options: CreateApiClientOptions = {}) {
     requestReleaseWorkflowApproval(
       workspaceId: string,
       releaseRecordId: string,
-      payload: ReleaseWorkflowDraftCommandPayload,
+      payload: ReleaseWorkflowApprovalCommandPayload,
       init?: RequestInit,
     ) {
       return request(

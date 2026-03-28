@@ -51,7 +51,10 @@ export type ClaimCheckSummary = {
 export type ApprovalSummary = {
   draftRevisionId: string | null
   note: string | null
+  ownerName: string | null
   ownerUserId: string | null
+  requestedByName: string | null
+  requestedByUserId: string | null
   state: ApprovalState
   updatedAt: string | null
 }
@@ -139,4 +142,8 @@ export type DraftScopedCommandInput = {
   note?: string
   releaseRecordId: string
   workspaceId: string
+}
+
+export type RequestApprovalInput = DraftScopedCommandInput & {
+  reviewerUserId: string
 }

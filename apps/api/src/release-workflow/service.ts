@@ -17,6 +17,7 @@ import type {
   ReleaseWorkflowDetail,
   ReleaseWorkflowHistoryEntry,
   ReleaseWorkflowListItem,
+  RequestApprovalInput,
   WorkflowAllowedAction,
   WorkflowReadiness,
 } from "./models.js"
@@ -90,6 +91,27 @@ export class ApprovalRequestRequiredError extends Error {
   constructor() {
     super("Approval must be requested before this draft can be approved")
     this.name = "ApprovalRequestRequiredError"
+  }
+}
+
+export class ReviewerAssignmentRequiredError extends Error {
+  constructor() {
+    super("Select a workspace reviewer before requesting approval")
+    this.name = "ReviewerAssignmentRequiredError"
+  }
+}
+
+export class ReviewerAssignmentNotAllowedError extends Error {
+  constructor(reviewerUserId: string, workspaceId: string) {
+    super(`Reviewer ${reviewerUserId} does not belong to workspace ${workspaceId}`)
+    this.name = "ReviewerAssignmentNotAllowedError"
+  }
+}
+
+export class ReviewerApprovalRequiredError extends Error {
+  constructor() {
+    super("Only the assigned reviewer can approve this draft")
+    this.name = "ReviewerApprovalRequiredError"
   }
 }
 
@@ -273,6 +295,33 @@ function getLatestApprovalEventForDraft(workflowEvents: WorkflowEvent[], draftRe
     })[0] ?? null
 }
 
+function getLatestApprovalRequestEventForDraft(
+  workflowEvents: WorkflowEvent[],
+  draftRevisionId: string | null,
+) {
+  if (!draftRevisionId) {
+    return null
+  }
+
+  let latestApprovalRequestEvent: WorkflowEvent | null = null
+
+  for (const workflowEvent of workflowEvents) {
+    if (workflowEvent.draftRevisionId !== draftRevisionId || workflowEvent.type !== "approval_requested") {
+      continue
+    }
+
+    if (
+      !latestApprovalRequestEvent ||
+      workflowEvent.createdAt > latestApprovalRequestEvent.createdAt ||
+      workflowEvent.createdAt === latestApprovalRequestEvent.createdAt
+    ) {
+      latestApprovalRequestEvent = workflowEvent
+    }
+  }
+
+  return latestApprovalRequestEvent
+}
+
 function buildClaimCheckSummary(
   currentDraft: Pick<DraftRevision, "id"> | null,
   claimCheckResults: DraftClaimCheckResult[],
@@ -311,25 +360,37 @@ function buildApprovalSummary(
   currentDraft: Pick<DraftRevision, "id"> | null,
   reviewStatusesByStage: Partial<Record<ReviewStatus["stage"], ReviewStatus>>,
   workflowEvents: WorkflowEvent[],
+  userById: Map<string, User>,
 ): ApprovalSummary {
   if (!currentDraft) {
     return {
       draftRevisionId: null,
       note: null,
+      ownerName: null,
       ownerUserId: null,
+      requestedByName: null,
+      requestedByUserId: null,
       state: "not_requested",
       updatedAt: null,
     }
   }
 
   const latestApprovalEvent = getLatestApprovalEventForDraft(workflowEvents, currentDraft.id)
+  const latestApprovalRequestEvent = getLatestApprovalRequestEventForDraft(workflowEvents, currentDraft.id)
   const approvalReviewStatus = reviewStatusesByStage.approval ?? null
+  const ownerId = approvalReviewStatus?.ownerUserId
+  const owner = ownerId ? userById.get(ownerId) ?? null : null
+  const requesterId = latestApprovalRequestEvent?.actorUserId
+  const requestedBy = requesterId ? userById.get(requesterId) ?? null : null
 
   if (!latestApprovalEvent) {
     return {
       draftRevisionId: currentDraft.id,
       note: null,
+      ownerName: null,
       ownerUserId: null,
+      requestedByName: null,
+      requestedByUserId: null,
       state: "not_requested",
       updatedAt: null,
     }
@@ -339,7 +400,10 @@ function buildApprovalSummary(
     return {
       draftRevisionId: currentDraft.id,
       note: latestApprovalEvent.note,
+      ownerName: buildHistoryActorName(owner),
       ownerUserId: approvalReviewStatus?.ownerUserId ?? null,
+      requestedByName: buildHistoryActorName(requestedBy),
+      requestedByUserId: latestApprovalRequestEvent?.actorUserId ?? null,
       state: "reopened",
       updatedAt: latestApprovalEvent.createdAt,
     }
@@ -349,7 +413,10 @@ function buildApprovalSummary(
     return {
       draftRevisionId: currentDraft.id,
       note: approvalReviewStatus?.note ?? latestApprovalEvent.note,
+      ownerName: buildHistoryActorName(owner),
       ownerUserId: approvalReviewStatus?.ownerUserId ?? null,
+      requestedByName: buildHistoryActorName(requestedBy),
+      requestedByUserId: latestApprovalRequestEvent?.actorUserId ?? null,
       state: "approved",
       updatedAt: approvalReviewStatus?.updatedAt ?? latestApprovalEvent.createdAt,
     }
@@ -358,7 +425,10 @@ function buildApprovalSummary(
   return {
     draftRevisionId: currentDraft.id,
     note: approvalReviewStatus?.note ?? latestApprovalEvent.note,
+    ownerName: buildHistoryActorName(owner),
     ownerUserId: approvalReviewStatus?.ownerUserId ?? null,
+    requestedByName: buildHistoryActorName(requestedBy),
+    requestedByUserId: latestApprovalRequestEvent?.actorUserId ?? null,
     state: "pending",
     updatedAt: approvalReviewStatus?.updatedAt ?? latestApprovalEvent.createdAt,
   }
@@ -480,6 +550,7 @@ function buildBaseRecord(input: {
 function buildWorkflowDetailFromBaseRecord(
   baseRecord: ReleaseWorkflowBaseRecord,
   workflowEvents: WorkflowEvent[],
+  userById: Map<string, User>,
 ): ReleaseWorkflowDetail {
   const claimCheckSummary = buildClaimCheckSummary(
     baseRecord.currentDraft,
@@ -489,6 +560,7 @@ function buildWorkflowDetailFromBaseRecord(
     baseRecord.currentDraft,
     baseRecord.reviewStatusesByStage,
     workflowEvents,
+    userById,
   )
   const publishPackSummary = buildPublishPackSummary(
     baseRecord.currentDraft,
@@ -643,6 +715,26 @@ function buildHistoryActorName(user: User | null | undefined) {
 
   const fullName = user.fullName?.trim()
   return fullName && fullName.length > 0 ? fullName : user.email
+}
+
+function collectWorkflowUserIds(
+  releaseSnapshots: ReleaseRecordSnapshot[],
+  workflowEvents: WorkflowEvent[],
+) {
+  return Array.from(
+    new Set(
+      [
+        ...releaseSnapshots.flatMap((releaseSnapshot) =>
+          releaseSnapshot.reviewStatuses
+            .map((reviewStatus) => reviewStatus.ownerUserId)
+            .filter((ownerUserId): ownerUserId is string => ownerUserId !== null),
+        ),
+        ...workflowEvents
+          .map((workflowEvent) => workflowEvent.actorUserId)
+          .filter((actorUserId): actorUserId is string => actorUserId !== null),
+      ],
+    ),
+  )
 }
 
 function buildClaimCheckSummaryByDraftRevisionId(
@@ -857,6 +949,7 @@ export function createReleaseWorkflowService(
         store.listLatestPublishPackExportsByReleaseRecordIds(releaseRecordIds),
         store.listWorkflowEventsByReleaseRecordIds(releaseRecordIds),
       ])
+      const users = await store.listUsersByIds(collectWorkflowUserIds(releaseSnapshots, workflowEvents))
       const latestDraftByReleaseRecordId = new Map(
         latestDrafts.map((draftRevision) => [draftRevision.releaseRecordId, draftRevision]),
       )
@@ -870,6 +963,7 @@ export function createReleaseWorkflowService(
         releaseWorkflowEvents.push(workflowEvent)
         workflowEventsByReleaseRecordId.set(workflowEvent.releaseRecordId, releaseWorkflowEvents)
       }
+      const userById = new Map(users.map((user) => [user.id, user]))
 
       const currentDraftIds = latestDrafts.map((draftRevision) => draftRevision.id)
       const claimCheckResults =
@@ -895,6 +989,7 @@ export function createReleaseWorkflowService(
             releaseSnapshot,
           }),
           workflowEventsByReleaseRecordId.get(releaseSnapshot.releaseRecord.id) ?? [],
+          userById,
         )
 
         return detailToListItem(
@@ -908,7 +1003,14 @@ export function createReleaseWorkflowService(
       releaseRecordId: string,
     ): Promise<ReleaseWorkflowDetail> {
       const resources = await getWorkflowResources(store, workspaceId, releaseRecordId)
-      const detail = buildWorkflowDetailFromBaseRecord(resources.baseRecord, resources.workflowEvents)
+      const users = await store.listUsersByIds(
+        collectWorkflowUserIds([resources.releaseSnapshot], resources.workflowEvents),
+      )
+      const detail = buildWorkflowDetailFromBaseRecord(
+        resources.baseRecord,
+        resources.workflowEvents,
+        new Map(users.map((user) => [user.id, user])),
+      )
 
       return withClaimCheckItems(detail, resources.claimCheckResults)
     },
@@ -1033,8 +1135,18 @@ export function createReleaseWorkflowService(
       return service.getReleaseWorkflowDetail(input.workspaceId, input.releaseRecordId)
     },
 
-    async requestApproval(input: DraftScopedCommandInput): Promise<ReleaseWorkflowDetail> {
+    async requestApproval(input: RequestApprovalInput): Promise<ReleaseWorkflowDetail> {
       const resources = await getWorkflowResources(store, input.workspaceId, input.releaseRecordId)
+
+      if (!input.reviewerUserId.trim()) {
+        throw new ReviewerAssignmentRequiredError()
+      }
+
+      const reviewerMembership = await store.findWorkspaceMembership(input.workspaceId, input.reviewerUserId)
+
+      if (!reviewerMembership) {
+        throw new ReviewerAssignmentNotAllowedError(input.reviewerUserId, input.workspaceId)
+      }
 
       if (resources.releaseSnapshot.releaseRecord.stage === "draft") {
         assertExpectedDraftRevision(resources.currentDraft, input.expectedDraftRevisionId)
@@ -1067,7 +1179,7 @@ export function createReleaseWorkflowService(
       await store.transaction(async (transactionStore) => {
         await transactionStore.upsertReviewStatus({
           note: input.note ?? "Approval requested for the current draft",
-          ownerUserId: input.actorUserId,
+          ownerUserId: input.reviewerUserId,
           releaseRecordId: input.releaseRecordId,
           stage: "approval",
           state: "pending",
@@ -1103,10 +1215,15 @@ export function createReleaseWorkflowService(
         resources.currentDraft,
         resources.baseRecord.reviewStatusesByStage,
         resources.workflowEvents,
+        new Map(),
       )
 
       if (approvalSummary.state !== "pending") {
         throw new ApprovalRequestRequiredError()
+      }
+
+      if (!input.actorUserId || (approvalSummary.ownerUserId && approvalSummary.ownerUserId !== input.actorUserId)) {
+        throw new ReviewerApprovalRequiredError()
       }
 
       await store.transaction(async (transactionStore) => {
@@ -1187,6 +1304,7 @@ export function createReleaseWorkflowService(
         resources.currentDraft,
         resources.baseRecord.reviewStatusesByStage,
         resources.workflowEvents,
+        new Map(),
       )
 
       if (approvalSummary.state !== "approved") {

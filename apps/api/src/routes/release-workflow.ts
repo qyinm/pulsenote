@@ -9,6 +9,9 @@ import {
   DraftRevisionNotFoundError,
   InvalidStageTransitionError,
   ReleaseWorkflowNotFoundError,
+  ReviewerApprovalRequiredError,
+  ReviewerAssignmentNotAllowedError,
+  ReviewerAssignmentRequiredError,
   StaleDraftRevisionError,
   type ReleaseWorkflowService,
 } from "../release-workflow/service.js"
@@ -74,6 +77,8 @@ function mapWorkflowError(error: unknown) {
     error instanceof ClaimCheckRequiredError ||
     error instanceof ClaimCheckBlockedError ||
     error instanceof ApprovalRequestRequiredError ||
+    error instanceof ReviewerAssignmentRequiredError ||
+    error instanceof ReviewerAssignmentNotAllowedError ||
     error instanceof ApprovedDraftRequiredError
   ) {
     return {
@@ -82,6 +87,16 @@ function mapWorkflowError(error: unknown) {
         status: 422,
       },
       status: 422,
+    } as const
+  }
+
+  if (error instanceof ReviewerApprovalRequiredError) {
+    return {
+      body: {
+        message: error.message,
+        status: 403,
+      },
+      status: 403,
     } as const
   }
 
@@ -227,7 +242,46 @@ export function createReleaseWorkflowRoute(releaseWorkflowService: ReleaseWorkfl
     runDraftCommand(context, (input) => releaseWorkflowService.runClaimCheck(input)),
   )
   route.post("/:releaseRecordId/request-approval", async (context) =>
-    runDraftCommand(context, (input) => releaseWorkflowService.requestApproval(input)),
+    {
+      const { error, payload } = await parseOptionalJsonRecord(context)
+
+      if (error) {
+        return context.json(error, error.status)
+      }
+
+      const expectedDraftRevisionId =
+        asOptionalString(payload?.expectedDraftRevisionId)?.trim() ?? null
+      const reviewerUserId = asOptionalString(payload?.reviewerUserId)?.trim() ?? null
+
+      if (!expectedDraftRevisionId) {
+        return context.json(badRequest("expectedDraftRevisionId is required"), 400)
+      }
+
+      if (!reviewerUserId) {
+        return context.json(badRequest("reviewerUserId is required"), 400)
+      }
+
+      try {
+        const response = await releaseWorkflowService.requestApproval({
+          actorUserId: context.get("authUser")?.id ?? null,
+          expectedDraftRevisionId,
+          note: asOptionalString(payload?.note) ?? undefined,
+          releaseRecordId: getRouteParam(context, "releaseRecordId"),
+          reviewerUserId,
+          workspaceId: getRouteParam(context, "workspaceId"),
+        })
+
+        return context.json(response)
+      } catch (routeError) {
+        const mappedError = mapWorkflowError(routeError)
+
+        if (mappedError) {
+          return context.json(mappedError.body, mappedError.status)
+        }
+
+        throw routeError
+      }
+    },
   )
   route.post("/:releaseRecordId/approve", async (context) =>
     runDraftCommand(context, (input) => releaseWorkflowService.approveDraft(input)),

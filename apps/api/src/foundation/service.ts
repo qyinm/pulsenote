@@ -75,6 +75,11 @@ type SelectCurrentWorkspaceInput = {
   workspaceId: string
 }
 
+export type WorkspaceMemberRecord = {
+  membership: WorkspaceMembership
+  user: User
+}
+
 export type FoundationService = ReturnType<typeof createFoundationService>
 
 export class CurrentWorkspaceNotFoundError extends Error {
@@ -409,6 +414,38 @@ export function createFoundationService(store: FoundationStore) {
       )
 
       return choices.filter((choice): choice is WorkspaceChoice => choice !== null)
+    },
+
+    async listWorkspaceMembers(workspaceId: string): Promise<WorkspaceMemberRecord[]> {
+      requireNonEmpty(workspaceId, "workspaceId")
+
+      const snapshot = await this.getWorkspaceSnapshot(workspaceId)
+      const members = await Promise.all(
+        snapshot.memberships.map(async (membership) => {
+          const user = await store.getUser(membership.userId)
+
+          if (!user) {
+            return null
+          }
+
+          return {
+            membership,
+            user,
+          } satisfies WorkspaceMemberRecord
+        }),
+      )
+
+      return members
+        .filter((member): member is WorkspaceMemberRecord => member !== null)
+        .sort((left, right) => {
+          if (left.membership.role !== right.membership.role) {
+            return left.membership.role === "owner" ? -1 : 1
+          }
+
+          const leftName = (left.user.fullName ?? left.user.email).toLowerCase()
+          const rightName = (right.user.fullName ?? right.user.email).toLowerCase()
+          return leftName.localeCompare(rightName)
+        })
     },
 
     async selectCurrentWorkspaceForUser(input: SelectCurrentWorkspaceInput): Promise<WorkspaceSnapshot> {

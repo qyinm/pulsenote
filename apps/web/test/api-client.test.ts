@@ -76,7 +76,10 @@ function createReleaseWorkflowDetailPayload() {
     approvalSummary: {
       draftRevisionId: "draft_1",
       note: null,
+      ownerName: null,
       ownerUserId: null,
+      requestedByName: null,
+      requestedByUserId: null,
       state: "not_requested",
       updatedAt: null,
     },
@@ -119,6 +122,17 @@ function createReleaseWorkflowDetailPayload() {
     releaseRecord: createReleaseRecordSnapshotPayload().releaseRecord,
     reviewStatuses: createReleaseRecordSnapshotPayload().reviewStatuses,
     sourceLinks: createReleaseRecordSnapshotPayload().sourceLinks,
+  }
+}
+
+function createWorkspaceMemberPayload() {
+  return {
+    membership: createWorkspaceSnapshotPayload().memberships[0],
+    user: {
+      email: "owner@pulsenote.dev",
+      fullName: "Owner User",
+      id: "user_1",
+    },
   }
 }
 
@@ -185,6 +199,10 @@ test("api client sends credentialed requests to session, workspace, and release 
         return Response.json(createWorkspaceSnapshotPayload())
       }
 
+      if (String(input).endsWith("/members")) {
+        return Response.json([createWorkspaceMemberPayload()])
+      }
+
       if (String(input).includes("/release-records/")) {
         return Response.json(createReleaseRecordSnapshotPayload())
       }
@@ -199,6 +217,7 @@ test("api client sends credentialed requests to session, workspace, and release 
 
   await client.getSession()
   await client.getCurrentWorkspace()
+  await client.listWorkspaceMembers("workspace 1")
   await client.listReleaseRecords("workspace 1")
   await client.getReleaseRecord("workspace 1", "release/2")
 
@@ -207,6 +226,7 @@ test("api client sends credentialed requests to session, workspace, and release 
     [
       "https://api.pulsenotes.xyz/v1/session",
       "https://api.pulsenotes.xyz/v1/workspaces/current",
+      "https://api.pulsenotes.xyz/v1/workspaces/workspace%201/members",
       "https://api.pulsenotes.xyz/v1/workspaces/workspace%201/release-records",
       "https://api.pulsenotes.xyz/v1/workspaces/workspace%201/release-records/release%2F2",
     ],
@@ -307,6 +327,7 @@ test("api client sends workflow command requests with encoded payloads", async (
   })
   await client.requestReleaseWorkflowApproval("workspace_1", "release_1", {
     expectedDraftRevisionId: "draft_1",
+    reviewerUserId: "user_2",
   })
   await client.approveReleaseWorkflowDraft("workspace_1", "release_1", {
     expectedDraftRevisionId: "draft_1",
@@ -337,7 +358,7 @@ test("api client sends workflow command requests with encoded payloads", async (
         url: "https://api.pulsenotes.xyz/v1/workspaces/workspace_1/release-workflow/release_1/claim-check",
       },
       {
-        body: JSON.stringify({ expectedDraftRevisionId: "draft_1" }),
+        body: JSON.stringify({ expectedDraftRevisionId: "draft_1", reviewerUserId: "user_2" }),
         method: "POST",
         url: "https://api.pulsenotes.xyz/v1/workspaces/workspace_1/release-workflow/release_1/request-approval",
       },
