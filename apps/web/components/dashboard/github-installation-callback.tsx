@@ -115,6 +115,20 @@ export function GitHubInstallationCallback({
       <div className="grid gap-4">
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Loading repositories from the GitHub installation.</p>
+        ) : repositories.length === 0 ? (
+          <div className="grid gap-3">
+            <p className="text-sm text-destructive">
+              No repositories are available for this installation. Grant this installation access to a repository and try again.
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <a
+                href="/dashboard/release-context"
+                className={buttonVariants({ size: "sm", variant: "outline" })}
+              >
+                Back to release context
+              </a>
+            </div>
+          </div>
         ) : (
           <>
             <Select value={selectedRepository} onValueChange={(value) => setSelectedRepository(value ?? "")}>

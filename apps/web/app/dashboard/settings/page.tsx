@@ -6,6 +6,7 @@ import {
   ShieldCheckIcon,
 } from "lucide-react"
 
+import { DashboardAccessState } from "@/components/dashboard/dashboard-access-state"
 import { GitHubConnectionSettingsCard } from "@/components/dashboard/github-connection-settings-card"
 import {
   DashboardPage,
@@ -81,13 +82,26 @@ export default async function SettingsPage() {
   const accessState = await resolveDashboardAccessState(requestHeaders)
 
   if (accessState.kind !== "ready") {
-    return null
+    return <DashboardAccessState state={accessState.kind} />
   }
 
-  const githubState = await getServerReleaseContextGitHubState(
-    requestHeaders,
-    accessState.workspace.workspace.id,
-  )
+  let githubState: Awaited<ReturnType<typeof getServerReleaseContextGitHubState>> = {
+    connection: null,
+    installUrl: null,
+  }
+  let githubStateError: string | null = null
+
+  try {
+    githubState = await getServerReleaseContextGitHubState(
+      requestHeaders,
+      accessState.workspace.workspace.id,
+    )
+  } catch (error) {
+    githubStateError =
+      error instanceof Error
+        ? error.message
+        : "GitHub connection settings could not be loaded from the authenticated API."
+  }
 
   return (
     <DashboardPage>
@@ -122,6 +136,15 @@ export default async function SettingsPage() {
           icon={FileCogIcon}
         />
       </MetricGrid>
+
+      {githubStateError ? (
+        <SurfaceCard
+          title="GitHub settings are unavailable"
+          description="The authenticated API request failed before PulseNote could load the current GitHub connection state."
+        >
+          <p className="text-sm text-muted-foreground">{githubStateError}</p>
+        </SurfaceCard>
+      ) : null}
 
       <GitHubConnectionSettingsCard
         initialGitHubConnection={githubState.connection}

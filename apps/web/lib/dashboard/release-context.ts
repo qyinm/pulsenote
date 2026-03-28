@@ -1,4 +1,4 @@
-import type { GitHubConnection, ReleaseRecordSnapshot } from "../api/client"
+import { ApiError, type GitHubConnection, type ReleaseRecordSnapshot } from "../api/client"
 import { createApiClient } from "../api/client"
 import { getForwardedAuthHeaders } from "../auth/headers"
 
@@ -64,12 +64,28 @@ export async function getServerReleaseContextGitHubState(
     headers: getForwardedAuthHeaders(requestHeaders),
   }
 
+  function normalizeConnectionError(error: unknown) {
+    if (error instanceof ApiError && error.status === 404) {
+      return null
+    }
+
+    throw error
+  }
+
+  function normalizeInstallUrlError(error: unknown) {
+    if (error instanceof ApiError && error.status === 503) {
+      return null
+    }
+
+    throw error
+  }
+
   const [connection, installUrl] = await Promise.all([
-    apiClient.getGitHubConnection(workspaceId, init).catch(() => null),
+    apiClient.getGitHubConnection(workspaceId, init).catch(normalizeConnectionError),
     apiClient
       .beginGitHubInstall(workspaceId, init)
       .then((result) => result.url)
-      .catch(() => null),
+      .catch(normalizeInstallUrlError),
   ])
 
   return {

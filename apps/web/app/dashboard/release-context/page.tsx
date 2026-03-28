@@ -1,5 +1,6 @@
 import { headers } from "next/headers"
 
+import { DashboardAccessState } from "@/components/dashboard/dashboard-access-state"
 import { ReleaseContextLiveWorkspace } from "@/components/dashboard/release-context-live-workspace"
 import { DashboardPage, SurfaceCard } from "@/components/dashboard/surfaces"
 import { resolveDashboardAccessState } from "@/lib/dashboard/access"
@@ -13,17 +14,21 @@ export default async function ReleaseContextPage() {
   const accessState = await resolveDashboardAccessState(requestHeaders)
 
   if (accessState.kind !== "ready") {
-    return null
+    return <DashboardAccessState state={accessState.kind} />
   }
 
   let releaseContextData: Awaited<ReturnType<typeof getServerReleaseContextData>> | null = null
-  const githubState = await getServerReleaseContextGitHubState(
-    requestHeaders,
-    accessState.workspace.workspace.id,
-  )
+  let githubState: Awaited<ReturnType<typeof getServerReleaseContextGitHubState>> = {
+    connection: null,
+    installUrl: null,
+  }
   let errorMessage: string | null = null
 
   try {
+    githubState = await getServerReleaseContextGitHubState(
+      requestHeaders,
+      accessState.workspace.workspace.id,
+    )
     releaseContextData = await getServerReleaseContextData(
       requestHeaders,
       accessState.workspace.workspace.id,
