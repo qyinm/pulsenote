@@ -1,20 +1,64 @@
+import { headers } from "next/headers"
 import {
   ArchiveIcon,
   RotateCcwIcon,
   ShieldCheckIcon,
-  TimerResetIcon,
+  ShieldAlertIcon,
 } from "lucide-react"
 
 import {
   DashboardPage,
   MetricCard,
   MetricGrid,
+  SurfaceCard,
 } from "@/components/dashboard/surfaces"
+import { DashboardAccessState } from "@/components/dashboard/dashboard-access-state"
 import { ReviewLogWorkspace } from "@/components/dashboard/review-log-workspace"
-import { reviewLogEntries } from "@/lib/dashboard"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { resolveDashboardAccessState } from "@/lib/dashboard/access"
+import {
+  buildReviewLogMetrics,
+  getServerReviewLogData,
+} from "@/lib/dashboard/review-log"
 
-export default function ReviewLogPage() {
+export default async function ReviewLogPage() {
+  const requestHeaders = await headers()
+  const accessState = await resolveDashboardAccessState(requestHeaders)
+
+  if (accessState.kind !== "ready") {
+    return <DashboardAccessState state={accessState.kind} />
+  }
+
+  let historyEntries: Awaited<ReturnType<typeof getServerReviewLogData>> = []
+  let errorMessage: string | null = null
+
+  try {
+    historyEntries = await getServerReviewLogData(
+      requestHeaders,
+      accessState.workspace.workspace.id,
+    )
+  } catch (error) {
+    errorMessage =
+      error instanceof Error
+        ? error.message
+        : "Review history could not be loaded from the authenticated API."
+  }
+
+  if (errorMessage) {
+    return (
+      <DashboardPage>
+        <SurfaceCard
+          title="Review log is unavailable"
+          description="The authenticated API request failed before the audit timeline could be rendered."
+        >
+          <p className="text-sm text-muted-foreground">{errorMessage}</p>
+        </SurfaceCard>
+      </DashboardPage>
+    )
+  }
+
+  const metrics = buildReviewLogMetrics(historyEntries)
+
   return (
     <DashboardPage>
       <Alert>
@@ -27,37 +71,37 @@ export default function ReviewLogPage() {
 
       <MetricGrid>
         <MetricCard
-          title="Decisions today"
-          value={String(reviewLogEntries.length)}
+          title="Logged decisions"
+          value={String(metrics.loggedDecisions)}
           detail="Visible audit trail"
           description="Every review action remains visible so wording changes stay accountable."
-          badge="Today"
+          badge="History"
           icon={ArchiveIcon}
         />
         <MetricCard
           title="Reopened items"
-          value="1"
+          value={String(metrics.reopenedItems)}
           detail="Needs another pass"
           description="Reopened records stay explicit instead of silently disappearing from the queue."
           icon={RotateCcwIcon}
         />
         <MetricCard
           title="Signed off"
-          value="2"
+          value={String(metrics.signedOffEvents)}
           detail="Cleared for next step"
           description="Signed-off decisions keep their timestamp and reviewer context intact for later export."
           icon={ShieldCheckIcon}
         />
         <MetricCard
-          title="Average resolution"
-          value="26m"
-          detail="From warning to update"
-          description="Operational timing helps the team spot where review friction is accumulating."
-          icon={TimerResetIcon}
+          title="Blocked events"
+          value={String(metrics.blockedEvents)}
+          detail="Requires another pass"
+          description="Blocked claim checks and reopened drafts stay visible until the record is made reviewable again."
+          icon={ShieldAlertIcon}
         />
       </MetricGrid>
 
-      <ReviewLogWorkspace />
+      <ReviewLogWorkspace entries={historyEntries} />
     </DashboardPage>
   )
 }

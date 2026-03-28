@@ -13,8 +13,7 @@ import {
   StampIcon,
 } from "lucide-react"
 
-import type { ReviewLogEntry } from "@/lib/dashboard"
-import { reviewLogEntries } from "@/lib/dashboard"
+import type { ReleaseWorkflowHistoryEntry } from "@/lib/api/client"
 import { BulletList, EmptyState, InlineList, SurfaceCard } from "@/components/dashboard/surfaces"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -24,93 +23,98 @@ import { cn } from "@/lib/utils"
 
 type LogView = "all" | "blocked" | "signed-off" | "revisions"
 
-type ReviewDetail = {
-  linkedEvidence: string[]
-  decisionContext: string[]
-  nextOwners: string[]
-}
-
-const reviewDetails: Record<string, ReviewDetail> = {
-  "log-1": {
-    linkedEvidence: ["SSO eligibility review", "Release rollout note"],
-    decisionContext: [
-      "Legal required a narrower rollout sentence before the release could enter approval.",
-      "The claim stayed visible in the queue instead of being silently rewritten later.",
-    ],
-    nextOwners: ["Grace Lee", "Legal"],
-  },
-  "log-2": {
-    linkedEvidence: ["Billing migration support brief"],
-    decisionContext: [
-      "Support timing and escalation details are now fully backed by the current brief.",
-      "This evidence attachment cleared the release for the next approval step.",
-    ],
-    nextOwners: ["Daniel Kim", "Support lead"],
-  },
-  "log-3": {
-    linkedEvidence: ["SDK rollout spec excerpt"],
-    decisionContext: [
-      "The release wording was narrowed to the staged rollout already proven in source material.",
-      "The claim remains in watch state until the next engineering update lands.",
-    ],
-    nextOwners: ["Mina Park", "PMM"],
-  },
-  "log-4": {
-    linkedEvidence: ["Audit log filter walkthrough", "Support guidance note"],
-    decisionContext: [
-      "Support confirmed the public guidance matches the current product behavior.",
-      "The signed-off state cleared the release for publish-pack assembly.",
-    ],
-    nextOwners: ["Noah Lim", "Support lead"],
-  },
-  "log-5": {
-    linkedEvidence: ["Incident remediation checklist"],
-    decisionContext: [
-      "The revision request preserved the missing workaround context in the audit trail.",
-      "Drafting cannot continue until the support path is linked to the record.",
-    ],
-    nextOwners: ["Chris Han", "Support lead"],
-  },
-}
-
-function matchesLogView(entry: ReviewLogEntry, view: LogView) {
+function matchesLogView(entry: ReleaseWorkflowHistoryEntry, view: LogView) {
   if (view === "blocked") {
-    return entry.outcome === "Blocked"
+    return entry.outcome === "blocked"
   }
 
   if (view === "signed-off") {
-    return entry.outcome === "Signed off"
+    return entry.outcome === "signed_off"
   }
 
   if (view === "revisions") {
-    return entry.action === "Requested revision" || entry.action === "Reworded claim"
+    return entry.outcome === "revision" || entry.eventType === "draft_reopened"
   }
 
   return true
 }
 
-function outcomeBadge(outcome: string) {
-  if (outcome === "Blocked") {
-    return <Badge variant="destructive">{outcome}</Badge>
+function outcomeLabel(outcome: ReleaseWorkflowHistoryEntry["outcome"]) {
+  switch (outcome) {
+    case "blocked":
+      return "Blocked"
+    case "progressed":
+      return "Progressed"
+    case "revision":
+      return "Revision"
+    case "signed_off":
+      return "Signed off"
   }
-
-  if (outcome === "Signed off" || outcome === "Ready") {
-    return <Badge variant="outline">{outcome}</Badge>
-  }
-
-  return <Badge variant="secondary">{outcome}</Badge>
 }
 
-export function ReviewLogWorkspace() {
+function outcomeBadge(outcome: ReleaseWorkflowHistoryEntry["outcome"]) {
+  const label = outcomeLabel(outcome)
+
+  if (outcome === "blocked") {
+    return <Badge variant="destructive">{label}</Badge>
+  }
+
+  if (outcome === "signed_off") {
+    return <Badge variant="outline">{label}</Badge>
+  }
+
+  return <Badge variant="secondary">{label}</Badge>
+}
+
+function formatTimestamp(value: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value))
+}
+
+function formatStageLabel(stage: ReleaseWorkflowHistoryEntry["stage"]) {
+  switch (stage) {
+    case "claim_check":
+      return "Claim check"
+    case "publish_pack":
+      return "Publish pack"
+    default:
+      return stage.charAt(0).toUpperCase() + stage.slice(1)
+  }
+}
+
+function buildDecisionContext(entry: ReleaseWorkflowHistoryEntry) {
+  const context = [
+    `${entry.eventLabel} moved the release through ${formatStageLabel(entry.stage).toLowerCase()} review.`,
+    `${entry.evidenceCount} evidence blocks and ${entry.sourceLinkCount} source links stayed attached to this record.`,
+  ]
+
+  if (entry.publishPackExportId) {
+    context.push(`Publish pack export ${entry.publishPackExportId} was frozen from this workflow step.`)
+  }
+
+  if (entry.note) {
+    context.push(entry.note)
+  }
+
+  return context
+}
+
+export function ReviewLogWorkspace({
+  entries,
+}: {
+  entries: ReleaseWorkflowHistoryEntry[]
+}) {
   const [query, setQuery] = useState("")
   const [view, setView] = useState<LogView>("all")
-  const [selectedId, setSelectedId] = useState(reviewLogEntries[0]?.id ?? "")
+  const [selectedId, setSelectedId] = useState(entries[0]?.id ?? "")
   const deferredQuery = useDeferredValue(query)
 
   const filteredEntries = useMemo(() => {
     const normalized = deferredQuery.trim().toLowerCase()
 
-    return reviewLogEntries.filter((entry) => {
+    return entries.filter((entry) => {
       if (!matchesLogView(entry, view)) {
         return false
       }
@@ -119,16 +123,22 @@ export function ReviewLogWorkspace() {
         return true
       }
 
-      return [entry.actor, entry.action, entry.entity, entry.outcome, entry.note]
+      return [
+        entry.actorName ?? "Unknown reviewer",
+        entry.eventLabel,
+        entry.note ?? "",
+        entry.releaseTitle,
+        formatStageLabel(entry.stage),
+        outcomeLabel(entry.outcome),
+      ]
         .join(" ")
         .toLowerCase()
         .includes(normalized)
     })
-  }, [deferredQuery, view])
+  }, [deferredQuery, entries, view])
 
   const selectedEntry =
     filteredEntries.find((entry) => entry.id === selectedId) ?? filteredEntries[0] ?? null
-  const selectedDetail = selectedEntry ? reviewDetails[selectedEntry.id] : null
 
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.95fr)]">
@@ -153,7 +163,7 @@ export function ReviewLogWorkspace() {
                         setQuery(nextValue)
                       })
                     }}
-                    placeholder="Search actor, release, outcome, or note"
+                    placeholder="Search reviewer, release, event, or note"
                     className="pl-9"
                   />
                 </div>
@@ -201,16 +211,18 @@ export function ReviewLogWorkspace() {
                         <div className="grid gap-1">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="text-sm font-medium text-foreground">
-                              {entry.action}
+                              {entry.eventLabel}
                             </span>
                             {outcomeBadge(entry.outcome)}
                           </div>
-                          <p className="text-sm text-foreground">{entry.entity}</p>
-                          <p className="text-sm text-muted-foreground">{entry.note}</p>
+                          <p className="text-sm text-foreground">{entry.releaseTitle}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {entry.note ?? "No reviewer note was stored for this event."}
+                          </p>
                         </div>
                         <div className="grid gap-1 text-sm text-muted-foreground lg:text-right">
-                          <span>{entry.actor}</span>
-                          <span>{entry.timestamp}</span>
+                          <span>{entry.actorName ?? "Unknown reviewer"}</span>
+                          <span>{formatTimestamp(entry.createdAt)}</span>
                         </div>
                       </div>
                     </button>
@@ -228,23 +240,33 @@ export function ReviewLogWorkspace() {
       </div>
 
       <div className="grid gap-4">
-        {selectedEntry && selectedDetail ? (
+        {selectedEntry ? (
           <>
             <SurfaceCard
               title="Selected decision"
-              description="A single audit event with its evidence context and next owner."
+              description="A single audit event with the release, draft, and evidence context that changed workflow state."
               action={outcomeBadge(selectedEntry.outcome)}
             >
               <div className="grid gap-4">
                 <InlineList
                   items={[
-                    { label: "Actor", value: selectedEntry.actor },
-                    { label: "Action", value: selectedEntry.action },
-                    { label: "Entity", value: selectedEntry.entity },
-                    { label: "Timestamp", value: selectedEntry.timestamp },
                     {
-                      label: "Next owners",
-                      value: selectedDetail.nextOwners.join(", "),
+                      label: "Actor",
+                      value: selectedEntry.actorName ?? "Unknown reviewer",
+                    },
+                    { label: "Action", value: selectedEntry.eventLabel },
+                    { label: "Release", value: selectedEntry.releaseTitle },
+                    { label: "Stage", value: formatStageLabel(selectedEntry.stage) },
+                    {
+                      label: "Draft",
+                      value:
+                        selectedEntry.draftVersion === null
+                          ? "No draft revision"
+                          : `Draft v${selectedEntry.draftVersion}`,
+                    },
+                    {
+                      label: "Timestamp",
+                      value: formatTimestamp(selectedEntry.createdAt),
                     },
                   ]}
                 />
@@ -253,24 +275,33 @@ export function ReviewLogWorkspace() {
 
             <SurfaceCard
               title="Why this entry changed workflow state"
-              description="The log keeps both the rationale and the release impact visible."
+              description="The audit log keeps both the release context and the human note visible."
             >
               <div className="grid gap-4">
-                <div className="flex flex-wrap gap-2">
-                  {selectedDetail.linkedEvidence.map((item) => (
-                    <Badge key={item} variant="secondary">
-                      {item}
-                    </Badge>
-                  ))}
-                </div>
-                <BulletList items={selectedDetail.decisionContext} />
+                <InlineList
+                  items={[
+                    {
+                      label: "Evidence blocks",
+                      value: String(selectedEntry.evidenceCount),
+                    },
+                    {
+                      label: "Source links",
+                      value: String(selectedEntry.sourceLinkCount),
+                    },
+                    {
+                      label: "Export",
+                      value: selectedEntry.publishPackExportId ?? "Not exported at this step",
+                    },
+                  ]}
+                />
+                <BulletList items={buildDecisionContext(selectedEntry)} />
               </div>
             </SurfaceCard>
           </>
         ) : (
           <EmptyState
-            title="Select an audit entry"
-            description="Pick an item from the log to inspect its linked evidence and follow-up owners."
+            title="No review history yet"
+            description="Run draft, claim check, approval, and publish-pack actions to build a visible audit trail."
           />
         )}
 
@@ -281,18 +312,18 @@ export function ReviewLogWorkspace() {
           <div className="grid gap-3">
             {[
               {
-                title: "Blocked this morning",
-                meta: "Escalations requiring legal or scope review",
+                title: "Blocked follow-up",
+                meta: "Claim checks and reopened drafts that still need another pass",
                 icon: ShieldAlertIcon,
               },
               {
-                title: "Signed off today",
-                meta: "Ready-to-export records with explicit decision history",
+                title: "Signed off",
+                meta: "Approved or exported records with explicit decision history",
                 icon: StampIcon,
               },
               {
                 title: "Recent revisions",
-                meta: "Wording changes made before approval restarts",
+                meta: "Draft creation and reopen events before approval resumes",
                 icon: Clock3Icon,
               },
             ].map((viewItem) => (
