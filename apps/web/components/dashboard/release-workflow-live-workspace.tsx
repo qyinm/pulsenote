@@ -167,7 +167,6 @@ function getWorkspaceMemberLabel(member: WorkspaceMember) {
 
 function getDefaultReviewerUserId(
   members: WorkspaceMember[],
-  currentUserId: string,
   selectedWorkflow: ReleaseWorkflowDetail | null,
 ) {
   const currentOwnerUserId = selectedWorkflow?.approvalSummary.ownerUserId
@@ -176,8 +175,7 @@ function getDefaultReviewerUserId(
     return currentOwnerUserId
   }
 
-  const firstNonCurrentMember = members.find((member) => member.user.id !== currentUserId)
-  return firstNonCurrentMember?.user.id ?? members[0]?.user.id ?? ""
+  return ""
 }
 
 function formatHistoryTimestamp(value: string) {
@@ -448,7 +446,6 @@ function buildModeFocus(detail: ReleaseWorkflowDetail | null, mode: ReleaseWorkf
 }
 
 export function ReleaseWorkflowLiveWorkspace({
-  currentUserId,
   initialMembers,
   initialMembersUnavailable,
   initialSelectedHistory,
@@ -461,8 +458,8 @@ export function ReleaseWorkflowLiveWorkspace({
 }: ReleaseWorkflowLiveWorkspaceProps) {
   const [selectedId, setSelectedId] = useState(initialSelectedId)
   const [workflow, setWorkflow] = useState(initialWorkflow)
-  const [members] = useState(initialMembers)
-  const [membersUnavailable] = useState(initialMembersUnavailable)
+  const members = initialMembers
+  const membersUnavailable = initialMembersUnavailable
   const loadSelectedWorkflowDetail = useCallback(
     (releaseRecordId: string) => createApiClient().getReleaseWorkflowDetail(workspaceId, releaseRecordId),
     [workspaceId],
@@ -515,8 +512,8 @@ export function ReleaseWorkflowLiveWorkspace({
   const canRequestApproval = (selectedWorkflow?.allowedActions ?? []).includes("request_approval")
 
   useEffect(() => {
-    setApprovalReviewerUserId(getDefaultReviewerUserId(members, currentUserId, selectedWorkflow))
-  }, [currentUserId, members, selectedWorkflow])
+    setApprovalReviewerUserId(getDefaultReviewerUserId(members, selectedWorkflow))
+  }, [members, selectedWorkflow])
 
   async function runWorkflowAction(action: WorkflowAllowedAction) {
     if (!selectedId || !selectedWorkflow) {

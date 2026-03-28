@@ -425,7 +425,10 @@ type CreateReleaseWorkflowDraftPayload = {
 type ReleaseWorkflowDraftCommandPayload = {
   expectedDraftRevisionId: string
   note?: string
-  reviewerUserId?: string
+}
+
+type ReleaseWorkflowApprovalCommandPayload = ReleaseWorkflowDraftCommandPayload & {
+  reviewerUserId: string
 }
 
 export class ApiError extends Error {
@@ -710,7 +713,7 @@ export function createApiClient(options: CreateApiClientOptions = {}) {
     requestReleaseWorkflowApproval(
       workspaceId: string,
       releaseRecordId: string,
-      payload: ReleaseWorkflowDraftCommandPayload,
+      payload: ReleaseWorkflowApprovalCommandPayload,
       init?: RequestInit,
     ) {
       return request(
