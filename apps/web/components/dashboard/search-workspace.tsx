@@ -8,30 +8,45 @@ import {
   useState,
 } from "react"
 
-import { searchResults } from "@/lib/dashboard"
+import type { LiveSearchResult } from "@/lib/search"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { buttonVariants } from "@/components/ui/button-variants"
 import { cn } from "@/lib/utils"
 
-export function SearchWorkspace() {
+function getToneBadgeVariant(tone: LiveSearchResult["tone"]) {
+  if (tone === "blocked") {
+    return "destructive"
+  }
+
+  if (tone === "attention") {
+    return "secondary"
+  }
+
+  return "outline"
+}
+
+export function SearchWorkspace({
+  initialResults,
+  suggestedQueries,
+}: {
+  initialResults: LiveSearchResult[]
+  suggestedQueries: string[]
+}) {
   const [query, setQuery] = useState("")
   const deferredQuery = useDeferredValue(query)
 
+  // `searchText` is normalized to lowercase in `lib/search.ts`, so callers must
+  // preserve that invariant while this filter lowercases `deferredQuery`.
   const filtered = useMemo(() => {
     const normalized = deferredQuery.trim().toLowerCase()
 
     if (!normalized) {
-      return searchResults
+      return initialResults
     }
 
-    return searchResults.filter((item) =>
-      [item.title, item.summary, item.type, item.meta]
-        .join(" ")
-        .toLowerCase()
-        .includes(normalized)
-    )
-  }, [deferredQuery])
+    return initialResults.filter((item) => item.searchText.includes(normalized))
+  }, [deferredQuery, initialResults])
 
   const groupedResults = useMemo(() => {
     return filtered.reduce<Record<string, typeof filtered>>((acc, item) => {
@@ -56,10 +71,10 @@ export function SearchWorkspace() {
               setQuery(value)
             })
           }}
-          placeholder="Search releases, claims, evidence, approvals, or templates"
+          placeholder="Search releases, evidence, approvals, review history, or inbox signals"
         />
         <div className="mt-3 flex flex-wrap gap-2">
-          {["sdk", "approval", "evidence", "template", "blocked"].map((item) => (
+          {suggestedQueries.map((item) => (
             <button
               key={item}
               type="button"
@@ -79,8 +94,8 @@ export function SearchWorkspace() {
 
       {Object.entries(groupedResults).length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-muted/30 p-8 text-center text-sm text-muted-foreground">
-          No results matched this sample search. Try release names, approval stages,
-          or evidence tags.
+          No live release workflow records matched this search. Try release names,
+          approval states, evidence refs, or review signals.
         </div>
       ) : (
         Object.entries(groupedResults).map(([group, items]) => (
@@ -106,6 +121,7 @@ export function SearchWorkspace() {
                         {item.title}
                       </span>
                       <Badge variant="secondary">{item.type}</Badge>
+                      <Badge variant={getToneBadgeVariant(item.tone)}>{item.tone}</Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">{item.summary}</p>
                     <span className="text-xs text-muted-foreground">{item.meta}</span>
