@@ -1,0 +1,254 @@
+import type {
+  ReleaseWorkflowHistoryEntry,
+  ReleaseWorkflowListItem,
+} from "./api/client"
+import { createApiClient } from "./api/client"
+import { getForwardedAuthHeaders } from "./auth/headers"
+import { getReleaseWorkflowOwnershipCue } from "./release-workflow"
+
+type ReviewInboxApiClient = Pick<
+  ReturnType<typeof createApiClient>,
+  "listReleaseWorkflow" | "listReleaseWorkflowHistory"
+>
+
+export type ReviewInboxView = "all" | "claims" | "approvals" | "signals"
+export type ReviewInboxSource = "approval" | "claim" | "workflow"
+
+export type ReviewInboxItem = {
+  evidence: string[]
+  id: string
+  lane: string
+  meta: string
+  nextActions: string[]
+  orderTimestamp: string
+  overview: string[]
+  owner: string
+  preview: string
+  routeHref: string
+  routeLabel: string
+  secondaryHref: string
+  secondaryLabel: string
+  source: ReviewInboxSource
+  status: string
+  timeLabel: string
+  title: string
+}
+
+export type ReviewInboxData = {
+  count: number
+  items: ReviewInboxItem[]
+}
+
+const inboxTimestampFormatter = new Intl.DateTimeFormat("en-US", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "UTC",
+})
+
+function formatInboxTimestamp(value: string) {
+  return `${inboxTimestampFormatter.format(new Date(value))} UTC`
+}
+
+function buildHistoryIndex(history: ReleaseWorkflowHistoryEntry[]) {
+  const latestByKey = new Map<string, ReleaseWorkflowHistoryEntry>()
+
+  for (const entry of history) {
+    const key = `${entry.releaseRecordId}:${entry.eventType}`
+    const current = latestByKey.get(key)
+
+    if (!current || current.createdAt < entry.createdAt) {
+      latestByKey.set(key, entry)
+    }
+  }
+
+  return latestByKey
+}
+
+function buildBlockedClaimItems(
+  workflow: ReleaseWorkflowListItem[],
+  latestHistoryByKey: Map<string, ReleaseWorkflowHistoryEntry>,
+): ReviewInboxItem[] {
+  return workflow
+    .filter((item) => item.claimCheckSummary.state === "blocked")
+    .map((item) => {
+      const historyEntry = latestHistoryByKey.get(`${item.releaseRecord.id}:claim_check_completed`)
+      const blockerNote = item.claimCheckSummary.blockerNotes[0] ?? "Claim check is still blocked."
+      const timestamp = historyEntry?.createdAt ?? item.releaseRecord.updatedAt
+
+      return {
+        evidence: [
+          `${item.claimCheckSummary.flaggedClaims} flagged claims across ${item.claimCheckSummary.totalClaims} total checks.`,
+          `${item.evidenceCount} evidence blocks and ${item.sourceLinkCount} source links are attached to this release.`,
+        ],
+        id: `claim:${item.releaseRecord.id}`,
+        lane: "Claim review",
+        meta: `Blocked claim check · ${item.claimCheckSummary.flaggedClaims} flagged`,
+        nextActions: [
+          blockerNote,
+          "Keep the release out of approval until the public sentence and source evidence match exactly.",
+        ],
+        orderTimestamp: timestamp,
+        overview: [
+          blockerNote,
+          "This release still has risky public wording or evidence gaps that must be narrowed before sign-off.",
+        ],
+        owner: "Claim check queue",
+        preview: blockerNote,
+        routeHref: "/dashboard/claim-check",
+        routeLabel: "Open claim check",
+        secondaryHref: "/dashboard/release-context",
+        secondaryLabel: "Open release context",
+        source: "claim",
+        status: "Blocked",
+        timeLabel: formatInboxTimestamp(timestamp),
+        title: item.releaseRecord.title,
+      }
+    })
+}
+
+function buildApprovalItems(
+  workflow: ReleaseWorkflowListItem[],
+  currentUserId: string,
+  latestHistoryByKey: Map<string, ReleaseWorkflowHistoryEntry>,
+): ReviewInboxItem[] {
+  return workflow
+    .filter((item) => item.approvalSummary.state === "pending")
+    .map((item) => {
+      const ownershipCue = getReleaseWorkflowOwnershipCue(item, currentUserId)
+      const historyEntry = latestHistoryByKey.get(`${item.releaseRecord.id}:approval_requested`)
+      const ownerLabel = item.approvalSummary.ownerName ?? "Unassigned reviewer"
+      const timestamp = historyEntry?.createdAt ?? item.approvalSummary.updatedAt ?? item.releaseRecord.updatedAt
+
+      return {
+        evidence: [
+          `${item.evidenceCount} evidence blocks and ${item.sourceLinkCount} source links are attached to the current draft.`,
+          item.currentDraft
+            ? `Approval is still bound to Draft v${item.currentDraft.version}.`
+            : "Approval is waiting on the current draft revision to stay explicit.",
+        ],
+        id: `approval:${item.releaseRecord.id}`,
+        lane: "Approval handoff",
+        meta: ownershipCue.label,
+        nextActions: [
+          ownershipCue.description,
+          item.approvalSummary.ownerUserId
+            ? "Leave the release in approval until the assigned reviewer records an explicit decision."
+            : "Assign a reviewer before the approval handoff can move forward.",
+        ],
+        orderTimestamp: timestamp,
+        overview: [
+          historyEntry?.note ??
+            item.releaseRecord.summary ??
+            "Approval was requested for the current release draft.",
+          ownershipCue.description,
+        ],
+        owner: ownerLabel,
+        preview:
+          historyEntry?.note ??
+          (item.approvalSummary.ownerName
+            ? `Waiting on ${item.approvalSummary.ownerName} to review the current draft.`
+            : "Approval is pending without an assigned reviewer."),
+        routeHref: "/dashboard/approval",
+        routeLabel: "Open approval",
+        secondaryHref: "/dashboard/review-log",
+        secondaryLabel: "Open review log",
+        source: "approval",
+        status: ownershipCue.tone === "unassigned" ? "Unassigned" : "Pending",
+        timeLabel: formatInboxTimestamp(timestamp),
+        title: item.releaseRecord.title,
+      }
+    })
+}
+
+function buildReopenedDraftItems(
+  history: ReleaseWorkflowHistoryEntry[],
+  workflowByReleaseId: Map<string, ReleaseWorkflowListItem>,
+): ReviewInboxItem[] {
+  const latestReopenedByReleaseId = new Map<string, ReleaseWorkflowHistoryEntry>()
+
+  for (const entry of history) {
+    if (entry.eventType !== "draft_reopened") {
+      continue
+    }
+
+    const current = latestReopenedByReleaseId.get(entry.releaseRecordId)
+
+    if (!current || current.createdAt < entry.createdAt) {
+      latestReopenedByReleaseId.set(entry.releaseRecordId, entry)
+    }
+  }
+
+  return Array.from(latestReopenedByReleaseId.values()).map((entry) => {
+    const workflowItem = workflowByReleaseId.get(entry.releaseRecordId)
+    const stageLabel = workflowItem?.releaseRecord.stage === "approval" ? "Approval follow-up" : "Workflow follow-up"
+    const ownerLabel =
+      workflowItem?.approvalSummary.ownerName ??
+      (workflowItem?.approvalSummary.ownerUserId ? "Assigned reviewer" : "Release owner")
+
+    return {
+      evidence: [
+        `${entry.evidenceCount} evidence blocks and ${entry.sourceLinkCount} source links are still linked to this release.`,
+        entry.draftVersion ? `The reopen event landed on Draft v${entry.draftVersion}.` : "The draft was reopened for another wording pass.",
+      ],
+      id: `workflow:${entry.id}`,
+      lane: stageLabel,
+      meta: "Draft reopened",
+      nextActions: [
+        entry.note ?? "Tighten the reopened wording before sending the release back into approval.",
+        "Use review log history to confirm what changed before you re-request approval.",
+      ],
+      orderTimestamp: entry.createdAt,
+      overview: [
+        entry.note ?? "The draft was reopened after an approval decision.",
+        "Reopened drafts should stay visible until another clean review pass is complete.",
+      ],
+      owner: ownerLabel,
+      preview: entry.note ?? "The draft was reopened and needs another review pass.",
+      routeHref: "/dashboard/review-log",
+      routeLabel: "Open review log",
+      secondaryHref: "/dashboard/approval",
+      secondaryLabel: "Back to approval",
+      source: "workflow",
+      status: "Reopened",
+      timeLabel: formatInboxTimestamp(entry.createdAt),
+      title: entry.releaseTitle,
+    }
+  })
+}
+
+export function buildReviewInboxItems(
+  workflow: ReleaseWorkflowListItem[],
+  history: ReleaseWorkflowHistoryEntry[],
+  currentUserId: string,
+): ReviewInboxItem[] {
+  const latestHistoryByKey = buildHistoryIndex(history)
+  const workflowByReleaseId = new Map(workflow.map((item) => [item.releaseRecord.id, item]))
+
+  return [
+    ...buildApprovalItems(workflow, currentUserId, latestHistoryByKey),
+    ...buildBlockedClaimItems(workflow, latestHistoryByKey),
+    ...buildReopenedDraftItems(history, workflowByReleaseId),
+  ].sort((left, right) => right.orderTimestamp.localeCompare(left.orderTimestamp))
+}
+
+export async function getServerReviewInboxData(
+  requestHeaders: Headers,
+  workspaceId: string,
+  currentUserId: string,
+  apiClient: ReviewInboxApiClient = createApiClient(),
+): Promise<ReviewInboxData> {
+  const init = {
+    headers: getForwardedAuthHeaders(requestHeaders),
+  } satisfies RequestInit
+
+  const [workflow, history] = await Promise.all([
+    apiClient.listReleaseWorkflow(workspaceId, init),
+    apiClient.listReleaseWorkflowHistory(workspaceId, init),
+  ])
+  const items = buildReviewInboxItems(workflow, history, currentUserId)
+
+  return {
+    count: items.length,
+    items,
+  }
+}
