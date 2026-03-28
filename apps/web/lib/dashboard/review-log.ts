@@ -24,10 +24,28 @@ export async function getServerReviewLogData(
 export function buildReviewLogMetrics(
   entries: ReleaseWorkflowHistoryEntry[],
 ): ReviewLogMetrics {
+  let blockedEvents = 0
+  let reopenedItems = 0
+  let signedOffEvents = 0
+
+  for (const entry of entries) {
+    if (entry.outcome === "blocked") {
+      blockedEvents += 1
+    }
+
+    if (entry.eventType === "draft_reopened") {
+      reopenedItems += 1
+    }
+
+    if (entry.outcome === "signed_off") {
+      signedOffEvents += 1
+    }
+  }
+
   return {
-    blockedEvents: entries.filter((entry) => entry.outcome === "blocked").length,
+    blockedEvents,
     loggedDecisions: entries.length,
-    reopenedItems: entries.filter((entry) => entry.eventType === "draft_reopened").length,
-    signedOffEvents: entries.filter((entry) => entry.outcome === "signed_off").length,
+    reopenedItems,
+    signedOffEvents,
   }
 }
