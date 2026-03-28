@@ -1,11 +1,14 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
+import { Hono } from "hono"
+
 import { createApp } from "../src/app.js"
 import type { AuthService, AuthSession } from "../src/auth/service.js"
 import { createFoundationService } from "../src/foundation/service.js"
 import { createInMemoryFoundationStore } from "../src/foundation/store.js"
 import type { GitHubInstallationService } from "../src/github/installation.js"
+import { createWorkspacesRoute } from "../src/routes/workspaces.js"
 
 const runtimeEnv = {
   appName: "pulsenote-api-test",
@@ -365,6 +368,49 @@ test("workspace routes reject GitHub installation repository listing without sig
   assert.deepEqual(await response.json(), {
     message: "state is required",
     status: 400,
+  })
+})
+
+test("workspace routes reject GitHub connection saves when app integration is unavailable", async () => {
+  const foundationService = createFoundationService(createInMemoryFoundationStore())
+  const bootstrap = await foundationService.bootstrapWorkspace({
+    user: {
+      email: "unavailable-github@pulsenote.dev",
+      fullName: "Unavailable GitHub User",
+    },
+    workspace: {
+      name: "Unavailable GitHub workspace",
+      slug: "unavailable-github-workspace",
+    },
+  })
+
+  const app = new Hono()
+  app.use("*", async (context, next) => {
+    context.set("authUser", createAuthenticatedSession(bootstrap.user.id).user)
+    await next()
+  })
+  app.route("/v1/workspaces", createWorkspacesRoute(foundationService))
+
+  const response = await app.request(`/v1/workspaces/${bootstrap.workspace.id}/integrations/github`, {
+    body: JSON.stringify({
+      installationId: "321",
+      state: "install_state_123",
+      repository: {
+        name: "pulsenote",
+        owner: "qyinm",
+        url: "https://github.com/qyinm/pulsenote",
+      },
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "PUT",
+  })
+
+  assert.equal(response.status, 503)
+  assert.deepEqual(await response.json(), {
+    message: "GitHub App integration is unavailable",
+    status: 503,
   })
 })
 

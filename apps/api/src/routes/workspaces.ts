@@ -417,6 +417,10 @@ export function createWorkspacesRoute(
   })
 
   route.put("/:workspaceId/integrations/github", async (context) => {
+    if (!githubInstallationService) {
+      return context.json({ message: "GitHub App integration is unavailable", status: 503 }, 503)
+    }
+
     const authUser = context.get("authUser")
 
     if (!authUser) {
@@ -440,7 +444,7 @@ export function createWorkspacesRoute(
     }
 
     try {
-      githubInstallationService?.verifyInstallState({
+      githubInstallationService.verifyInstallState({
         state,
         userId: authUser.id,
         workspaceId: context.req.param("workspaceId"),
