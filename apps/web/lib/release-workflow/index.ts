@@ -23,6 +23,12 @@ export type ReleaseWorkflowData = {
   workflow: ReleaseWorkflowListItem[]
 }
 
+export type ReleaseWorkflowApprovalOwnershipFilter =
+  | "all"
+  | "assigned_to_me"
+  | "requested_by_me"
+  | "unassigned"
+
 export type ReleaseWorkflowQueueItem = {
   allowedActions: WorkflowAllowedAction[]
   approvalLabel: string
@@ -30,7 +36,11 @@ export type ReleaseWorkflowQueueItem = {
   evidenceCount: number
   id: string
   nextAction: string
+  ownerName: string | null
+  ownerUserId: string | null
   publishPackLabel: string
+  requestedByName: string | null
+  requestedByUserId: string | null
   readinessLabel: string
   readinessTone: ReleaseWorkflowListItem["readiness"]
   sourceLinkCount: number
@@ -45,6 +55,17 @@ export type ReleaseWorkflowMetrics = {
   pendingApprovalRecords: number
   readyToExportRecords: number
   recordsInQueue: number
+}
+
+export type ReleaseWorkflowApprovalFilterCounts = Record<
+  ReleaseWorkflowApprovalOwnershipFilter,
+  number
+>
+
+export type ReleaseWorkflowOwnershipCue = {
+  description: string
+  label: string
+  tone: "attention" | "assigned_to_me" | "requested_by_me" | "unassigned"
 }
 
 const workflowStageLabels = {
@@ -165,6 +186,126 @@ export function getReleaseWorkflowNextAction(item: ReleaseWorkflowListItem) {
   return "Review the latest workflow state before moving this release forward."
 }
 
+function isPendingApprovalRecord(item: ReleaseWorkflowListItem) {
+  return item.approvalSummary.state === "pending"
+}
+
+function matchesApprovalOwnershipFilter(
+  item: ReleaseWorkflowListItem,
+  currentUserId: string,
+  filter: ReleaseWorkflowApprovalOwnershipFilter,
+) {
+  if (!isPendingApprovalRecord(item)) {
+    return false
+  }
+
+  if (filter === "all") {
+    return true
+  }
+
+  if (filter === "assigned_to_me") {
+    return item.approvalSummary.ownerUserId === currentUserId
+  }
+
+  if (filter === "requested_by_me") {
+    return item.approvalSummary.requestedByUserId === currentUserId
+  }
+
+  return item.approvalSummary.ownerUserId === null
+}
+
+export function filterReleaseWorkflowApprovalQueue(
+  workflow: ReleaseWorkflowListItem[],
+  currentUserId: string,
+  filter: ReleaseWorkflowApprovalOwnershipFilter,
+) {
+  return workflow.filter((item) => matchesApprovalOwnershipFilter(item, currentUserId, filter))
+}
+
+export function buildReleaseWorkflowApprovalFilterCounts(
+  workflow: ReleaseWorkflowListItem[],
+  currentUserId: string,
+): ReleaseWorkflowApprovalFilterCounts {
+  return workflow.reduce<ReleaseWorkflowApprovalFilterCounts>(
+    (counts, item) => {
+      if (!isPendingApprovalRecord(item)) {
+        return counts
+      }
+
+      counts.all += 1
+
+      if (item.approvalSummary.ownerUserId === currentUserId) {
+        counts.assigned_to_me += 1
+      }
+
+      if (item.approvalSummary.requestedByUserId === currentUserId) {
+        counts.requested_by_me += 1
+      }
+
+      if (item.approvalSummary.ownerUserId === null) {
+        counts.unassigned += 1
+      }
+
+      return counts
+    },
+    {
+      all: 0,
+      assigned_to_me: 0,
+      requested_by_me: 0,
+      unassigned: 0,
+    },
+  )
+}
+
+export function getReleaseWorkflowOwnershipCue(
+  item: ReleaseWorkflowListItem,
+  currentUserId: string,
+): ReleaseWorkflowOwnershipCue {
+  if (item.approvalSummary.state !== "pending") {
+    return {
+      description: "This release is not waiting in the approval handoff queue right now.",
+      label: "No active approval handoff",
+      tone: "attention",
+    }
+  }
+
+  if (!item.approvalSummary.ownerUserId) {
+    return {
+      description: "Approval is pending without an assigned reviewer, so this record can drift unless someone claims it.",
+      label: "Reviewer missing",
+      tone: "unassigned",
+    }
+  }
+
+  if (item.approvalSummary.ownerUserId === currentUserId) {
+    return {
+      description: "You currently own the approval decision for this draft revision.",
+      label: "Assigned to you",
+      tone: "assigned_to_me",
+    }
+  }
+
+  if (item.approvalSummary.requestedByUserId === currentUserId) {
+    return {
+      description: item.approvalSummary.ownerName
+        ? `You routed this approval request to ${item.approvalSummary.ownerName}.`
+        : "You requested approval, but the reviewer identity is still missing from the queue.",
+      label: "Requested by you",
+      tone: "requested_by_me",
+    }
+  }
+
+  return {
+    description: item.approvalSummary.ownerName
+      ? `This release is waiting on ${item.approvalSummary.ownerName} before it can move toward publish-pack export.`
+      : "This release is waiting on an assigned reviewer before it can move toward publish-pack export.",
+    label: item.approvalSummary.ownerName
+      ? `Waiting on ${item.approvalSummary.ownerName}`
+      : "Waiting on assigned reviewer",
+    tone: "attention",
+  }
+}
+
 export function buildReleaseWorkflowQueueItem(
   item: ReleaseWorkflowListItem,
 ): ReleaseWorkflowQueueItem {
@@ -175,7 +316,11 @@ export function buildReleaseWorkflowQueueItem(
     evidenceCount: item.evidenceCount,
     id: item.releaseRecord.id,
     nextAction: getReleaseWorkflowNextAction(item),
+    ownerName: item.approvalSummary.ownerName,
+    ownerUserId: item.approvalSummary.ownerUserId,
     publishPackLabel: getReleaseWorkflowPublishPackLabel(item.latestPublishPackSummary.state),
+    requestedByName: item.approvalSummary.requestedByName,
+    requestedByUserId: item.approvalSummary.requestedByUserId,
     readinessLabel: getReleaseWorkflowReadinessLabel(item.readiness),
     readinessTone: item.readiness,
     sourceLinkCount: item.sourceLinkCount,

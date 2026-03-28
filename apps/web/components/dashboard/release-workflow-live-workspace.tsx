@@ -20,6 +20,8 @@ import type {
 } from "@/lib/api/client"
 import { createApiClient } from "@/lib/api/client"
 import {
+  type ReleaseWorkflowApprovalOwnershipFilter,
+  buildReleaseWorkflowApprovalFilterCounts,
   buildReleaseWorkflowApprovalNotes,
   buildReleaseWorkflowClaimCheckNotes,
   buildReleaseWorkflowEvidenceNotes,
@@ -27,7 +29,9 @@ import {
   buildReleaseWorkflowPublishPackNotes,
   buildReleaseWorkflowQueueItem,
   detailToReleaseWorkflowListItem,
+  filterReleaseWorkflowApprovalQueue,
   getReleaseWorkflowActionLabel,
+  getReleaseWorkflowOwnershipCue,
   getSelectedReleaseWorkflowDetail,
 } from "@/lib/release-workflow"
 import {
@@ -50,9 +54,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 
 type ReleaseWorkflowMode = "approval" | "claim_check" | "overview" | "publish_pack"
+
+const approvalOwnershipFilters: Array<{
+  label: string
+  value: ReleaseWorkflowApprovalOwnershipFilter
+}> = [
+  { label: "All pending", value: "all" },
+  { label: "Assigned to me", value: "assigned_to_me" },
+  { label: "Requested by me", value: "requested_by_me" },
+  { label: "Unassigned", value: "unassigned" },
+]
 
 type ReleaseWorkflowLiveWorkspaceProps = {
   currentUserId: string
@@ -160,6 +175,18 @@ function historyOutcomeBadge(outcome: ReleaseWorkflowHistoryEntry["outcome"]) {
   return <Badge variant="secondary">Progressed</Badge>
 }
 
+function ownershipCueBadge(cue: ReturnType<typeof getReleaseWorkflowOwnershipCue>) {
+  if (cue.tone === "unassigned") {
+    return <Badge variant="destructive">{cue.label}</Badge>
+  }
+
+  if (cue.tone === "assigned_to_me") {
+    return <Badge variant="outline">{cue.label}</Badge>
+  }
+
+  return <Badge variant="secondary">{cue.label}</Badge>
+}
+
 function getWorkspaceMemberLabel(member: WorkspaceMember) {
   const name = member.user.fullName?.trim() || member.user.email
   return `${name} · ${member.membership.role}`
@@ -180,6 +207,13 @@ function getDefaultReviewerUserId(
 
 function formatHistoryTimestamp(value: string) {
   return historyTimestampFormatter.format(new Date(value))
+}
+
+function getQueuedWorkflowItem(
+  queueSourceById: Map<string, ReleaseWorkflowListItem>,
+  releaseRecordId: string,
+) {
+  return queueSourceById.get(releaseRecordId) ?? null
 }
 
 function useSelectedWorkflowResource<T>({
@@ -249,8 +283,14 @@ function useSelectedWorkflowResource<T>({
   }
 }
 
-function buildModeMetricCards(mode: ReleaseWorkflowMode, workflow: ReleaseWorkflowListItem[], selectedWorkflow: ReleaseWorkflowDetail | null) {
+function buildModeMetricCards(
+  mode: ReleaseWorkflowMode,
+  workflow: ReleaseWorkflowListItem[],
+  selectedWorkflow: ReleaseWorkflowDetail | null,
+  currentUserId: string,
+) {
   const metrics = buildReleaseWorkflowMetrics(workflow)
+  const approvalFilterCounts = buildReleaseWorkflowApprovalFilterCounts(workflow, currentUserId)
   const selectedClaimCount = selectedWorkflow?.claimCheckSummary.totalClaims ?? 0
   const selectedFlaggedClaims = selectedWorkflow?.claimCheckSummary.flaggedClaims ?? 0
   const selectedEvidenceCount = selectedWorkflow?.evidenceBlocks.length ?? 0
@@ -292,12 +332,26 @@ function buildModeMetricCards(mode: ReleaseWorkflowMode, workflow: ReleaseWorkfl
   if (mode === "approval") {
     return [
       {
-        badge: "Queue",
-        description: "Pending approvals are visible before they turn into release-window drift.",
-        detail: "Workspace view",
+        badge: "Ownership",
+        description: "Keep the drafts you personally need to review visible before they stall the release window.",
+        detail: "Current reviewer",
         icon: TimerResetIcon,
-        title: "Pending approvals",
-        value: String(metrics.pendingApprovalRecords),
+        title: "Assigned to you",
+        value: String(approvalFilterCounts.assigned_to_me),
+      },
+      {
+        description: "Requests you routed should stay visible until another reviewer closes the loop.",
+        detail: "Requester queue",
+        icon: FolderKanbanIcon,
+        title: "Requested by you",
+        value: String(approvalFilterCounts.requested_by_me),
+      },
+      {
+        description: "Pending approvals without a reviewer are an explicit handoff gap, not background noise.",
+        detail: "Needs routing",
+        icon: ShieldAlertIcon,
+        title: "Unassigned approvals",
+        value: String(approvalFilterCounts.unassigned),
       },
       {
         description: "The selected release keeps one explicit approval state at a time.",
@@ -312,20 +366,6 @@ function buildModeMetricCards(mode: ReleaseWorkflowMode, workflow: ReleaseWorkfl
               : selectedWorkflow?.approvalSummary.state === "reopened"
                 ? "Reopened"
                 : "Not requested",
-      },
-      {
-        description: "Revision-bound approval avoids publishing wording that changed after review.",
-        detail: selectedWorkflow?.currentDraft ? `Draft v${selectedWorkflow.currentDraft.version}` : "No draft yet",
-        icon: FolderKanbanIcon,
-        title: "Approval target",
-        value: selectedWorkflow?.currentDraft ? "Current draft" : "Missing draft",
-      },
-      {
-        description: "Approved records move directly into publish-pack assembly.",
-        detail: "Workspace view",
-        icon: FileOutputIcon,
-        title: "Ready to export",
-        value: String(metrics.readyToExportRecords),
       },
     ]
   }
@@ -446,6 +486,7 @@ function buildModeFocus(detail: ReleaseWorkflowDetail | null, mode: ReleaseWorkf
 }
 
 export function ReleaseWorkflowLiveWorkspace({
+  currentUserId,
   initialMembers,
   initialMembersUnavailable,
   initialSelectedHistory,
@@ -458,8 +499,21 @@ export function ReleaseWorkflowLiveWorkspace({
 }: ReleaseWorkflowLiveWorkspaceProps) {
   const [selectedId, setSelectedId] = useState(initialSelectedId)
   const [workflow, setWorkflow] = useState(initialWorkflow)
+  const [approvalOwnershipFilter, setApprovalOwnershipFilter] =
+    useState<ReleaseWorkflowApprovalOwnershipFilter>("all")
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [approvalReviewerUserId, setApprovalReviewerUserId] = useState("")
+  const [isRunningAction, setIsRunningAction] = useState(false)
   const members = initialMembers
   const membersUnavailable = initialMembersUnavailable
+  const queueSource =
+    mode === "approval"
+      ? filterReleaseWorkflowApprovalQueue(workflow, currentUserId, approvalOwnershipFilter)
+      : workflow
+  const queueSourceById = new Map(queueSource.map((item) => [item.releaseRecord.id, item]))
+  const queueItems = queueSource.map(buildReleaseWorkflowQueueItem)
+  const activeSelectedId =
+    queueItems.some((item) => item.id === selectedId) ? selectedId : (queueItems[0]?.id ?? "")
   const loadSelectedWorkflowDetail = useCallback(
     (releaseRecordId: string) => createApiClient().getReleaseWorkflowDetail(workspaceId, releaseRecordId),
     [workspaceId],
@@ -481,7 +535,7 @@ export function ReleaseWorkflowLiveWorkspace({
     initialValue: initialSelectedWorkflow,
     loadFailureMessage: "Selected workflow detail could not be loaded.",
     loadResource: loadSelectedWorkflowDetail,
-    selectedId,
+    selectedId: activeSelectedId,
   })
   const {
     error: historyError,
@@ -496,27 +550,36 @@ export function ReleaseWorkflowLiveWorkspace({
     initialValue: initialSelectedHistoryUnavailable ? null : initialSelectedHistory,
     loadFailureMessage: "Selected workflow history could not be loaded.",
     loadResource: loadSelectedWorkflowHistory,
-    selectedId,
+    selectedId: activeSelectedId,
   })
-  const [actionError, setActionError] = useState<string | null>(null)
-  const [approvalReviewerUserId, setApprovalReviewerUserId] = useState("")
-  const [isRunningAction, setIsRunningAction] = useState(false)
-
-  const queueItems = workflow.map(buildReleaseWorkflowQueueItem)
-  const selectedWorkflow = getSelectedReleaseWorkflowDetail(detailById, selectedId)
-  const selectedHistory = selectedId ? historyById[selectedId] ?? [] : []
+  const selectedWorkflow = getSelectedReleaseWorkflowDetail(detailById, activeSelectedId)
+  const selectedHistory = activeSelectedId ? historyById[activeSelectedId] ?? [] : []
   const recentHistory = selectedHistory.slice(0, 5)
-  const selectedQueueItem = queueItems.find((item) => item.id === selectedId) ?? queueItems[0] ?? null
+  const selectedQueueItem = queueItems.find((item) => item.id === activeSelectedId) ?? queueItems[0] ?? null
+  const selectedQueueSourceItem = selectedQueueItem
+    ? getQueuedWorkflowItem(queueSourceById, selectedQueueItem.id)
+    : null
+  const selectedOwnershipCue = selectedQueueSourceItem
+    ? getReleaseWorkflowOwnershipCue(selectedQueueSourceItem, currentUserId)
+    : null
   const focusContent = buildModeFocus(selectedWorkflow, mode)
   const otherActions = (selectedWorkflow?.allowedActions ?? []).filter((action) => action !== "request_approval")
   const canRequestApproval = (selectedWorkflow?.allowedActions ?? []).includes("request_approval")
+
+  useEffect(() => {
+    if (selectedId === activeSelectedId) {
+      return
+    }
+
+    setSelectedId(activeSelectedId)
+  }, [activeSelectedId, selectedId])
 
   useEffect(() => {
     setApprovalReviewerUserId(getDefaultReviewerUserId(members, selectedWorkflow))
   }, [members, selectedWorkflow])
 
   async function runWorkflowAction(action: WorkflowAllowedAction) {
-    if (!selectedId || !selectedWorkflow) {
+    if (!activeSelectedId || !selectedWorkflow) {
       return
     }
 
@@ -528,7 +591,7 @@ export function ReleaseWorkflowLiveWorkspace({
       let nextDetail: ReleaseWorkflowDetail
 
       if (action === "create_draft") {
-        nextDetail = await apiClient.createReleaseWorkflowDraft(workspaceId, selectedId, {
+        nextDetail = await apiClient.createReleaseWorkflowDraft(workspaceId, activeSelectedId, {
           expectedLatestDraftRevisionId: selectedWorkflow.currentDraft?.id ?? null,
         })
       } else {
@@ -540,7 +603,7 @@ export function ReleaseWorkflowLiveWorkspace({
 
         switch (action) {
           case "run_claim_check":
-            nextDetail = await apiClient.runReleaseWorkflowClaimCheck(workspaceId, selectedId, {
+            nextDetail = await apiClient.runReleaseWorkflowClaimCheck(workspaceId, activeSelectedId, {
               expectedDraftRevisionId,
             })
             break
@@ -549,25 +612,29 @@ export function ReleaseWorkflowLiveWorkspace({
               throw new Error("Select a reviewer before requesting approval.")
             }
 
-            nextDetail = await apiClient.requestReleaseWorkflowApproval(workspaceId, selectedId, {
+            nextDetail = await apiClient.requestReleaseWorkflowApproval(workspaceId, activeSelectedId, {
               expectedDraftRevisionId,
               reviewerUserId: approvalReviewerUserId,
             })
             break
           case "approve_draft":
-            nextDetail = await apiClient.approveReleaseWorkflowDraft(workspaceId, selectedId, {
+            nextDetail = await apiClient.approveReleaseWorkflowDraft(workspaceId, activeSelectedId, {
               expectedDraftRevisionId,
             })
             break
           case "reopen_draft":
-            nextDetail = await apiClient.reopenReleaseWorkflowDraft(workspaceId, selectedId, {
+            nextDetail = await apiClient.reopenReleaseWorkflowDraft(workspaceId, activeSelectedId, {
               expectedDraftRevisionId,
             })
             break
           case "create_publish_pack":
-            nextDetail = await apiClient.createReleaseWorkflowPublishPack(workspaceId, selectedId, {
-              expectedDraftRevisionId,
-            })
+            nextDetail = await apiClient.createReleaseWorkflowPublishPack(
+              workspaceId,
+              activeSelectedId,
+              {
+                expectedDraftRevisionId,
+              },
+            )
             break
           default:
             throw new Error(`Unsupported workflow action: ${action}`)
@@ -576,20 +643,20 @@ export function ReleaseWorkflowLiveWorkspace({
 
       setDetailById((currentDetails) => ({
         ...currentDetails,
-        [selectedId]: nextDetail,
+        [activeSelectedId]: nextDetail,
       }))
       setWorkflow((currentWorkflow) =>
         currentWorkflow.map((item) =>
-          item.releaseRecord.id === selectedId ? detailToReleaseWorkflowListItem(nextDetail) : item,
+          item.releaseRecord.id === activeSelectedId ? detailToReleaseWorkflowListItem(nextDetail) : item,
         ),
       )
       setDetailError(null)
 
       try {
-        const nextHistory = await loadSelectedWorkflowHistory(selectedId)
+        const nextHistory = await loadSelectedWorkflowHistory(activeSelectedId)
         setHistoryById((currentHistory) => ({
           ...currentHistory,
-          [selectedId]: nextHistory,
+          [activeSelectedId]: nextHistory,
         }))
         setHistoryError(null)
       } catch (historyError) {
@@ -606,7 +673,7 @@ export function ReleaseWorkflowLiveWorkspace({
     }
   }
 
-  const metricCards = buildModeMetricCards(mode, workflow, selectedWorkflow)
+  const metricCards = buildModeMetricCards(mode, workflow, selectedWorkflow, currentUserId)
 
   return (
     <>
@@ -631,6 +698,31 @@ export function ReleaseWorkflowLiveWorkspace({
               title="Founder release queue"
               description="The queue stays grounded in one workflow state machine instead of separate mock dashboards."
             >
+              {mode === "approval" ? (
+                <div className="mb-4 grid gap-3">
+                  <div className="grid gap-1">
+                    <p className="text-sm font-medium text-foreground">Ownership filters</p>
+                    <p className="text-sm text-muted-foreground">
+                      Keep the sign-off queue sorted by reviewer ownership before approval goes stale.
+                    </p>
+                  </div>
+                  <Tabs
+                    value={approvalOwnershipFilter}
+                    onValueChange={(value) =>
+                      setApprovalOwnershipFilter(value as ReleaseWorkflowApprovalOwnershipFilter)
+                    }
+                    className="gap-3"
+                  >
+                    <TabsList variant="line" className="w-full justify-start">
+                      {approvalOwnershipFilters.map((filter) => (
+                        <TabsTrigger key={filter.value} value={filter.value}>
+                          {filter.label}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                  </Tabs>
+                </div>
+              ) : null}
               <SimpleTable
                 columns={[
                   { key: "release", label: "Release" },
@@ -654,14 +746,29 @@ export function ReleaseWorkflowLiveWorkspace({
                     readiness: statusBadge(item.readinessTone, item.readinessLabel),
                     release: (
                       <div className="grid gap-1">
-                        <span className="font-medium text-foreground">{item.title}</span>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium text-foreground">{item.title}</span>
+                          {mode === "approval" ? (
+                            (() => {
+                              const queuedWorkflowItem = getQueuedWorkflowItem(queueSourceById, item.id)
+
+                              if (!queuedWorkflowItem) {
+                                return null
+                              }
+
+                              return ownershipCueBadge(
+                                getReleaseWorkflowOwnershipCue(queuedWorkflowItem, currentUserId),
+                              )
+                            })()
+                          ) : null}
+                        </div>
                         <span className="text-xs text-muted-foreground">{item.summary}</span>
                       </div>
                     ),
                     stage: item.stageLabel,
                   },
                 }))}
-                selectedRowKey={selectedId}
+                selectedRowKey={activeSelectedId}
                 onRowSelect={(rowKey) => {
                   setSelectedId(rowKey)
                   setDetailError(null)
@@ -670,8 +777,12 @@ export function ReleaseWorkflowLiveWorkspace({
                   setIsLoadingDetail(!detailById[rowKey])
                   setIsLoadingHistory(!historyById[rowKey])
                 }}
-                emptyTitle="No workflow records yet"
-                emptyDescription="Once release context is ingested, workflow records will appear here."
+                emptyTitle={mode === "approval" ? "No approvals in this view" : "No workflow records yet"}
+                emptyDescription={
+                  mode === "approval"
+                    ? "Pending approvals will appear here once a release is routed into explicit reviewer handoff."
+                    : "Once release context is ingested, workflow records will appear here."
+                }
               />
             </SurfaceCard>
 
@@ -728,12 +839,40 @@ export function ReleaseWorkflowLiveWorkspace({
                       (selectedWorkflow?.approvalSummary.requestedByUserId ? "Unknown requester" : "Not requested"),
                   },
                   {
+                    label: "Ownership cue",
+                    value: selectedOwnershipCue?.label ?? "No active ownership cue",
+                  },
+                  {
                     label: "Publish pack",
                     value: selectedQueueItem?.publishPackLabel ?? "Unknown",
                   },
                 ]}
               />
             </SurfaceCard>
+
+            {mode === "approval" && selectedOwnershipCue ? (
+              <SurfaceCard
+                title="Ownership cue"
+                description="Reviewer handoff stays visible so pending approvals do not turn into silent queue drift."
+              >
+                <div className="grid gap-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {ownershipCueBadge(selectedOwnershipCue)}
+                    {selectedWorkflow?.approvalSummary.ownerName ? (
+                      <Badge variant="secondary">
+                        Reviewer · {selectedWorkflow.approvalSummary.ownerName}
+                      </Badge>
+                    ) : null}
+                    {selectedWorkflow?.approvalSummary.requestedByName ? (
+                      <Badge variant="secondary">
+                        Requested by · {selectedWorkflow.approvalSummary.requestedByName}
+                      </Badge>
+                    ) : null}
+                  </div>
+                  <p className="text-sm text-muted-foreground">{selectedOwnershipCue.description}</p>
+                </div>
+              </SurfaceCard>
+            ) : null}
 
             <SurfaceCard
               title="Workflow actions"
