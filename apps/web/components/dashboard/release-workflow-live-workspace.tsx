@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import {
   BadgeCheckIcon,
   FileOutputIcon,
@@ -25,7 +25,6 @@ import {
   buildReleaseWorkflowMetrics,
   buildReleaseWorkflowPublishPackNotes,
   buildReleaseWorkflowQueueItem,
-  createReleaseWorkflowDetailCache,
   detailToReleaseWorkflowListItem,
   getReleaseWorkflowActionLabel,
   getSelectedReleaseWorkflowDetail,
@@ -47,13 +46,29 @@ import { cn } from "@/lib/utils"
 type ReleaseWorkflowMode = "approval" | "claim_check" | "overview" | "publish_pack"
 
 type ReleaseWorkflowLiveWorkspaceProps = {
-  initialSelectedHistory: ReleaseWorkflowHistoryEntry[]
+  initialSelectedHistory: ReleaseWorkflowHistoryEntry[] | null
   initialSelectedId: string
   initialSelectedWorkflow: ReleaseWorkflowDetail
   initialWorkflow: ReleaseWorkflowListItem[]
   mode: ReleaseWorkflowMode
   workspaceId: string
 }
+
+type SelectedWorkflowResourceParams<T> = {
+  initialIsLoading?: boolean
+  initialSelectedId: string
+  initialValue: T | null
+  loadFailureMessage: string
+  loadResource: (selectedId: string) => Promise<T>
+  selectedId: string | null
+}
+
+const historyTimestampFormatter = new Intl.DateTimeFormat("en-US", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "UTC",
+  timeZoneName: "short",
+})
 
 const actionButtonLabels = {
   approve_draft: "Approve draft",
@@ -133,12 +148,74 @@ function historyOutcomeBadge(outcome: ReleaseWorkflowHistoryEntry["outcome"]) {
 }
 
 function formatHistoryTimestamp(value: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "UTC",
-    timeZoneName: "short",
-  }).format(new Date(value))
+  return historyTimestampFormatter.format(new Date(value))
+}
+
+function useSelectedWorkflowResource<T>({
+  initialIsLoading = false,
+  initialSelectedId,
+  initialValue,
+  loadFailureMessage,
+  loadResource,
+  selectedId,
+}: SelectedWorkflowResourceParams<T>) {
+  const [resourceById, setResourceById] = useState<Record<string, T>>(() => {
+    if (initialValue === null) {
+      return {}
+    }
+
+    return {
+      [initialSelectedId]: initialValue,
+    }
+  })
+  const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(initialIsLoading)
+
+  useEffect(() => {
+    if (!selectedId || resourceById[selectedId]) {
+      return
+    }
+
+    let isCancelled = false
+
+    loadResource(selectedId)
+      .then((resource) => {
+        if (isCancelled) {
+          return
+        }
+
+        setResourceById((currentResources) => ({
+          ...currentResources,
+          [selectedId]: resource,
+        }))
+        setError(null)
+      })
+      .catch((error: unknown) => {
+        if (isCancelled) {
+          return
+        }
+
+        setError(error instanceof Error ? error.message : loadFailureMessage)
+      })
+      .finally(() => {
+        if (!isCancelled) {
+          setIsLoading(false)
+        }
+      })
+
+    return () => {
+      isCancelled = true
+    }
+  }, [loadFailureMessage, loadResource, resourceById, selectedId])
+
+  return {
+    error,
+    isLoading,
+    resourceById,
+    setError,
+    setIsLoading,
+    setResourceById,
+  }
 }
 
 function buildModeMetricCards(mode: ReleaseWorkflowMode, workflow: ReleaseWorkflowListItem[], selectedWorkflow: ReleaseWorkflowDetail | null) {
@@ -347,17 +424,45 @@ export function ReleaseWorkflowLiveWorkspace({
 }: ReleaseWorkflowLiveWorkspaceProps) {
   const [selectedId, setSelectedId] = useState(initialSelectedId)
   const [workflow, setWorkflow] = useState(initialWorkflow)
-  const [detailById, setDetailById] = useState<Record<string, ReleaseWorkflowDetail>>(
-    createReleaseWorkflowDetailCache(initialSelectedId, initialSelectedWorkflow),
+  const loadSelectedWorkflowDetail = useCallback(
+    (releaseRecordId: string) => createApiClient().getReleaseWorkflowDetail(workspaceId, releaseRecordId),
+    [workspaceId],
   )
-  const [historyById, setHistoryById] = useState<Record<string, ReleaseWorkflowHistoryEntry[]>>({
-    [initialSelectedId]: initialSelectedHistory,
+  const loadSelectedWorkflowHistory = useCallback(
+    (releaseRecordId: string) => createApiClient().getReleaseWorkflowHistory(workspaceId, releaseRecordId),
+    [workspaceId],
+  )
+  const {
+    error: detailError,
+    isLoading: isLoadingDetail,
+    resourceById: detailById,
+    setError: setDetailError,
+    setIsLoading: setIsLoadingDetail,
+    setResourceById: setDetailById,
+  } = useSelectedWorkflowResource({
+    initialIsLoading: false,
+    initialSelectedId,
+    initialValue: initialSelectedWorkflow,
+    loadFailureMessage: "Selected workflow detail could not be loaded.",
+    loadResource: loadSelectedWorkflowDetail,
+    selectedId,
   })
-  const [detailError, setDetailError] = useState<string | null>(null)
-  const [historyError, setHistoryError] = useState<string | null>(null)
+  const {
+    error: historyError,
+    isLoading: isLoadingHistory,
+    resourceById: historyById,
+    setError: setHistoryError,
+    setIsLoading: setIsLoadingHistory,
+    setResourceById: setHistoryById,
+  } = useSelectedWorkflowResource({
+    initialIsLoading: initialSelectedHistory === null,
+    initialSelectedId,
+    initialValue: initialSelectedHistory,
+    loadFailureMessage: "Selected workflow history could not be loaded.",
+    loadResource: loadSelectedWorkflowHistory,
+    selectedId,
+  })
   const [actionError, setActionError] = useState<string | null>(null)
-  const [isLoadingDetail, setIsLoadingDetail] = useState(false)
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [isRunningAction, setIsRunningAction] = useState(false)
 
   const queueItems = workflow.map(buildReleaseWorkflowQueueItem)
@@ -366,83 +471,6 @@ export function ReleaseWorkflowLiveWorkspace({
   const recentHistory = selectedHistory.slice(0, 5)
   const selectedQueueItem = queueItems.find((item) => item.id === selectedId) ?? queueItems[0] ?? null
   const focusContent = buildModeFocus(selectedWorkflow, mode)
-
-  useEffect(() => {
-    if (!selectedId || detailById[selectedId]) {
-      return
-    }
-
-    let isCancelled = false
-    setIsLoadingDetail(true)
-
-    createApiClient()
-      .getReleaseWorkflowDetail(workspaceId, selectedId)
-      .then((workflowDetail) => {
-        if (isCancelled) {
-          return
-        }
-
-        setDetailById((currentDetails) => ({
-          ...currentDetails,
-          [selectedId]: workflowDetail,
-        }))
-      })
-      .catch((error: unknown) => {
-        if (isCancelled) {
-          return
-        }
-
-        setDetailError(error instanceof Error ? error.message : "Selected workflow detail could not be loaded.")
-      })
-      .finally(() => {
-        if (!isCancelled) {
-          setIsLoadingDetail(false)
-        }
-      })
-
-    return () => {
-      isCancelled = true
-    }
-  }, [detailById, selectedId, workspaceId])
-
-  useEffect(() => {
-    if (!selectedId || historyById[selectedId]) {
-      return
-    }
-
-    let isCancelled = false
-    setIsLoadingHistory(true)
-
-    createApiClient()
-      .getReleaseWorkflowHistory(workspaceId, selectedId)
-      .then((historyEntries) => {
-        if (isCancelled) {
-          return
-        }
-
-        setHistoryById((currentHistory) => ({
-          ...currentHistory,
-          [selectedId]: historyEntries,
-        }))
-        setHistoryError(null)
-      })
-      .catch((error: unknown) => {
-        if (isCancelled) {
-          return
-        }
-
-        setHistoryError(error instanceof Error ? error.message : "Selected workflow history could not be loaded.")
-      })
-      .finally(() => {
-        if (!isCancelled) {
-          setIsLoadingHistory(false)
-        }
-      })
-
-    return () => {
-      isCancelled = true
-    }
-  }, [historyById, selectedId, workspaceId])
 
   async function runWorkflowAction(action: WorkflowAllowedAction) {
     if (!selectedId || !selectedWorkflow) {
@@ -510,7 +538,7 @@ export function ReleaseWorkflowLiveWorkspace({
       setDetailError(null)
 
       try {
-        const nextHistory = await apiClient.getReleaseWorkflowHistory(workspaceId, selectedId)
+        const nextHistory = await loadSelectedWorkflowHistory(selectedId)
         setHistoryById((currentHistory) => ({
           ...currentHistory,
           [selectedId]: nextHistory,
