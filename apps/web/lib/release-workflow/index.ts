@@ -1,5 +1,6 @@
 import type {
   ReleaseWorkflowDetail,
+  ReleaseWorkflowHistoryEntry,
   ReleaseWorkflowListItem,
   WorkflowAllowedAction,
 } from "../api/client"
@@ -8,10 +9,11 @@ import { getForwardedAuthHeaders } from "../auth/headers"
 
 type ReleaseWorkflowApiClient = Pick<
   ReturnType<typeof createApiClient>,
-  "getReleaseWorkflowDetail" | "listReleaseWorkflow"
+  "getReleaseWorkflowDetail" | "getReleaseWorkflowHistory" | "listReleaseWorkflow"
 >
 
 export type ReleaseWorkflowData = {
+  selectedHistory: ReleaseWorkflowHistoryEntry[]
   selectedId: string | null
   selectedWorkflow: ReleaseWorkflowDetail | null
   workflow: ReleaseWorkflowListItem[]
@@ -304,15 +306,20 @@ export async function getServerReleaseWorkflowData(
 
   if (!selectedId) {
     return {
+      selectedHistory: [],
       selectedId: null,
       selectedWorkflow: null,
       workflow,
     }
   }
 
-  const selectedWorkflow = await apiClient.getReleaseWorkflowDetail(workspaceId, selectedId, init)
+  const [selectedWorkflow, selectedHistory] = await Promise.all([
+    apiClient.getReleaseWorkflowDetail(workspaceId, selectedId, init),
+    apiClient.getReleaseWorkflowHistory(workspaceId, selectedId, init),
+  ])
 
   return {
+    selectedHistory,
     selectedId,
     selectedWorkflow,
     workflow,

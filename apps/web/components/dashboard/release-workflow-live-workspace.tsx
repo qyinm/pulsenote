@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useEffect, useState } from "react"
 import {
   BadgeCheckIcon,
@@ -12,6 +13,7 @@ import {
 
 import type {
   ReleaseWorkflowDetail,
+  ReleaseWorkflowHistoryEntry,
   ReleaseWorkflowListItem,
   WorkflowAllowedAction,
 } from "@/lib/api/client"
@@ -39,10 +41,13 @@ import {
 import { SimpleTable } from "@/components/dashboard/simple-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button-variants"
+import { cn } from "@/lib/utils"
 
 type ReleaseWorkflowMode = "approval" | "claim_check" | "overview" | "publish_pack"
 
 type ReleaseWorkflowLiveWorkspaceProps = {
+  initialSelectedHistory: ReleaseWorkflowHistoryEntry[]
   initialSelectedId: string
   initialSelectedWorkflow: ReleaseWorkflowDetail
   initialWorkflow: ReleaseWorkflowListItem[]
@@ -109,6 +114,31 @@ function claimCheckBadge(state: ReleaseWorkflowDetail["claimCheckSummary"]["stat
   }
 
   return <Badge variant="secondary">Not started</Badge>
+}
+
+function historyOutcomeBadge(outcome: ReleaseWorkflowHistoryEntry["outcome"]) {
+  if (outcome === "blocked") {
+    return <Badge variant="destructive">Blocked</Badge>
+  }
+
+  if (outcome === "signed_off") {
+    return <Badge variant="outline">Signed off</Badge>
+  }
+
+  if (outcome === "revision") {
+    return <Badge variant="secondary">Revision</Badge>
+  }
+
+  return <Badge variant="secondary">Progressed</Badge>
+}
+
+function formatHistoryTimestamp(value: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "UTC",
+    timeZoneName: "short",
+  }).format(new Date(value))
 }
 
 function buildModeMetricCards(mode: ReleaseWorkflowMode, workflow: ReleaseWorkflowListItem[], selectedWorkflow: ReleaseWorkflowDetail | null) {
@@ -308,6 +338,7 @@ function buildModeFocus(detail: ReleaseWorkflowDetail | null, mode: ReleaseWorkf
 }
 
 export function ReleaseWorkflowLiveWorkspace({
+  initialSelectedHistory,
   initialSelectedId,
   initialSelectedWorkflow,
   initialWorkflow,
@@ -319,13 +350,20 @@ export function ReleaseWorkflowLiveWorkspace({
   const [detailById, setDetailById] = useState<Record<string, ReleaseWorkflowDetail>>(
     createReleaseWorkflowDetailCache(initialSelectedId, initialSelectedWorkflow),
   )
+  const [historyById, setHistoryById] = useState<Record<string, ReleaseWorkflowHistoryEntry[]>>({
+    [initialSelectedId]: initialSelectedHistory,
+  })
   const [detailError, setDetailError] = useState<string | null>(null)
+  const [historyError, setHistoryError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [isLoadingDetail, setIsLoadingDetail] = useState(false)
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [isRunningAction, setIsRunningAction] = useState(false)
 
   const queueItems = workflow.map(buildReleaseWorkflowQueueItem)
   const selectedWorkflow = getSelectedReleaseWorkflowDetail(detailById, selectedId)
+  const selectedHistory = selectedId ? historyById[selectedId] ?? [] : []
+  const recentHistory = selectedHistory.slice(0, 5)
   const selectedQueueItem = queueItems.find((item) => item.id === selectedId) ?? queueItems[0] ?? null
   const focusContent = buildModeFocus(selectedWorkflow, mode)
 
@@ -366,6 +404,45 @@ export function ReleaseWorkflowLiveWorkspace({
       isCancelled = true
     }
   }, [detailById, selectedId, workspaceId])
+
+  useEffect(() => {
+    if (!selectedId || historyById[selectedId]) {
+      return
+    }
+
+    let isCancelled = false
+    setIsLoadingHistory(true)
+
+    createApiClient()
+      .getReleaseWorkflowHistory(workspaceId, selectedId)
+      .then((historyEntries) => {
+        if (isCancelled) {
+          return
+        }
+
+        setHistoryById((currentHistory) => ({
+          ...currentHistory,
+          [selectedId]: historyEntries,
+        }))
+        setHistoryError(null)
+      })
+      .catch((error: unknown) => {
+        if (isCancelled) {
+          return
+        }
+
+        setHistoryError(error instanceof Error ? error.message : "Selected workflow history could not be loaded.")
+      })
+      .finally(() => {
+        if (!isCancelled) {
+          setIsLoadingHistory(false)
+        }
+      })
+
+    return () => {
+      isCancelled = true
+    }
+  }, [historyById, selectedId, workspaceId])
 
   async function runWorkflowAction(action: WorkflowAllowedAction) {
     if (!selectedId || !selectedWorkflow) {
@@ -431,6 +508,21 @@ export function ReleaseWorkflowLiveWorkspace({
         ),
       )
       setDetailError(null)
+
+      try {
+        const nextHistory = await apiClient.getReleaseWorkflowHistory(workspaceId, selectedId)
+        setHistoryById((currentHistory) => ({
+          ...currentHistory,
+          [selectedId]: nextHistory,
+        }))
+        setHistoryError(null)
+      } catch (historyError) {
+        setHistoryError(
+          historyError instanceof Error
+            ? historyError.message
+            : "Recent workflow history could not be refreshed after the action completed.",
+        )
+      }
     } catch (error) {
       setActionError(error instanceof Error ? error.message : "The workflow action failed.")
     } finally {
@@ -497,8 +589,10 @@ export function ReleaseWorkflowLiveWorkspace({
                 onRowSelect={(rowKey) => {
                   setSelectedId(rowKey)
                   setDetailError(null)
+                  setHistoryError(null)
                   setActionError(null)
                   setIsLoadingDetail(!detailById[rowKey])
+                  setIsLoadingHistory(!historyById[rowKey])
                 }}
                 emptyTitle="No workflow records yet"
                 emptyDescription="Once release context is ingested, workflow records will appear here."
@@ -601,6 +695,60 @@ export function ReleaseWorkflowLiveWorkspace({
               ) : (
                 <p className="text-sm text-muted-foreground">
                   Select a workflow record to inspect its evidence and state signals.
+                </p>
+              )}
+            </SurfaceCard>
+
+            <SurfaceCard
+              title="Recent history"
+              description="The last recorded workflow events stay attached to the selected release before another handoff."
+              action={
+                <Link
+                  href="/dashboard/review-log"
+                  className={cn(buttonVariants({ size: "sm", variant: "outline" }))}
+                >
+                  Open review log
+                </Link>
+              }
+            >
+              {historyError ? (
+                <p className="text-sm text-destructive">{historyError}</p>
+              ) : isLoadingHistory && recentHistory.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Loading the recent workflow history for this release record.
+                </p>
+              ) : recentHistory.length > 0 ? (
+                <div className="grid gap-3">
+                  {recentHistory.map((entry) => (
+                    <div
+                      key={entry.id}
+                      className="rounded-xl border border-border/70 bg-muted/20 p-3"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="grid gap-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-medium text-foreground">
+                              {entry.eventLabel}
+                            </span>
+                            {historyOutcomeBadge(entry.outcome)}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {entry.actorName ?? "Unknown reviewer"} · {formatHistoryTimestamp(entry.createdAt)}
+                          </p>
+                        </div>
+                        {entry.draftVersion ? (
+                          <Badge variant="secondary">Draft v{entry.draftVersion}</Badge>
+                        ) : null}
+                      </div>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        {entry.note ?? "No review note was stored for this event."}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No workflow history has been recorded for this release yet.
                 </p>
               )}
             </SurfaceCard>
