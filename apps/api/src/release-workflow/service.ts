@@ -108,6 +108,13 @@ export class ReviewerAssignmentNotAllowedError extends Error {
   }
 }
 
+export class ReviewerApprovalRequiredError extends Error {
+  constructor() {
+    super("Only the assigned reviewer can approve this draft")
+    this.name = "ReviewerApprovalRequiredError"
+  }
+}
+
 export class ApprovedDraftRequiredError extends Error {
   constructor() {
     super("An approved draft is required before creating a publish pack")
@@ -1206,6 +1213,10 @@ export function createReleaseWorkflowService(
 
       if (approvalSummary.state !== "pending") {
         throw new ApprovalRequestRequiredError()
+      }
+
+      if (!input.actorUserId || (approvalSummary.ownerUserId && approvalSummary.ownerUserId !== input.actorUserId)) {
+        throw new ReviewerApprovalRequiredError()
       }
 
       await store.transaction(async (transactionStore) => {

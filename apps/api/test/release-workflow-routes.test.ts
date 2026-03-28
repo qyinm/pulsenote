@@ -274,6 +274,11 @@ test("release workflow routes complete the founder happy path", async () => {
     foundationService: fixture.foundationService,
     releaseWorkflowService: fixture.workflowService,
   })
+  const reviewerApp = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(fixture.reviewer.id)),
+    foundationService: fixture.foundationService,
+    releaseWorkflowService: fixture.workflowService,
+  })
 
   const draftResponse = await app.request(
     `/v1/workspaces/${fixture.bootstrap.workspace.id}/release-workflow/${fixture.releaseRecord.id}/drafts`,
@@ -295,7 +300,6 @@ test("release workflow routes complete the founder happy path", async () => {
     {
       body: JSON.stringify({
         expectedDraftRevisionId: draftBody.currentDraft.id,
-        reviewerUserId: fixture.reviewer.id,
       }),
       headers: {
         "content-type": "application/json",
@@ -325,7 +329,7 @@ test("release workflow routes complete the founder happy path", async () => {
   assert.equal(requestApprovalBody.approvalSummary.ownerUserId, fixture.reviewer.id)
   assert.equal(requestApprovalBody.approvalSummary.requestedByUserId, fixture.bootstrap.user.id)
 
-  const approveResponse = await app.request(
+  const approveResponse = await reviewerApp.request(
     `/v1/workspaces/${fixture.bootstrap.workspace.id}/release-workflow/${fixture.releaseRecord.id}/approve`,
     {
       body: JSON.stringify({
@@ -359,6 +363,73 @@ test("release workflow routes complete the founder happy path", async () => {
   assert.equal(publishPackBody.releaseRecord.stage, "publish_pack")
   assert.equal(publishPackBody.latestPublishPackSummary.state, "exported")
   assert.deepEqual(publishPackBody.allowedActions, ["reopen_draft"])
+})
+
+test("release workflow routes reject approval from a workspace member who is not assigned", async () => {
+  const fixture = await seedReleaseWorkflowFixture({
+    async composeDraft() {
+      return {
+        changelogBody: "- Adds founder release workflow and approval checkpoints",
+        releaseNotesBody: "- Adds founder release workflow and approval checkpoints",
+      }
+    },
+    async runClaimCheck(releaseSnapshot, draftRevision) {
+      return [
+        {
+          evidenceBlockIds: releaseSnapshot.claimCandidates[0]?.evidenceBlockIds ?? [],
+          note: null,
+          sentence: draftRevision.releaseNotesBody.replace(/^- /, ""),
+          status: "approved" as const,
+        },
+      ]
+    },
+  })
+  const ownerApp = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(fixture.bootstrap.user.id)),
+    foundationService: fixture.foundationService,
+    releaseWorkflowService: fixture.workflowService,
+  })
+
+  const draft = await fixture.workflowService.createDraft({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedLatestDraftRevisionId: null,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  await fixture.workflowService.runClaimCheck({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  await fixture.workflowService.requestApproval({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    reviewerUserId: fixture.reviewer.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  const response = await ownerApp.request(
+    `/v1/workspaces/${fixture.bootstrap.workspace.id}/release-workflow/${fixture.releaseRecord.id}/approve`,
+    {
+      body: JSON.stringify({
+        expectedDraftRevisionId: draft.currentDraft!.id,
+      }),
+      headers: {
+        "content-type": "application/json",
+      },
+      method: "POST",
+    },
+  )
+
+  assert.equal(response.status, 403)
+  assert.deepEqual(await response.json(), {
+    message: "Only the assigned reviewer can approve this draft",
+    status: 403,
+  })
 })
 
 test("release workflow routes reject malformed JSON when creating drafts", async () => {

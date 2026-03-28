@@ -9,6 +9,7 @@ import {
   DraftRevisionNotFoundError,
   InvalidStageTransitionError,
   ReleaseWorkflowNotFoundError,
+  ReviewerApprovalRequiredError,
   ReviewerAssignmentNotAllowedError,
   ReviewerAssignmentRequiredError,
   StaleDraftRevisionError,
@@ -86,6 +87,16 @@ function mapWorkflowError(error: unknown) {
         status: 422,
       },
       status: 422,
+    } as const
+  }
+
+  if (error instanceof ReviewerApprovalRequiredError) {
+    return {
+      body: {
+        message: error.message,
+        status: 403,
+      },
+      status: 403,
     } as const
   }
 
