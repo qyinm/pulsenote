@@ -303,12 +303,23 @@ function getLatestApprovalRequestEventForDraft(
     return null
   }
 
-  return [...workflowEvents]
-    .filter(
-      (workflowEvent) =>
-        workflowEvent.draftRevisionId === draftRevisionId && workflowEvent.type === "approval_requested",
-    )
-    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0] ?? null
+  let latestApprovalRequestEvent: WorkflowEvent | null = null
+
+  for (const workflowEvent of workflowEvents) {
+    if (workflowEvent.draftRevisionId !== draftRevisionId || workflowEvent.type !== "approval_requested") {
+      continue
+    }
+
+    if (
+      !latestApprovalRequestEvent ||
+      workflowEvent.createdAt > latestApprovalRequestEvent.createdAt ||
+      workflowEvent.createdAt === latestApprovalRequestEvent.createdAt
+    ) {
+      latestApprovalRequestEvent = workflowEvent
+    }
+  }
+
+  return latestApprovalRequestEvent
 }
 
 function buildClaimCheckSummary(
@@ -367,14 +378,10 @@ function buildApprovalSummary(
   const latestApprovalEvent = getLatestApprovalEventForDraft(workflowEvents, currentDraft.id)
   const latestApprovalRequestEvent = getLatestApprovalRequestEventForDraft(workflowEvents, currentDraft.id)
   const approvalReviewStatus = reviewStatusesByStage.approval ?? null
-  const owner =
-    approvalReviewStatus?.ownerUserId === null || approvalReviewStatus?.ownerUserId === undefined
-      ? null
-      : userById.get(approvalReviewStatus.ownerUserId) ?? null
-  const requestedBy =
-    latestApprovalRequestEvent?.actorUserId === null || latestApprovalRequestEvent?.actorUserId === undefined
-      ? null
-      : userById.get(latestApprovalRequestEvent.actorUserId) ?? null
+  const ownerId = approvalReviewStatus?.ownerUserId
+  const owner = ownerId ? userById.get(ownerId) ?? null : null
+  const requesterId = latestApprovalRequestEvent?.actorUserId
+  const requestedBy = requesterId ? userById.get(requesterId) ?? null : null
 
   if (!latestApprovalEvent) {
     return {

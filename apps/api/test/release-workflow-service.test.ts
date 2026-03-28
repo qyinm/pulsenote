@@ -393,6 +393,124 @@ test("release workflow service treats approved events as newer than approval req
   assert.equal(exported.latestPublishPackSummary.state, "exported")
 })
 
+test("release workflow service keeps the latest requester when approval requests share a timestamp", async () => {
+  const fixedCreatedAt = "2026-03-21T00:00:00.000Z"
+  const fixture = await seedReleaseWorkflowFixture({
+    async composeDraft() {
+      return {
+        changelogBody: "- Adds founder release workflow and approval checkpoints",
+        releaseNotesBody: "- Adds founder release workflow and approval checkpoints",
+      }
+    },
+    async runClaimCheck(releaseSnapshot, draftRevision) {
+      return [
+        {
+          evidenceBlockIds: releaseSnapshot.claimCandidates[0]?.evidenceBlockIds ?? [],
+          note: null,
+          sentence: draftRevision.releaseNotesBody.replace(/^- /, ""),
+          status: "approved" as const,
+        },
+      ]
+    },
+  })
+  const requester = await fixture.foundationStore.createUser({
+    email: "requester-2@pulsenote.dev",
+    fullName: "Requester Two",
+  })
+  await fixture.foundationStore.createWorkspaceMembership({
+    role: "member",
+    userId: requester.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+  const tiedTimestampStore = {
+    ...fixture.workflowStore,
+    async transaction<T>(callback: (store: typeof fixture.workflowStore) => Promise<T>) {
+      return fixture.workflowStore.transaction((transactionStore) =>
+        callback({
+          ...transactionStore,
+          async createWorkflowEvent(input) {
+            const workflowEvent = await transactionStore.createWorkflowEvent(input)
+            if (workflowEvent.type === "approval_requested") {
+              workflowEvent.createdAt = fixedCreatedAt
+            }
+            return workflowEvent
+          },
+        }),
+      )
+    },
+  }
+  const tiedTimestampService = createReleaseWorkflowService(tiedTimestampStore, {
+    async composeDraft() {
+      return {
+        changelogBody: "- Adds founder release workflow and approval checkpoints",
+        releaseNotesBody: "- Adds founder release workflow and approval checkpoints",
+      }
+    },
+    async runClaimCheck(releaseSnapshot, draftRevision) {
+      return [
+        {
+          evidenceBlockIds: releaseSnapshot.claimCandidates[0]?.evidenceBlockIds ?? [],
+          note: null,
+          sentence: draftRevision.releaseNotesBody.replace(/^- /, ""),
+          status: "approved" as const,
+        },
+      ]
+    },
+  })
+
+  const draft = await tiedTimestampService.createDraft({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedLatestDraftRevisionId: null,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  await tiedTimestampService.runClaimCheck({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  await tiedTimestampService.requestApproval({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    reviewerUserId: fixture.reviewer.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  await tiedTimestampService.reopenDraft({
+    actorUserId: fixture.reviewer.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  await tiedTimestampService.runClaimCheck({
+    actorUserId: requester.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  await tiedTimestampService.requestApproval({
+    actorUserId: requester.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    reviewerUserId: fixture.reviewer.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  const detail = await tiedTimestampService.getReleaseWorkflowDetail(
+    fixture.bootstrap.workspace.id,
+    fixture.releaseRecord.id,
+  )
+
+  assert.equal(detail.approvalSummary.requestedByUserId, requester.id)
+  assert.equal(detail.approvalSummary.requestedByName, "Requester Two")
+})
+
 test("release workflow service only allows the assigned reviewer to approve a pending draft", async () => {
   const fixture = await seedReleaseWorkflowFixture({
     async composeDraft() {
