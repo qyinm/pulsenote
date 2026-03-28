@@ -285,6 +285,144 @@ test("release workflow service treats approved events as newer than approval req
   assert.equal(exported.latestPublishPackSummary.state, "exported")
 })
 
+test("release workflow service exposes release history entries with actor, draft version, and export context", async () => {
+  const fixture = await seedReleaseWorkflowFixture({
+    async composeDraft() {
+      return {
+        changelogBody: "- Adds founder release workflow and approval checkpoints",
+        releaseNotesBody: "- Adds founder release workflow and approval checkpoints",
+      }
+    },
+    async runClaimCheck(releaseSnapshot, draftRevision) {
+      return [
+        {
+          evidenceBlockIds: releaseSnapshot.claimCandidates[0]?.evidenceBlockIds ?? [],
+          note: null,
+          sentence: draftRevision.releaseNotesBody.replace(/^- /, ""),
+          status: "approved" as const,
+        },
+      ]
+    },
+  })
+
+  const draft = await fixture.workflowService.createDraft({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedLatestDraftRevisionId: null,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  await fixture.workflowService.runClaimCheck({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  await fixture.workflowService.requestApproval({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  await fixture.workflowService.approveDraft({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  const exported = await fixture.workflowService.createPublishPack({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  const history = await fixture.workflowService.listReleaseWorkflowHistory(
+    fixture.bootstrap.workspace.id,
+  )
+
+  assert.deepEqual(
+    history.map((entry) => entry.eventType),
+    [
+      "publish_pack_created",
+      "draft_approved",
+      "approval_requested",
+      "claim_check_completed",
+      "draft_created",
+    ],
+  )
+  assert.equal(history[0]?.publishPackExportId, exported.latestPublishPackSummary.exportId)
+  assert.equal(history[0]?.outcome, "signed_off")
+  assert.equal(history[1]?.outcome, "signed_off")
+  assert.equal(history[2]?.outcome, "progressed")
+  assert.equal(history[3]?.outcome, "progressed")
+  assert.equal(history[4]?.outcome, "revision")
+  assert.equal(history[0]?.actorName, "Owner User")
+  assert.equal(history[0]?.draftVersion, 1)
+  assert.equal(history[0]?.releaseTitle, fixture.releaseRecord.title)
+  assert.equal(history[0]?.evidenceCount, 1)
+  assert.equal(history[0]?.sourceLinkCount, 1)
+
+  const releaseHistory = await fixture.workflowService.getReleaseWorkflowHistory(
+    fixture.bootstrap.workspace.id,
+    fixture.releaseRecord.id,
+  )
+
+  assert.equal(releaseHistory.length, history.length)
+  assert.deepEqual(
+    releaseHistory.map((entry) => entry.id),
+    history.map((entry) => entry.id),
+  )
+})
+
+test("release workflow service marks blocked claim check history when flagged claims remain", async () => {
+  const fixture = await seedReleaseWorkflowFixture({
+    async composeDraft() {
+      return {
+        changelogBody: "- Adds founder release workflow and approval checkpoints",
+        releaseNotesBody: "- Adds founder release workflow and approval checkpoints",
+      }
+    },
+    async runClaimCheck(draftSnapshot, draftRevision) {
+      void draftSnapshot
+      return [
+        {
+          evidenceBlockIds: [],
+          note: "This sentence sounds customer-facing but could not be traced to release evidence.",
+          sentence: draftRevision.releaseNotesBody.replace(/^- /, ""),
+          status: "flagged" as const,
+        },
+      ]
+    },
+  })
+
+  const draft = await fixture.workflowService.createDraft({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedLatestDraftRevisionId: null,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  await fixture.workflowService.runClaimCheck({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  const history = await fixture.workflowService.getReleaseWorkflowHistory(
+    fixture.bootstrap.workspace.id,
+    fixture.releaseRecord.id,
+  )
+
+  assert.equal(history[0]?.eventType, "claim_check_completed")
+  assert.equal(history[0]?.outcome, "blocked")
+  assert.equal(history[0]?.draftVersion, 1)
+})
+
 test("release workflow service replaces old claim check results when a reopened draft is checked again", async () => {
   let runCount = 0
   const fixture = await seedReleaseWorkflowFixture({
