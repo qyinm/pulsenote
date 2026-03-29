@@ -107,11 +107,14 @@ function getExportFrameTone(item: ReleaseWorkflowListItem): LiveExportFrameTone 
   return "default"
 }
 
-function buildRecentActivity(history: ReleaseWorkflowHistoryEntry[]) {
-  const recent = history
+function getSortedReleaseHistory(history: ReleaseWorkflowHistoryEntry[]) {
+  return history
     .slice()
     .sort((left, right) => toTimestamp(right.createdAt) - toTimestamp(left.createdAt))
-    .slice(0, 3)
+}
+
+function buildRecentActivity(sortedHistory: ReleaseWorkflowHistoryEntry[]) {
+  const recent = sortedHistory.slice(0, 3)
 
   if (recent.length === 0) {
     return ["No workflow activity has been recorded for this release yet."]
@@ -184,11 +187,9 @@ function buildFrameGuardrails(item: ReleaseWorkflowListItem) {
 
 function buildLastActivityLabel(
   item: ReleaseWorkflowListItem,
-  history: ReleaseWorkflowHistoryEntry[],
+  sortedHistory: ReleaseWorkflowHistoryEntry[],
 ) {
-  const latestHistory = history
-    .slice()
-    .sort((left, right) => toTimestamp(right.createdAt) - toTimestamp(left.createdAt))[0]
+  const latestHistory = sortedHistory[0]
 
   if (latestHistory) {
     return `${latestHistory.eventLabel} · ${formatExportTimestamp(latestHistory.createdAt)}`
@@ -234,6 +235,8 @@ export function buildLiveExportFramesData(
   const entries = workflow
     .map((item) => {
       const releaseHistory = historyByReleaseId.get(item.releaseRecord.id) ?? []
+      const sortedHistory = getSortedReleaseHistory(releaseHistory)
+      const latestHistory = sortedHistory[0]
 
       return {
         draftLabel: item.currentDraft
@@ -243,10 +246,10 @@ export function buildLiveExportFramesData(
         frameContents: buildFrameContents(item),
         guardrails: buildFrameGuardrails(item),
         id: item.releaseRecord.id,
-        lastActivityAt: releaseHistory[0]?.createdAt ?? item.releaseRecord.updatedAt,
-        lastActivityLabel: buildLastActivityLabel(item, releaseHistory),
+        lastActivityAt: latestHistory?.createdAt ?? item.releaseRecord.updatedAt,
+        lastActivityLabel: buildLastActivityLabel(item, sortedHistory),
         ownerLabel: item.approvalSummary.ownerName ?? "Reviewer missing",
-        recentActivity: buildRecentActivity(releaseHistory),
+        recentActivity: buildRecentActivity(sortedHistory),
         requestedByLabel: item.approvalSummary.requestedByName ?? "No requester recorded",
         sourceLinkCount: item.sourceLinkCount,
         stageLabel: getReleaseWorkflowStageLabel(item.releaseRecord.stage),
