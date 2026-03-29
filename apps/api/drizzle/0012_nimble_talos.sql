@@ -12,8 +12,6 @@ ADD COLUMN "policy_snapshot" jsonb;
 --> statement-breakpoint
 UPDATE "publish_pack_exports"
 SET
-  "evidence_snapshots" = COALESCE("evidence_snapshots", '[]'::jsonb),
-  "source_snapshots" = COALESCE("source_snapshots", '[]'::jsonb),
   "context_snapshot" = COALESCE(
     "context_snapshot",
     jsonb_build_object(
