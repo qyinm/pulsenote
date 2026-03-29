@@ -544,6 +544,7 @@ test("filterReleaseWorkflowQueueByMode keeps claim-check records scoped to draft
   assert.deepEqual(queue.map((item) => item.releaseRecord.id), ["release_draft"])
 })
 
+<<<<<<< HEAD
 test("filterReleaseWorkflowQueueByMode keeps publish-pack records scoped to approved, ready, or exported releases", () => {
   const exportedRelease = createReleaseWorkflowListItem({
     latestPublishPackSummary: {
