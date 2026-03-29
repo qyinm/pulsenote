@@ -1,14 +1,19 @@
 import type {
   ReleaseWorkflowHistoryEntry,
   ReleaseWorkflowListItem,
+  WorkspacePolicySettings,
 } from "./api/client"
 import { createApiClient } from "./api/client"
 import { getForwardedAuthHeaders } from "./auth/headers"
 import { getReleaseWorkflowOwnershipCue } from "./release-workflow"
+import {
+  createDefaultWorkspacePolicySettings,
+  getWorkspacePolicySettingsOrDefault,
+} from "./workspace-policy"
 
 type ReviewInboxApiClient = Pick<
   ReturnType<typeof createApiClient>,
-  "listReleaseWorkflow" | "listReleaseWorkflowHistory"
+  "getWorkspacePolicySettings" | "listReleaseWorkflow" | "listReleaseWorkflowHistory"
 >
 
 export type ReviewInboxView = "all" | "claims" | "approvals" | "signals"
@@ -223,15 +228,28 @@ export function buildReviewInboxItems(
   workflow: ReleaseWorkflowListItem[],
   history: ReleaseWorkflowHistoryEntry[],
   currentUserId: string,
+  policy: Pick<
+    WorkspacePolicySettings,
+    "showBlockedClaimsInInbox" | "showPendingApprovalsInInbox" | "showReopenedDraftsInInbox"
+  > = createDefaultWorkspacePolicySettings(),
 ): ReviewInboxItem[] {
   const latestHistoryByKey = buildHistoryIndex(history)
   const workflowByReleaseId = new Map(workflow.map((item) => [item.releaseRecord.id, item]))
+  const items: ReviewInboxItem[] = []
 
-  return [
-    ...buildApprovalItems(workflow, currentUserId, latestHistoryByKey),
-    ...buildBlockedClaimItems(workflow, latestHistoryByKey),
-    ...buildReopenedDraftItems(latestHistoryByKey, workflowByReleaseId),
-  ].sort((left, right) => right.orderTimestamp.localeCompare(left.orderTimestamp))
+  if (policy.showPendingApprovalsInInbox) {
+    items.push(...buildApprovalItems(workflow, currentUserId, latestHistoryByKey))
+  }
+
+  if (policy.showBlockedClaimsInInbox) {
+    items.push(...buildBlockedClaimItems(workflow, latestHistoryByKey))
+  }
+
+  if (policy.showReopenedDraftsInInbox) {
+    items.push(...buildReopenedDraftItems(latestHistoryByKey, workflowByReleaseId))
+  }
+
+  return items.sort((left, right) => right.orderTimestamp.localeCompare(left.orderTimestamp))
 }
 
 export async function getServerReviewInboxData(
@@ -244,11 +262,14 @@ export async function getServerReviewInboxData(
     headers: getForwardedAuthHeaders(requestHeaders),
   } satisfies RequestInit
 
-  const [workflow, history] = await Promise.all([
+  const [workflow, history, persistedPolicy] = await Promise.all([
     apiClient.listReleaseWorkflow(workspaceId, init),
     apiClient.listReleaseWorkflowHistory(workspaceId, init),
+    getWorkspacePolicySettingsOrDefault(workspaceId, () =>
+      apiClient.getWorkspacePolicySettings(workspaceId, init),
+    ),
   ])
-  const items = buildReviewInboxItems(workflow, history, currentUserId)
+  const items = buildReviewInboxItems(workflow, history, currentUserId, persistedPolicy)
 
   return {
     count: items.length,

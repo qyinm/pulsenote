@@ -257,17 +257,13 @@ export function createReleaseWorkflowRoute(releaseWorkflowService: ReleaseWorkfl
         return context.json(badRequest("expectedDraftRevisionId is required"), 400)
       }
 
-      if (!reviewerUserId) {
-        return context.json(badRequest("reviewerUserId is required"), 400)
-      }
-
       try {
         const response = await releaseWorkflowService.requestApproval({
           actorUserId: context.get("authUser")?.id ?? null,
           expectedDraftRevisionId,
           note: asOptionalString(payload?.note) ?? undefined,
           releaseRecordId: getRouteParam(context, "releaseRecordId"),
-          reviewerUserId,
+          reviewerUserId: reviewerUserId ?? undefined,
           workspaceId: getRouteParam(context, "workspaceId"),
         })
 

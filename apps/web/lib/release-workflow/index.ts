@@ -2,20 +2,27 @@ import type {
   ReleaseWorkflowDetail,
   ReleaseWorkflowHistoryEntry,
   ReleaseWorkflowListItem,
+  WorkspacePolicySettings,
   WorkspaceMember,
   WorkflowAllowedAction,
 } from "../api/client"
 import { ApiError, createApiClient } from "../api/client"
 import { getForwardedAuthHeaders } from "../auth/headers"
+import { createDefaultWorkspacePolicySettings } from "../workspace-policy"
 
 type ReleaseWorkflowApiClient = Pick<
   ReturnType<typeof createApiClient>,
-  "getReleaseWorkflowDetail" | "getReleaseWorkflowHistory" | "listReleaseWorkflow" | "listWorkspaceMembers"
+  | "getReleaseWorkflowDetail"
+  | "getReleaseWorkflowHistory"
+  | "getWorkspacePolicySettings"
+  | "listReleaseWorkflow"
+  | "listWorkspaceMembers"
 >
 
 export type ReleaseWorkflowData = {
   members: WorkspaceMember[]
   membersUnavailable: boolean
+  policy: WorkspacePolicySettings
   selectedHistory: ReleaseWorkflowHistoryEntry[]
   selectedHistoryUnavailable: boolean
   selectedId: string | null
@@ -467,8 +474,17 @@ export async function getServerReleaseWorkflowData(
   } satisfies RequestInit
 
   const workflow = await apiClient.listReleaseWorkflow(workspaceId, init)
+  let policy = createDefaultWorkspacePolicySettings(workspaceId)
   let members: WorkspaceMember[] = []
   let membersUnavailable = false
+
+  try {
+    policy = await apiClient.getWorkspacePolicySettings(workspaceId, init)
+  } catch (error) {
+    if (!(error instanceof ApiError) || (error.status !== 404 && error.status !== 503)) {
+      throw error
+    }
+  }
 
   try {
     members = await apiClient.listWorkspaceMembers(workspaceId, init)
@@ -486,6 +502,7 @@ export async function getServerReleaseWorkflowData(
     return {
       members,
       membersUnavailable,
+      policy,
       selectedHistory: [],
       selectedHistoryUnavailable: false,
       selectedId: null,
@@ -508,6 +525,7 @@ export async function getServerReleaseWorkflowData(
   return {
     members,
     membersUnavailable,
+    policy,
     selectedHistory,
     selectedHistoryUnavailable,
     selectedId,

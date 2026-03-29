@@ -1,15 +1,20 @@
 import type {
   ReleaseWorkflowHistoryEntry,
   ReleaseWorkflowListItem,
+  WorkspacePolicySettings,
   WorkspaceSnapshot,
 } from "./api/client"
 import { createApiClient } from "./api/client"
 import { getForwardedAuthHeaders } from "./auth/headers"
 import { buildReviewInboxItems } from "./review-inbox"
+import {
+  createDefaultWorkspacePolicySettings,
+  getWorkspacePolicySettingsOrDefault,
+} from "./workspace-policy"
 
 type HelpCenterApiClient = Pick<
   ReturnType<typeof createApiClient>,
-  "listReleaseWorkflow" | "listReleaseWorkflowHistory"
+  "getWorkspacePolicySettings" | "listReleaseWorkflow" | "listReleaseWorkflowHistory"
 >
 
 export type LiveHelpModule = {
@@ -267,6 +272,10 @@ export function buildLiveHelpData(
   workflow: ReleaseWorkflowListItem[],
   history: ReleaseWorkflowHistoryEntry[],
   currentUserId: string,
+  policy: Pick<
+    WorkspacePolicySettings,
+    "showBlockedClaimsInInbox" | "showPendingApprovalsInInbox" | "showReopenedDraftsInInbox"
+  > = createDefaultWorkspacePolicySettings(workspace.workspace.id),
 ): LiveHelpData {
   const stats = {
     activeIntegrations: workspace.integrations.filter(
@@ -278,7 +287,7 @@ export function buildLiveHelpData(
     exportedPacks: workflow.filter(
       (item) => item.latestPublishPackSummary.state === "exported",
     ).length,
-    inboxSignals: buildReviewInboxItems(workflow, history, currentUserId).length,
+    inboxSignals: buildReviewInboxItems(workflow, history, currentUserId, policy).length,
     pendingApprovals: workflow.filter(
       (item) => item.approvalSummary.state === "pending",
     ).length,
@@ -323,10 +332,13 @@ export async function getServerHelpCenterData(
     headers: getForwardedAuthHeaders(requestHeaders),
   } satisfies RequestInit
 
-  const [workflow, history] = await Promise.all([
+  const [workflow, history, policy] = await Promise.all([
     apiClient.listReleaseWorkflow(workspace.workspace.id, init),
     apiClient.listReleaseWorkflowHistory(workspace.workspace.id, init),
+    getWorkspacePolicySettingsOrDefault(workspace.workspace.id, () =>
+      apiClient.getWorkspacePolicySettings(workspace.workspace.id, init),
+    ),
   ])
 
-  return buildLiveHelpData(workspace, workflow, history, currentUserId)
+  return buildLiveHelpData(workspace, workflow, history, currentUserId, policy)
 }

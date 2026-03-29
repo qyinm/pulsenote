@@ -83,7 +83,7 @@ export function buildLiveSettingsData(
   policy: WorkspacePolicySettings,
   currentUserId: string,
 ): LiveSettingsData {
-  const inboxItems = buildReviewInboxItems(workflow, history, currentUserId)
+  const inboxItems = buildReviewInboxItems(workflow, history, currentUserId, policy)
   const activeIntegrations = workspace.integrations.filter(
     (integration) => integration.status === "active",
   ).length

@@ -2,6 +2,7 @@ import type {
   ReleaseRecordSnapshot,
   ReleaseWorkflowHistoryEntry,
   ReleaseWorkflowListItem,
+  WorkspacePolicySettings,
 } from "./api/client"
 import { createApiClient } from "./api/client"
 import { getForwardedAuthHeaders } from "./auth/headers"
@@ -13,10 +14,14 @@ import {
   getReleaseWorkflowReadinessLabel,
   getReleaseWorkflowStageLabel,
 } from "./release-workflow"
+import {
+  createDefaultWorkspacePolicySettings,
+  getWorkspacePolicySettingsOrDefault,
+} from "./workspace-policy"
 
 type SearchApiClient = Pick<
   ReturnType<typeof createApiClient>,
-  "listReleaseRecords" | "listReleaseWorkflow" | "listReleaseWorkflowHistory"
+  "getWorkspacePolicySettings" | "listReleaseRecords" | "listReleaseWorkflow" | "listReleaseWorkflowHistory"
 >
 
 export type LiveSearchResultType =
@@ -222,8 +227,12 @@ function buildSignalSearchResults(
   workflow: ReleaseWorkflowListItem[],
   history: ReleaseWorkflowHistoryEntry[],
   currentUserId: string,
+  policy: Pick<
+    WorkspacePolicySettings,
+    "showBlockedClaimsInInbox" | "showPendingApprovalsInInbox" | "showReopenedDraftsInInbox"
+  >,
 ): LiveSearchResult[] {
-  return buildReviewInboxItems(workflow, history, currentUserId).map((item) => ({
+  return buildReviewInboxItems(workflow, history, currentUserId, policy).map((item) => ({
     id: `signal:${item.id}`,
     meta: `${item.status} · ${item.lane}`,
     orderTimestamp: item.orderTimestamp,
@@ -317,13 +326,17 @@ export function buildLiveSearchData(
   history: ReleaseWorkflowHistoryEntry[],
   snapshots: ReleaseRecordSnapshot[],
   currentUserId: string,
+  policy: Pick<
+    WorkspacePolicySettings,
+    "showBlockedClaimsInInbox" | "showPendingApprovalsInInbox" | "showReopenedDraftsInInbox"
+  > = createDefaultWorkspacePolicySettings(),
 ): LiveSearchData {
   const results = [
     ...buildWorkflowSearchResults(workflow),
     ...buildApprovalSearchResults(workflow, currentUserId),
     ...buildEvidenceSearchResults(snapshots),
     ...buildHistorySearchResults(history),
-    ...buildSignalSearchResults(workflow, history, currentUserId),
+    ...buildSignalSearchResults(workflow, history, currentUserId, policy),
   ].sort(buildSearchResultSort)
 
   return {
@@ -348,11 +361,14 @@ export async function getServerLiveSearchData(
     headers: getForwardedAuthHeaders(requestHeaders),
   } satisfies RequestInit
 
-  const [workflow, history, snapshots] = await Promise.all([
+  const [workflow, history, snapshots, policy] = await Promise.all([
     apiClient.listReleaseWorkflow(workspaceId, init),
     apiClient.listReleaseWorkflowHistory(workspaceId, init),
     apiClient.listReleaseRecords(workspaceId, init),
+    getWorkspacePolicySettingsOrDefault(workspaceId, () =>
+      apiClient.getWorkspacePolicySettings(workspaceId, init),
+    ),
   ])
 
-  return buildLiveSearchData(workflow, history, snapshots, currentUserId)
+  return buildLiveSearchData(workflow, history, snapshots, currentUserId, policy)
 }

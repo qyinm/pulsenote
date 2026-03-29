@@ -15,6 +15,7 @@ import {
   users,
   workflowEvents,
   workspaceMemberships,
+  workspacePolicySettings,
 } from "../db/schema.js"
 import type {
   ClaimCandidate,
@@ -25,6 +26,7 @@ import type {
   ReviewStatus,
   SourceLink,
   WorkflowEvent,
+  WorkspacePolicySettings,
 } from "../domain/models.js"
 import type { ReleaseRecordSnapshot } from "../foundation/store.js"
 import type {
@@ -301,6 +303,14 @@ export function createPostgresReleaseWorkflowStore(
 
       const [snapshot] = await buildReleaseSnapshots(db, [releaseRecord])
       return snapshot ?? null
+    },
+
+    async getWorkspacePolicySettings(workspaceId: string) {
+      const settings = await db.query.workspacePolicySettings.findFirst({
+        where: eq(workspacePolicySettings.workspaceId, workspaceId),
+      })
+
+      return (settings ?? null) satisfies WorkspacePolicySettings | null
     },
 
     async linkDraftClaimCheckResultEvidenceBlock(input) {

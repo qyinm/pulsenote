@@ -5,6 +5,7 @@ import type {
   ReleaseWorkflowDetail,
   ReleaseWorkflowHistoryEntry,
   ReleaseWorkflowListItem,
+  WorkspacePolicySettings,
   WorkspaceMember,
 } from "../lib/api/client.js"
 import { ApiError } from "../lib/api/client.js"
@@ -215,12 +216,30 @@ function createWorkspaceMember(overrides: Partial<WorkspaceMember> = {}): Worksp
   }
 }
 
+function createWorkspacePolicySettings(
+  overrides: Partial<WorkspacePolicySettings> = {},
+): WorkspacePolicySettings {
+  return {
+    createdAt: overrides.createdAt ?? "2026-03-20T00:00:00.000Z",
+    includeEvidenceLinksInExport: overrides.includeEvidenceLinksInExport ?? true,
+    includeSourceLinksInExport: overrides.includeSourceLinksInExport ?? true,
+    requireClaimCheckBeforeApproval: overrides.requireClaimCheckBeforeApproval ?? true,
+    requireReviewerAssignment: overrides.requireReviewerAssignment ?? true,
+    showBlockedClaimsInInbox: overrides.showBlockedClaimsInInbox ?? true,
+    showPendingApprovalsInInbox: overrides.showPendingApprovalsInInbox ?? true,
+    showReopenedDraftsInInbox: overrides.showReopenedDraftsInInbox ?? true,
+    updatedAt: overrides.updatedAt ?? "2026-03-20T00:00:00.000Z",
+    workspaceId: overrides.workspaceId ?? "workspace_1",
+  }
+}
+
 test("getServerReleaseWorkflowData forwards cookies and loads the first selected workflow detail", async () => {
-  const requests: Array<{ init?: RequestInit; kind: "detail" | "history" | "list" }> = []
+  const requests: Array<{ init?: RequestInit; kind: "detail" | "history" | "list" | "policy" }> = []
   const listItem = createReleaseWorkflowListItem()
   const detail = createReleaseWorkflowDetail()
   const history = [createReleaseWorkflowHistoryEntry()]
   const members = [createWorkspaceMember()]
+  const policy = createWorkspacePolicySettings()
 
   const data = await getServerReleaseWorkflowData(
     new Headers({
@@ -240,6 +259,11 @@ test("getServerReleaseWorkflowData forwards cookies and loads the first selected
         assert.equal(releaseRecordId, "release_1")
         return history
       },
+      async getWorkspacePolicySettings(workspaceId, init) {
+        requests.push({ init, kind: "policy" })
+        assert.equal(workspaceId, "workspace_1")
+        return policy
+      },
       async listWorkspaceMembers(workspaceId, init) {
         requests.push({ init, kind: "list" })
         assert.equal(workspaceId, "workspace_1")
@@ -256,6 +280,7 @@ test("getServerReleaseWorkflowData forwards cookies and loads the first selected
   assert.equal(data.selectedId, "release_1")
   assert.deepEqual(data.members, members)
   assert.equal(data.membersUnavailable, false)
+  assert.deepEqual(data.policy, policy)
   assert.deepEqual(data.selectedHistory, history)
   assert.equal(data.selectedHistoryUnavailable, false)
   assert.deepEqual(data.workflow, [listItem])
@@ -272,6 +297,10 @@ test("getServerReleaseWorkflowData forwards cookies and loads the first selected
     ((requests[2]?.init?.headers as Record<string, string> | undefined) ?? {}).cookie,
     "better-auth.session=abc123",
   )
+  assert.equal(
+    ((requests[3]?.init?.headers as Record<string, string> | undefined) ?? {}).cookie,
+    "better-auth.session=abc123",
+  )
 })
 
 test("getServerReleaseWorkflowData returns an empty selected history when no workflow record exists", async () => {
@@ -285,6 +314,9 @@ test("getServerReleaseWorkflowData returns an empty selected history when no wor
       async getReleaseWorkflowHistory() {
         throw new Error("history should not be requested when there is no selected workflow")
       },
+      async getWorkspacePolicySettings() {
+        return createWorkspacePolicySettings()
+      },
       async listWorkspaceMembers() {
         return []
       },
@@ -297,6 +329,7 @@ test("getServerReleaseWorkflowData returns an empty selected history when no wor
   assert.equal(data.selectedId, null)
   assert.deepEqual(data.members, [])
   assert.equal(data.membersUnavailable, false)
+  assert.equal(data.policy.requireReviewerAssignment, true)
   assert.equal(data.selectedWorkflow, null)
   assert.deepEqual(data.selectedHistory, [])
   assert.equal(data.selectedHistoryUnavailable, false)
@@ -317,6 +350,11 @@ test("getServerReleaseWorkflowData keeps workflow detail when the history endpoi
       async getReleaseWorkflowHistory() {
         throw new Error("history unavailable")
       },
+      async getWorkspacePolicySettings() {
+        return createWorkspacePolicySettings({
+          requireReviewerAssignment: false,
+        })
+      },
       async listWorkspaceMembers() {
         return []
       },
@@ -328,6 +366,7 @@ test("getServerReleaseWorkflowData keeps workflow detail when the history endpoi
 
   assert.equal(data.selectedId, "release_1")
   assert.deepEqual(data.selectedWorkflow, detail)
+  assert.equal(data.policy.requireReviewerAssignment, false)
   assert.deepEqual(data.selectedHistory, [])
   assert.equal(data.selectedHistoryUnavailable, true)
   assert.deepEqual(data.workflow, [listItem])
@@ -347,6 +386,9 @@ test("getServerReleaseWorkflowData degrades when the member roster endpoint fail
       async getReleaseWorkflowHistory() {
         return []
       },
+      async getWorkspacePolicySettings() {
+        return createWorkspacePolicySettings()
+      },
       async listWorkspaceMembers() {
         throw new ApiError("members unavailable", 503, {
           message: "members unavailable",
@@ -364,6 +406,36 @@ test("getServerReleaseWorkflowData degrades when the member roster endpoint fail
   assert.equal(data.selectedId, "release_1")
 })
 
+test("getServerReleaseWorkflowData falls back to strict default policy when settings are unavailable", async () => {
+  const data = await getServerReleaseWorkflowData(
+    new Headers(),
+    "workspace_1",
+    {
+      async getReleaseWorkflowDetail() {
+        return createReleaseWorkflowDetail()
+      },
+      async getReleaseWorkflowHistory() {
+        return []
+      },
+      async getWorkspacePolicySettings() {
+        throw new ApiError("settings unavailable", 503, {
+          message: "settings unavailable",
+          status: 503,
+        })
+      },
+      async listWorkspaceMembers() {
+        return []
+      },
+      async listReleaseWorkflow() {
+        return [createReleaseWorkflowListItem()]
+      },
+    },
+  )
+
+  assert.equal(data.policy.requireClaimCheckBeforeApproval, true)
+  assert.equal(data.policy.requireReviewerAssignment, true)
+})
+
 test("getServerReleaseWorkflowData rethrows unexpected member roster errors", async () => {
   const listItem = createReleaseWorkflowListItem()
   const detail = createReleaseWorkflowDetail()
@@ -376,6 +448,9 @@ test("getServerReleaseWorkflowData rethrows unexpected member roster errors", as
         },
         async getReleaseWorkflowHistory() {
           return []
+        },
+        async getWorkspacePolicySettings() {
+          return createWorkspacePolicySettings()
         },
         async listWorkspaceMembers() {
           throw new ApiError("auth failed", 401, {

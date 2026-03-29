@@ -4,6 +4,7 @@ import test from "node:test"
 import type {
   ReleaseWorkflowHistoryEntry,
   ReleaseWorkflowListItem,
+  WorkspacePolicySettings,
 } from "../lib/api/client.js"
 import {
   buildLiveExportFramesData,
@@ -131,6 +132,23 @@ function createHistoryEntry(
   }
 }
 
+function createWorkspacePolicySettings(
+  overrides: Partial<WorkspacePolicySettings> = {},
+): WorkspacePolicySettings {
+  return {
+    createdAt: overrides.createdAt ?? "2026-03-20T00:00:00.000Z",
+    includeEvidenceLinksInExport: overrides.includeEvidenceLinksInExport ?? true,
+    includeSourceLinksInExport: overrides.includeSourceLinksInExport ?? true,
+    requireClaimCheckBeforeApproval: overrides.requireClaimCheckBeforeApproval ?? true,
+    requireReviewerAssignment: overrides.requireReviewerAssignment ?? true,
+    showBlockedClaimsInInbox: overrides.showBlockedClaimsInInbox ?? true,
+    showPendingApprovalsInInbox: overrides.showPendingApprovalsInInbox ?? true,
+    showReopenedDraftsInInbox: overrides.showReopenedDraftsInInbox ?? true,
+    updatedAt: overrides.updatedAt ?? "2026-03-20T00:00:00.000Z",
+    workspaceId: overrides.workspaceId ?? "workspace_1",
+  }
+}
+
 test("buildLiveExportFramesData reflects live export readiness instead of template presets", () => {
   const data = buildLiveExportFramesData(
     [
@@ -193,6 +211,7 @@ test("buildLiveExportFramesData reflects live export readiness instead of templa
         stage: "approval",
       }),
     ],
+    createWorkspacePolicySettings(),
   )
 
   assert.equal(data.metrics.framesInScope, 2)
@@ -204,6 +223,19 @@ test("buildLiveExportFramesData reflects live export readiness instead of templa
   assert.match(data.priorityFrame?.guardrails.join(" ") ?? "", /Attach rollout evidence/)
   assert.match(data.priorityFrame?.guardrails.join(" ") ?? "", /Assign a reviewer/)
   assert.match(data.entries[1]?.recentActivity[0] ?? "", /Publish pack created/)
+})
+
+test("buildLiveExportFramesData reflects workspace export defaults in frame contents", () => {
+  const data = buildLiveExportFramesData(
+    [createWorkflowItem()],
+    [createHistoryEntry()],
+    createWorkspacePolicySettings({
+      includeEvidenceLinksInExport: false,
+      includeSourceLinksInExport: false,
+    }),
+  )
+
+  assert.match(data.entries[0]?.frameContents.join(" ") ?? "", /not included in the frozen export/i)
 })
 
 test("getServerLiveExportFramesData forwards auth headers and returns live export data", async () => {
@@ -225,11 +257,15 @@ test("getServerLiveExportFramesData forwards auth headers and returns live expor
         requests.push(init ?? {})
         return history
       },
+      async getWorkspacePolicySettings(_workspaceId, init) {
+        requests.push(init ?? {})
+        return createWorkspacePolicySettings()
+      },
     },
   )
 
   assert.equal(data.metrics.framesInScope, 1)
-  assert.equal(requests.length, 2)
+  assert.equal(requests.length, 3)
 
   const headers = requests.map((request) => request.headers)
 
