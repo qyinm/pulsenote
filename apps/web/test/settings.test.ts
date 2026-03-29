@@ -140,6 +140,14 @@ function createWorkflowItem(
         latestPublishPackSummary.draftRevisionId === undefined
           ? "draft_1"
           : latestPublishPackSummary.draftRevisionId,
+      exportedByName:
+        latestPublishPackSummary.exportedByName === undefined
+          ? null
+          : latestPublishPackSummary.exportedByName,
+      exportedByUserId:
+        latestPublishPackSummary.exportedByUserId === undefined
+          ? null
+          : latestPublishPackSummary.exportedByUserId,
       exportId:
         latestPublishPackSummary.exportId === undefined
           ? null
@@ -148,6 +156,10 @@ function createWorkflowItem(
         latestPublishPackSummary.exportedAt === undefined
           ? null
           : latestPublishPackSummary.exportedAt,
+      includedEvidenceCount: latestPublishPackSummary.includedEvidenceCount ?? 0,
+      includedSourceLinkCount: latestPublishPackSummary.includedSourceLinkCount ?? 0,
+      includesEvidenceLinks: latestPublishPackSummary.includesEvidenceLinks ?? false,
+      includesSourceLinks: latestPublishPackSummary.includesSourceLinks ?? false,
       state: latestPublishPackSummary.state ?? "not_ready",
     },
     readiness: itemOverrides.readiness ?? "blocked",

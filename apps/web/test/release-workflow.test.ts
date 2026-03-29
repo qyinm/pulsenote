@@ -13,6 +13,8 @@ import {
   buildReleaseWorkflowApprovalFilterCounts,
   buildReleaseWorkflowApprovalNotes,
   buildReleaseWorkflowMetrics,
+  buildReleaseWorkflowPublishPackArtifactNotes,
+  buildReleaseWorkflowPublishPackNotes,
   buildReleaseWorkflowQueueItem,
   createReleaseWorkflowDetailCache,
   filterReleaseWorkflowApprovalQueue,
@@ -67,8 +69,14 @@ function createReleaseWorkflowListItem(
     evidenceCount: overrides.evidenceCount ?? 3,
     latestPublishPackSummary: {
       draftRevisionId: overrides.latestPublishPackSummary?.draftRevisionId ?? null,
+      exportedByName: overrides.latestPublishPackSummary?.exportedByName ?? null,
+      exportedByUserId: overrides.latestPublishPackSummary?.exportedByUserId ?? null,
       exportId: overrides.latestPublishPackSummary?.exportId ?? null,
       exportedAt: overrides.latestPublishPackSummary?.exportedAt ?? null,
+      includedEvidenceCount: overrides.latestPublishPackSummary?.includedEvidenceCount ?? 0,
+      includedSourceLinkCount: overrides.latestPublishPackSummary?.includedSourceLinkCount ?? 0,
+      includesEvidenceLinks: overrides.latestPublishPackSummary?.includesEvidenceLinks ?? false,
+      includesSourceLinks: overrides.latestPublishPackSummary?.includesSourceLinks ?? false,
       state: overrides.latestPublishPackSummary?.state ?? "not_ready",
     },
     readiness: overrides.readiness ?? "ready",
@@ -92,6 +100,7 @@ type ReleaseWorkflowDetailOverrides = {
   claimCheckSummary?: Partial<ReleaseWorkflowDetail["claimCheckSummary"]>
   currentDraft?: Partial<NonNullable<ReleaseWorkflowDetail["currentDraft"]>> | null
   evidenceBlocks?: ReleaseWorkflowDetail["evidenceBlocks"]
+  latestPublishPackArtifact?: ReleaseWorkflowDetail["latestPublishPackArtifact"]
   latestPublishPackSummary?: Partial<ReleaseWorkflowDetail["latestPublishPackSummary"]>
   readiness?: ReleaseWorkflowDetail["readiness"]
   releaseRecord?: Partial<ReleaseWorkflowDetail["releaseRecord"]>
@@ -134,10 +143,20 @@ function createReleaseWorkflowDetail(
             version: overrides.currentDraft?.version ?? 1,
           },
     evidenceBlocks: overrides.evidenceBlocks ?? [],
+    latestPublishPackArtifact:
+      overrides.latestPublishPackArtifact === undefined
+        ? null
+        : overrides.latestPublishPackArtifact,
     latestPublishPackSummary: {
       draftRevisionId: overrides.latestPublishPackSummary?.draftRevisionId ?? "draft_1",
+      exportedByName: overrides.latestPublishPackSummary?.exportedByName ?? null,
+      exportedByUserId: overrides.latestPublishPackSummary?.exportedByUserId ?? null,
       exportId: overrides.latestPublishPackSummary?.exportId ?? null,
       exportedAt: overrides.latestPublishPackSummary?.exportedAt ?? null,
+      includedEvidenceCount: overrides.latestPublishPackSummary?.includedEvidenceCount ?? 0,
+      includedSourceLinkCount: overrides.latestPublishPackSummary?.includedSourceLinkCount ?? 0,
+      includesEvidenceLinks: overrides.latestPublishPackSummary?.includesEvidenceLinks ?? false,
+      includesSourceLinks: overrides.latestPublishPackSummary?.includesSourceLinks ?? false,
       state: overrides.latestPublishPackSummary?.state ?? "not_ready",
     },
     readiness: overrides.readiness ?? "ready",
@@ -493,6 +512,66 @@ test("buildReleaseWorkflowApprovalNotes keeps assigned reviewer context for pend
   )
 
   assert.deepEqual(notes, ["Approval has been requested and is waiting on Reviewer User."])
+})
+
+test("buildReleaseWorkflowPublishPackNotes and artifact notes keep frozen handoff context visible", () => {
+  const detail = createReleaseWorkflowDetail({
+    latestPublishPackArtifact: {
+      changelogBody: "## Changelog\n\n- Frozen change summary",
+      context: {
+        approvalNote: "Approved for export",
+        approvalOwnerName: "Reviewer User",
+        approvalOwnerUserId: "user_2",
+        approvalRequestedByName: "Owner User",
+        approvalRequestedByUserId: "user_1",
+        approvalState: "approved",
+        exportedByName: "Owner User",
+        exportedByUserId: "user_1",
+      },
+      evidenceSnapshots: [
+        {
+          capturedAt: "2026-03-20T00:00:00.000Z",
+          evidenceBlockId: "evidence_1",
+          evidenceState: "fresh",
+          sourceRef: "pull/123",
+          sourceType: "pull_request",
+          title: "Pull request evidence",
+        },
+      ],
+      exportId: "export_1",
+      exportedAt: "2026-03-20T03:00:00.000Z",
+      policy: {
+        includeEvidenceLinksInExport: true,
+        includeSourceLinksInExport: false,
+      },
+      releaseNotesBody: "## Release notes\n\n- Frozen release note summary",
+      sourceSnapshots: [],
+    },
+    latestPublishPackSummary: {
+      draftRevisionId: "draft_1",
+      exportedByName: "Owner User",
+      exportedByUserId: "user_1",
+      exportId: "export_1",
+      exportedAt: "2026-03-20T03:00:00.000Z",
+      includedEvidenceCount: 0,
+      includedSourceLinkCount: 0,
+      includesEvidenceLinks: true,
+      includesSourceLinks: false,
+      state: "exported",
+    },
+  })
+
+  assert.deepEqual(buildReleaseWorkflowPublishPackNotes(detail), [
+    "The current draft revision is already frozen into a publish pack export.",
+    "The frozen handoff was exported by Owner User.",
+    "The frozen handoff includes 1 evidence link and 0 source links.",
+  ])
+  assert.deepEqual(buildReleaseWorkflowPublishPackArtifactNotes(detail), [
+    "Exported 2026-03-20T03:00:00.000Z by Owner User.",
+    "Approval was frozen as approved with Reviewer User as the reviewer and Owner User as the requester.",
+    "Evidence links were included in the frozen handoff (1 total).",
+    "Source links were intentionally excluded from the frozen handoff by workspace policy.",
+  ])
 })
 
 test("approval queue filters keep ownership handoff explicit", () => {

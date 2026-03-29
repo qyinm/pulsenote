@@ -508,11 +508,13 @@ function buildPublishPackArtifact(
   }
 
   return {
+    changelogBody: latestPublishPackExport.changelogBody,
     context: latestPublishPackExport.contextSnapshot,
     evidenceSnapshots: latestPublishPackExport.evidenceSnapshots,
     exportId: latestPublishPackExport.id,
     exportedAt: latestPublishPackExport.createdAt,
     policy: latestPublishPackExport.policySnapshot,
+    releaseNotesBody: latestPublishPackExport.releaseNotesBody,
     sourceSnapshots: latestPublishPackExport.sourceSnapshots,
   }
 }

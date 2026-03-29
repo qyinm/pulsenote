@@ -27,6 +27,7 @@ import {
   buildReleaseWorkflowClaimCheckNotes,
   buildReleaseWorkflowEvidenceNotes,
   buildReleaseWorkflowMetrics,
+  buildReleaseWorkflowPublishPackArtifactNotes,
   buildReleaseWorkflowPublishPackNotes,
   buildReleaseWorkflowQueueItem,
   detailToReleaseWorkflowListItem,
@@ -209,6 +210,40 @@ function getDefaultReviewerUserId(
 
 function formatHistoryTimestamp(value: string) {
   return historyTimestampFormatter.format(new Date(value))
+}
+
+function buildPublishPackArtifactEvidenceItems(detail: ReleaseWorkflowDetail) {
+  const artifact = detail.latestPublishPackArtifact
+
+  if (!artifact || artifact.evidenceSnapshots.length === 0) {
+    return []
+  }
+
+  return artifact.evidenceSnapshots.map((evidenceSnapshot) => {
+    const evidenceState =
+      evidenceSnapshot.evidenceState.charAt(0).toUpperCase() + evidenceSnapshot.evidenceState.slice(1)
+
+    return `${evidenceState}: ${evidenceSnapshot.title} (${evidenceSnapshot.sourceType.replaceAll("_", " ")})`
+  })
+}
+
+function buildPublishPackArtifactSourceItems(detail: ReleaseWorkflowDetail) {
+  const artifact = detail.latestPublishPackArtifact
+
+  if (!artifact || artifact.sourceSnapshots.length === 0) {
+    return []
+  }
+
+  return artifact.sourceSnapshots.map((sourceSnapshot) => `Linked source: ${sourceSnapshot.label}`)
+}
+
+function getPublishPackArtifactCounts(detail: ReleaseWorkflowDetail) {
+  const artifact = detail.latestPublishPackArtifact
+
+  return {
+    includedEvidenceCount: artifact?.evidenceSnapshots.length ?? 0,
+    includedSourceLinkCount: artifact?.sourceSnapshots.length ?? 0,
+  }
 }
 
 function getQueuedWorkflowItem(
@@ -993,6 +1028,110 @@ export function ReleaseWorkflowLiveWorkspace({
                 </p>
               )}
             </SurfaceCard>
+
+            {mode === "publish_pack" ? (
+              <SurfaceCard
+                title="Frozen publish pack artifact"
+                description="The exported handoff keeps exact wording, linked proof, and reviewer context attached to one immutable record."
+              >
+                {!selectedWorkflow ? (
+                  <p className="text-sm text-muted-foreground">
+                    Select a workflow record to inspect its frozen publish pack artifact.
+                  </p>
+                ) : selectedWorkflow.latestPublishPackArtifact ? (
+                  <div className="grid gap-4">
+                    <InlineList
+                      items={[
+                        {
+                          label: "Export ID",
+                          value: selectedWorkflow.latestPublishPackArtifact.exportId,
+                        },
+                        {
+                          label: "Exported at",
+                          value: formatHistoryTimestamp(selectedWorkflow.latestPublishPackArtifact.exportedAt),
+                        },
+                        {
+                          label: "Exported by",
+                          value:
+                            selectedWorkflow.latestPublishPackArtifact.context.exportedByName ??
+                            "Unknown exporter",
+                        },
+                        {
+                          label: "Approval reviewer",
+                          value:
+                            selectedWorkflow.latestPublishPackArtifact.context.approvalOwnerName ??
+                            "Not captured",
+                        },
+                        {
+                          label: "Requested by",
+                          value:
+                            selectedWorkflow.latestPublishPackArtifact.context.approvalRequestedByName ??
+                            "Not captured",
+                        },
+                        {
+                          label: "Evidence links",
+                          value: String(getPublishPackArtifactCounts(selectedWorkflow).includedEvidenceCount),
+                        },
+                        {
+                          label: "Source links",
+                          value: String(getPublishPackArtifactCounts(selectedWorkflow).includedSourceLinkCount),
+                        },
+                      ]}
+                    />
+
+                    <BulletList items={buildReleaseWorkflowPublishPackArtifactNotes(selectedWorkflow)} />
+
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="grid gap-2 rounded-xl border border-border/70 bg-muted/20 p-4">
+                        <p className="text-sm font-medium text-foreground">Frozen release notes</p>
+                        <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+                          {selectedWorkflow.latestPublishPackArtifact.releaseNotesBody ??
+                            "No frozen release notes body was available."}
+                        </p>
+                      </div>
+                      <div className="grid gap-2 rounded-xl border border-border/70 bg-muted/20 p-4">
+                        <p className="text-sm font-medium text-foreground">Frozen changelog</p>
+                        <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+                          {selectedWorkflow.latestPublishPackArtifact.changelogBody ??
+                            "No frozen changelog body was available."}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="grid gap-2 rounded-xl border border-border/70 bg-muted/20 p-4">
+                        <p className="text-sm font-medium text-foreground">Included evidence links</p>
+                        {selectedWorkflow.latestPublishPackArtifact.evidenceSnapshots.length > 0 ? (
+                          <BulletList items={buildPublishPackArtifactEvidenceItems(selectedWorkflow)} />
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            No evidence links were frozen into this publish pack artifact.
+                          </p>
+                        )}
+                      </div>
+                      <div className="grid gap-2 rounded-xl border border-border/70 bg-muted/20 p-4">
+                        <p className="text-sm font-medium text-foreground">Included source links</p>
+                        {selectedWorkflow.latestPublishPackArtifact.sourceSnapshots.length > 0 ? (
+                          <BulletList items={buildPublishPackArtifactSourceItems(selectedWorkflow)} />
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            No source links were frozen into this publish pack artifact.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : selectedWorkflow.latestPublishPackSummary.state === "ready" ? (
+                  <p className="text-sm text-muted-foreground">
+                    The current draft is approved and ready to freeze, but no publish pack artifact exists yet.
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Export the current approved draft before expecting a frozen publish pack artifact here.
+                  </p>
+                )}
+              </SurfaceCard>
+            ) : null}
 
             <SurfaceCard
               title="Recent history"
