@@ -47,19 +47,16 @@ function renderStateBadge(state: LiveExportFrameState) {
 }
 
 function matchesView(entry: LiveExportFrameEntry, view: ExportFrameView) {
-  if (view === "needs_review") {
-    return entry.state === "Needs review"
+  switch (view) {
+    case "needs_review":
+      return entry.state === "Needs review"
+    case "ready":
+      return entry.state === "Ready to export"
+    case "exported":
+      return entry.state === "Exported"
+    default:
+      return true
   }
-
-  if (view === "ready") {
-    return entry.state === "Ready to export"
-  }
-
-  if (view === "exported") {
-    return entry.state === "Exported"
-  }
-
-  return true
 }
 
 function filterEntries(entries: LiveExportFrameEntry[], view: ExportFrameView, query: string) {

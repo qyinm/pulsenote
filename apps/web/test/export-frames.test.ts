@@ -229,6 +229,7 @@ test("getServerLiveExportFramesData forwards auth headers and returns live expor
   )
 
   assert.equal(data.metrics.framesInScope, 1)
+  assert.equal(requests.length, 2)
 
   const headers = requests.map((request) => request.headers)
 

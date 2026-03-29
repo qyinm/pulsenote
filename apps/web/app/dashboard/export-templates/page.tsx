@@ -34,9 +34,9 @@ export default async function ExportTemplatesPage() {
       requestHeaders,
       accessState.workspace.workspace.id,
     )
-  } catch {
+  } catch (error) {
     isUnavailable = true
-    console.error("Failed to load export frames")
+    console.error("Failed to load export frames", error)
   }
 
   if (isUnavailable || !exportFramesData) {
