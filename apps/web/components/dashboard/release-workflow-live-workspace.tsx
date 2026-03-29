@@ -273,11 +273,18 @@ function useSelectedWorkflowResource<T>({
   const [isLoading, setIsLoading] = useState(initialIsLoading)
 
   useEffect(() => {
-    if (!selectedId || resourceById[selectedId]) {
+    if (!selectedId) {
+      setIsLoading(false)
+      return
+    }
+
+    if (resourceById[selectedId]) {
+      setIsLoading(false)
       return
     }
 
     let isCancelled = false
+    setIsLoading(true)
 
     loadResource(selectedId)
       .then((resource) => {

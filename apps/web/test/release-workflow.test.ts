@@ -544,13 +544,22 @@ test("filterReleaseWorkflowQueueByMode keeps claim-check records scoped to draft
   assert.deepEqual(queue.map((item) => item.releaseRecord.id), ["release_draft"])
 })
 
-test("filterReleaseWorkflowQueueByMode keeps publish-pack records scoped to approved or exported releases", () => {
+test("filterReleaseWorkflowQueueByMode keeps publish-pack records scoped to approved, ready, or exported releases", () => {
   const exportedRelease = createReleaseWorkflowListItem({
     latestPublishPackSummary: {
       state: "exported",
     },
     releaseRecord: {
       id: "release_exported",
+      stage: "publish_pack",
+    },
+  })
+  const readyRelease = createReleaseWorkflowListItem({
+    latestPublishPackSummary: {
+      state: "ready",
+    },
+    releaseRecord: {
+      id: "release_ready",
       stage: "publish_pack",
     },
   })
@@ -563,15 +572,16 @@ test("filterReleaseWorkflowQueueByMode keeps publish-pack records scoped to appr
       stage: "publish_pack",
     },
   })
-  const draftRelease = createReleaseWorkflowListItem({
+  const intakeOnlyRelease = createReleaseWorkflowListItem({
+    currentDraft: null,
     releaseRecord: {
-      id: "release_draft",
-      stage: "draft",
+      id: "release_intake",
+      stage: "intake",
     },
   })
 
   const queue = filterReleaseWorkflowQueueByMode(
-    [exportedRelease, approvedRelease, draftRelease],
+    [exportedRelease, readyRelease, approvedRelease, intakeOnlyRelease],
     "user_1",
     "publish_pack",
     "all",
@@ -579,6 +589,7 @@ test("filterReleaseWorkflowQueueByMode keeps publish-pack records scoped to appr
 
   assert.deepEqual(queue.map((item) => item.releaseRecord.id), [
     "release_exported",
+    "release_ready",
     "release_approved",
   ])
 })
