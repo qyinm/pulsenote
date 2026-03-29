@@ -70,6 +70,11 @@ export type WorkspacePolicySettings = {
   workspaceId: string
 }
 
+export type PublishPackExportPolicySnapshot = Pick<
+  WorkspacePolicySettings,
+  "includeEvidenceLinksInExport" | "includeSourceLinksInExport"
+>
+
 export function createDefaultWorkspacePolicySettings(
   workspaceId: string,
   timestamp = new Date().toISOString(),
@@ -177,6 +182,13 @@ export type EvidenceBlock = {
   capturedAt: string
 }
 
+export type PublishPackExportEvidenceSnapshot = Pick<
+  EvidenceBlock,
+  "capturedAt" | "evidenceState" | "sourceRef" | "sourceType" | "title"
+> & {
+  evidenceBlockId: string
+}
+
 export type ClaimCandidate = {
   id: string
   releaseRecordId: string
@@ -195,6 +207,10 @@ export type SourceLink = {
   label: string
 }
 
+export type PublishPackExportSourceSnapshot = Pick<SourceLink, "label" | "url"> & {
+  sourceLinkId: string
+}
+
 export type ReviewStatus = {
   id: string
   releaseRecordId: string
@@ -203,6 +219,19 @@ export type ReviewStatus = {
   state: ReviewState
   note: string | null
   updatedAt: string
+}
+
+export type PublishPackApprovalState = "not_requested" | "pending" | "approved" | "reopened"
+
+export type PublishPackExportContextSnapshot = {
+  approvalNote: string | null
+  approvalOwnerName: string | null
+  approvalOwnerUserId: string | null
+  approvalRequestedByName: string | null
+  approvalRequestedByUserId: string | null
+  approvalState: PublishPackApprovalState
+  exportedByName: string | null
+  exportedByUserId: string | null
 }
 
 export type DraftRevision = {
@@ -240,12 +269,16 @@ export type WorkflowEvent = {
 
 export type PublishPackExport = {
   changelogBody: string
+  contextSnapshot: PublishPackExportContextSnapshot
   createdAt: string
   createdByUserId: string | null
   draftRevisionId: string
+  evidenceSnapshots: PublishPackExportEvidenceSnapshot[]
   id: string
+  policySnapshot: PublishPackExportPolicySnapshot
   releaseNotesBody: string
   releaseRecordId: string
+  sourceSnapshots: PublishPackExportSourceSnapshot[]
 }
 
 export const foundationModelNames = [

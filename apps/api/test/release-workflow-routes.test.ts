@@ -30,6 +30,7 @@ test("release workflow routes expose list and detail read models", async () => {
   assert.equal(detailBody.releaseRecord.id, fixture.releaseRecord.id)
   assert.equal(detailBody.claimCheckSummary.state, "not_started")
   assert.deepEqual(detailBody.allowedActions, ["create_draft"])
+  assert.equal(detailBody.latestPublishPackArtifact, null)
 })
 
 test("release workflow routes expose workspace and release history read models", async () => {
@@ -92,6 +93,82 @@ test("release workflow routes expose workspace and release history read models",
   assert.equal(detailBody.length, 2)
   assert.equal(detailBody[1]?.eventType, "draft_created")
   assert.equal(detailBody[1]?.releaseRecordId, fixture.releaseRecord.id)
+})
+
+test("release workflow detail route exposes frozen publish pack artifact summaries", async () => {
+  const fixture = await seedReleaseWorkflowFixture({
+    async composeDraft() {
+      return {
+        changelogBody: "- Adds founder release workflow and approval checkpoints",
+        releaseNotesBody: "- Adds founder release workflow and approval checkpoints",
+      }
+    },
+    async runClaimCheck(releaseSnapshot, draftRevision) {
+      return [
+        {
+          evidenceBlockIds: releaseSnapshot.claimCandidates[0]?.evidenceBlockIds ?? [],
+          note: null,
+          sentence: draftRevision.releaseNotesBody.replace(/^- /, ""),
+          status: "approved" as const,
+        },
+      ]
+    },
+  })
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(fixture.bootstrap.user.id)),
+    foundationService: fixture.foundationService,
+    releaseWorkflowService: fixture.workflowService,
+  })
+
+  const draft = await fixture.workflowService.createDraft({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedLatestDraftRevisionId: null,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+  await fixture.workflowService.runClaimCheck({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+  await fixture.workflowService.requestApproval({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    reviewerUserId: fixture.reviewer.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+  await fixture.workflowService.approveDraft({
+    actorUserId: fixture.reviewer.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+  const exported = await fixture.workflowService.createPublishPack({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  const response = await app.request(
+    `/v1/workspaces/${fixture.bootstrap.workspace.id}/release-workflow/${fixture.releaseRecord.id}`,
+  )
+
+  assert.equal(response.status, 200)
+  const body = await response.json()
+  assert.equal(body.latestPublishPackSummary.exportId, exported.latestPublishPackSummary.exportId)
+  assert.equal(
+    body.latestPublishPackSummary.includedEvidenceCount,
+    exported.latestPublishPackArtifact?.evidenceSnapshots.length ?? 0,
+  )
+  assert.equal(
+    body.latestPublishPackSummary.includedSourceLinkCount,
+    exported.latestPublishPackArtifact?.sourceSnapshots.length ?? 0,
+  )
+  assert.equal(body.latestPublishPackArtifact.context.exportedByUserId, fixture.bootstrap.user.id)
+  assert.equal(body.latestPublishPackArtifact.context.approvalOwnerUserId, fixture.reviewer.id)
 })
 
 test("release workflow history route returns 404 for releases outside the workspace", async () => {

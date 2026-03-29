@@ -2,6 +2,10 @@ import type {
   DraftClaimCheckResult,
   DraftRevision,
   PublishPackExport,
+  PublishPackExportContextSnapshot,
+  PublishPackExportEvidenceSnapshot,
+  PublishPackExportPolicySnapshot,
+  PublishPackExportSourceSnapshot,
   ReleaseRecord,
   User,
   WorkflowEvent,
@@ -38,6 +42,40 @@ function createId() {
   return crypto.randomUUID()
 }
 
+function clonePublishPackExportContextSnapshot(
+  contextSnapshot: PublishPackExportContextSnapshot,
+): PublishPackExportContextSnapshot {
+  return { ...contextSnapshot }
+}
+
+function clonePublishPackExportEvidenceSnapshots(
+  evidenceSnapshots: PublishPackExportEvidenceSnapshot[],
+): PublishPackExportEvidenceSnapshot[] {
+  return evidenceSnapshots.map((evidenceSnapshot) => ({ ...evidenceSnapshot }))
+}
+
+function clonePublishPackExportPolicySnapshot(
+  policySnapshot: PublishPackExportPolicySnapshot,
+): PublishPackExportPolicySnapshot {
+  return { ...policySnapshot }
+}
+
+function clonePublishPackExportSourceSnapshots(
+  sourceSnapshots: PublishPackExportSourceSnapshot[],
+): PublishPackExportSourceSnapshot[] {
+  return sourceSnapshots.map((sourceSnapshot) => ({ ...sourceSnapshot }))
+}
+
+function clonePublishPackExport(publishPackExport: PublishPackExport): PublishPackExport {
+  return {
+    ...publishPackExport,
+    contextSnapshot: clonePublishPackExportContextSnapshot(publishPackExport.contextSnapshot),
+    evidenceSnapshots: clonePublishPackExportEvidenceSnapshots(publishPackExport.evidenceSnapshots),
+    policySnapshot: clonePublishPackExportPolicySnapshot(publishPackExport.policySnapshot),
+    sourceSnapshots: clonePublishPackExportSourceSnapshots(publishPackExport.sourceSnapshots),
+  }
+}
+
 export function createInMemoryReleaseWorkflowStore(
   foundationStore: FoundationStore,
 ): ReleaseWorkflowStore {
@@ -59,7 +97,10 @@ export function createInMemoryReleaseWorkflowStore(
         Array.from(state.draftRevisions.entries()).map(([key, value]) => [key, { ...value }]),
       ),
       publishPackExports: new Map(
-        Array.from(state.publishPackExports.entries()).map(([key, value]) => [key, { ...value }]),
+        Array.from(state.publishPackExports.entries()).map(([key, value]) => [
+          key,
+          clonePublishPackExport(value),
+        ]),
       ),
       workflowEvents: new Map(
         Array.from(state.workflowEvents.entries()).map(([key, value]) => [key, { ...value }]),
@@ -130,12 +171,16 @@ export function createInMemoryReleaseWorkflowStore(
     async createPublishPackExport(input: CreatePublishPackExportInput) {
       const publishPackExport: PublishPackExport = {
         changelogBody: input.changelogBody,
+        contextSnapshot: clonePublishPackExportContextSnapshot(input.contextSnapshot),
         createdAt: nowIso(),
         createdByUserId: input.createdByUserId,
         draftRevisionId: input.draftRevisionId,
+        evidenceSnapshots: clonePublishPackExportEvidenceSnapshots(input.evidenceSnapshots),
         id: createId(),
+        policySnapshot: clonePublishPackExportPolicySnapshot(input.policySnapshot),
         releaseNotesBody: input.releaseNotesBody,
         releaseRecordId: input.releaseRecordId,
+        sourceSnapshots: clonePublishPackExportSourceSnapshots(input.sourceSnapshots),
       }
 
       state.publishPackExports.set(publishPackExport.id, publishPackExport)
