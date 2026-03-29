@@ -234,6 +234,39 @@ test("buildLiveHelpData reflects live workflow blockers and guidance", () => {
   assert.match(data.issues.map((issue) => issue.title).join(" "), /Approval handoff is missing an owner/)
 })
 
+test("buildLiveHelpData does not mark unstarted claim checks as clear", () => {
+  const data = buildLiveHelpData(
+    createWorkspaceSnapshot(),
+    [
+      createWorkflowItem({
+        approvalSummary: {
+          state: "not_requested",
+        },
+        claimCheckSummary: {
+          blockerNotes: [],
+          flaggedClaims: 0,
+          state: "not_started",
+          totalClaims: 0,
+        },
+        latestPublishPackSummary: {
+          state: "not_ready",
+        },
+        readiness: "attention",
+        releaseRecord: {
+          id: "release_3",
+          stage: "draft",
+          title: "Usage analytics export",
+        },
+      }),
+    ],
+    [],
+    "user_1",
+  )
+
+  assert.equal(data.modules[1]?.status, "1 not started")
+  assert.match(data.checklist.join(" "), /Run claim check/)
+})
+
 test("getServerHelpCenterData forwards auth headers and returns live help data", async () => {
   const requests: RequestInit[] = []
   const workspace = createWorkspaceSnapshot()
