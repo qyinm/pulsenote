@@ -8,6 +8,7 @@ import {
 
 import { DashboardAccessState } from "@/components/dashboard/dashboard-access-state"
 import { GitHubConnectionSettingsCard } from "@/components/dashboard/github-connection-settings-card"
+import { WorkspacePolicySettingsCard } from "@/components/dashboard/workspace-policy-settings-card"
 import {
   DashboardPage,
   InlineList,
@@ -139,6 +140,12 @@ export default async function SettingsPage() {
       ) : null}
 
       <div className="grid gap-4 xl:grid-cols-2">
+        {settingsData ? (
+          <WorkspacePolicySettingsCard
+            initialSettings={settingsData.policy}
+            workspaceId={accessState.workspace.workspace.id}
+          />
+        ) : null}
         {liveSections.map((section) => (
           <SurfaceCard
             key={section.title}

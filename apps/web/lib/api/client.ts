@@ -310,6 +310,19 @@ const workspaceMemberSchema = z.object({
   }),
 })
 
+const workspacePolicySettingsSchema = z.object({
+  createdAt: z.string(),
+  includeEvidenceLinksInExport: z.boolean(),
+  includeSourceLinksInExport: z.boolean(),
+  requireClaimCheckBeforeApproval: z.boolean(),
+  requireReviewerAssignment: z.boolean(),
+  showBlockedClaimsInInbox: z.boolean(),
+  showPendingApprovalsInInbox: z.boolean(),
+  showReopenedDraftsInInbox: z.boolean(),
+  updatedAt: z.string(),
+  workspaceId: z.string(),
+})
+
 const githubInstallUrlSchema = z.object({
   url: z.string().url(),
 })
@@ -404,6 +417,7 @@ export type ReleaseWorkflowListItem = z.infer<typeof releaseWorkflowListItemSche
 export type WorkflowAllowedAction = z.infer<typeof workflowAllowedActionSchema>
 export type WorkspaceChoice = z.infer<typeof workspaceChoiceSchema>
 export type WorkspaceMember = z.infer<typeof workspaceMemberSchema>
+export type WorkspacePolicySettings = z.infer<typeof workspacePolicySettingsSchema>
 export type WorkspaceSnapshot = z.infer<typeof workspaceSnapshotSchema>
 
 type CreateApiClientOptions = {
@@ -572,6 +586,13 @@ export function createApiClient(options: CreateApiClientOptions = {}) {
     getCurrentWorkspace(init?: RequestInit) {
       return request("/v1/workspaces/current", workspaceSnapshotSchema, init)
     },
+    getWorkspacePolicySettings(workspaceId: string, init?: RequestInit) {
+      return request(
+        `/v1/workspaces/${encodeURIComponent(workspaceId)}/settings`,
+        workspacePolicySettingsSchema,
+        init,
+      )
+    },
     getGitHubConnection(workspaceId: string, init?: RequestInit) {
       return request(
         `/v1/workspaces/${encodeURIComponent(workspaceId)}/integrations/github`,
@@ -587,6 +608,30 @@ export function createApiClient(options: CreateApiClientOptions = {}) {
         `/v1/workspaces/${encodeURIComponent(workspaceId)}/members`,
         z.array(workspaceMemberSchema),
         init,
+      )
+    },
+    updateWorkspacePolicySettings(
+      workspaceId: string,
+      payload: Pick<
+        WorkspacePolicySettings,
+        | "includeEvidenceLinksInExport"
+        | "includeSourceLinksInExport"
+        | "requireClaimCheckBeforeApproval"
+        | "requireReviewerAssignment"
+        | "showBlockedClaimsInInbox"
+        | "showPendingApprovalsInInbox"
+        | "showReopenedDraftsInInbox"
+      >,
+      init?: RequestInit,
+    ) {
+      return request(
+        `/v1/workspaces/${encodeURIComponent(workspaceId)}/settings`,
+        workspacePolicySettingsSchema,
+        {
+          ...init,
+          body: JSON.stringify(payload),
+          method: "PUT",
+        },
       )
     },
     listGitHubInstallationRepositories(

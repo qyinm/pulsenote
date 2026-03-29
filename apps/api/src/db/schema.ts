@@ -106,6 +106,21 @@ export const workspaces = pgTable("workspaces", {
   updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
 })
 
+export const workspacePolicySettings = pgTable("workspace_policy_settings", {
+  createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
+  includeEvidenceLinksInExport: boolean("include_evidence_links_in_export").default(true).notNull(),
+  includeSourceLinksInExport: boolean("include_source_links_in_export").default(true).notNull(),
+  requireClaimCheckBeforeApproval: boolean("require_claim_check_before_approval").default(true).notNull(),
+  requireReviewerAssignment: boolean("require_reviewer_assignment").default(true).notNull(),
+  showBlockedClaimsInInbox: boolean("show_blocked_claims_in_inbox").default(true).notNull(),
+  showPendingApprovalsInInbox: boolean("show_pending_approvals_in_inbox").default(true).notNull(),
+  showReopenedDraftsInInbox: boolean("show_reopened_drafts_in_inbox").default(true).notNull(),
+  updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
+  workspaceId: uuid("workspace_id")
+    .primaryKey()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+})
+
 export const workspaceMemberships = pgTable(
   "workspace_memberships",
   {

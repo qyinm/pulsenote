@@ -57,6 +57,37 @@ export type Workspace = {
   updatedAt: string
 }
 
+export type WorkspacePolicySettings = {
+  createdAt: string
+  includeEvidenceLinksInExport: boolean
+  includeSourceLinksInExport: boolean
+  requireClaimCheckBeforeApproval: boolean
+  requireReviewerAssignment: boolean
+  showBlockedClaimsInInbox: boolean
+  showPendingApprovalsInInbox: boolean
+  showReopenedDraftsInInbox: boolean
+  updatedAt: string
+  workspaceId: string
+}
+
+export function createDefaultWorkspacePolicySettings(
+  workspaceId: string,
+  timestamp = new Date().toISOString(),
+): WorkspacePolicySettings {
+  return {
+    createdAt: timestamp,
+    includeEvidenceLinksInExport: true,
+    includeSourceLinksInExport: true,
+    requireClaimCheckBeforeApproval: true,
+    requireReviewerAssignment: true,
+    showBlockedClaimsInInbox: true,
+    showPendingApprovalsInInbox: true,
+    showReopenedDraftsInInbox: true,
+    updatedAt: timestamp,
+    workspaceId,
+  }
+}
+
 export type WorkspaceMembership = {
   id: string
   workspaceId: string
@@ -220,6 +251,7 @@ export type PublishPackExport = {
 export const foundationModelNames = [
   "user",
   "workspace",
+  "workspace_policy_settings",
   "workspace_membership",
   "current_workspace_selection",
   "integration_connection",

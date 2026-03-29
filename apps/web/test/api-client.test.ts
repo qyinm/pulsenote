@@ -136,6 +136,21 @@ function createWorkspaceMemberPayload() {
   }
 }
 
+function createWorkspacePolicySettingsPayload() {
+  return {
+    createdAt: "2026-03-20T00:00:00.000Z",
+    includeEvidenceLinksInExport: true,
+    includeSourceLinksInExport: true,
+    requireClaimCheckBeforeApproval: true,
+    requireReviewerAssignment: true,
+    showBlockedClaimsInInbox: true,
+    showPendingApprovalsInInbox: true,
+    showReopenedDraftsInInbox: true,
+    updatedAt: "2026-03-20T00:00:00.000Z",
+    workspaceId: "workspace_1",
+  }
+}
+
 function createReleaseWorkflowHistoryEntryPayload() {
   return {
     actorName: "Owner User",
@@ -236,6 +251,57 @@ test("api client sends credentialed requests to session, workspace, and release 
     assert.equal(request.init?.credentials, "include")
     assert.equal(new Headers(request.init?.headers).has("content-type"), false)
   }
+})
+
+test("api client sends workspace policy settings reads and writes with encoded payloads", async () => {
+  const requests: Array<{ init?: RequestInit; input: RequestInfo | URL }> = []
+  const settingsPayload = createWorkspacePolicySettingsPayload()
+  const client = createApiClient({
+    baseUrl: "https://api.pulsenotes.xyz",
+    fetch: async (input, init) => {
+      requests.push({ init, input })
+      return Response.json(settingsPayload)
+    },
+  })
+
+  await client.getWorkspacePolicySettings("workspace 1")
+  await client.updateWorkspacePolicySettings("workspace 1", {
+    includeEvidenceLinksInExport: false,
+    includeSourceLinksInExport: true,
+    requireClaimCheckBeforeApproval: true,
+    requireReviewerAssignment: true,
+    showBlockedClaimsInInbox: true,
+    showPendingApprovalsInInbox: false,
+    showReopenedDraftsInInbox: true,
+  })
+
+  assert.deepEqual(
+    requests.map((request) => ({
+      body: request.init?.body,
+      method: request.init?.method,
+      url: String(request.input),
+    })),
+    [
+      {
+        body: undefined,
+        method: undefined,
+        url: "https://api.pulsenotes.xyz/v1/workspaces/workspace%201/settings",
+      },
+      {
+        body: JSON.stringify({
+          includeEvidenceLinksInExport: false,
+          includeSourceLinksInExport: true,
+          requireClaimCheckBeforeApproval: true,
+          requireReviewerAssignment: true,
+          showBlockedClaimsInInbox: true,
+          showPendingApprovalsInInbox: false,
+          showReopenedDraftsInInbox: true,
+        }),
+        method: "PUT",
+        url: "https://api.pulsenotes.xyz/v1/workspaces/workspace%201/settings",
+      },
+    ],
+  )
 })
 
 test("api client sends workflow read requests to founder release workflow routes", async () => {

@@ -5,6 +5,7 @@ import {
   type SyncRun,
   type User,
   type Workspace,
+  type WorkspacePolicySettings,
   type WorkspaceMembership,
 } from "../domain/models.js"
 import type {
@@ -74,6 +75,18 @@ type SelectCurrentWorkspaceInput = {
   userId: string
   workspaceId: string
 }
+
+type UpdateWorkspacePolicySettingsInput = Pick<WorkspacePolicySettings, "workspaceId"> &
+  Pick<
+    WorkspacePolicySettings,
+    | "includeEvidenceLinksInExport"
+    | "includeSourceLinksInExport"
+    | "requireClaimCheckBeforeApproval"
+    | "requireReviewerAssignment"
+    | "showBlockedClaimsInInbox"
+    | "showPendingApprovalsInInbox"
+    | "showReopenedDraftsInInbox"
+  >
 
 export type WorkspaceMemberRecord = {
   membership: WorkspaceMembership
@@ -361,6 +374,24 @@ export function createFoundationService(store: FoundationStore) {
       return snapshot
     },
 
+    async getWorkspacePolicySettings(workspaceId: string): Promise<WorkspacePolicySettings> {
+      requireNonEmpty(workspaceId, "workspaceId")
+
+      const workspace = await store.getWorkspace(workspaceId)
+
+      if (!workspace) {
+        throw new Error(`Workspace ${workspaceId} was not found`)
+      }
+
+      const settings = await store.getWorkspacePolicySettings(workspaceId)
+
+      if (!settings) {
+        throw new Error(`Workspace policy settings for ${workspaceId} were not found`)
+      }
+
+      return settings
+    },
+
     async getCurrentWorkspaceSnapshotForUser(userId: string): Promise<WorkspaceSnapshot> {
       requireNonEmpty(userId, "userId")
 
@@ -446,6 +477,20 @@ export function createFoundationService(store: FoundationStore) {
           const rightName = (right.user.fullName ?? right.user.email).toLowerCase()
           return leftName.localeCompare(rightName)
         })
+    },
+
+    async updateWorkspacePolicySettings(
+      input: UpdateWorkspacePolicySettingsInput,
+    ): Promise<WorkspacePolicySettings> {
+      requireNonEmpty(input.workspaceId, "workspaceId")
+
+      const workspace = await store.getWorkspace(input.workspaceId)
+
+      if (!workspace) {
+        throw new Error(`Workspace ${input.workspaceId} was not found`)
+      }
+
+      return store.updateWorkspacePolicySettings(input)
     },
 
     async selectCurrentWorkspaceForUser(input: SelectCurrentWorkspaceInput): Promise<WorkspaceSnapshot> {

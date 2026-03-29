@@ -78,6 +78,13 @@
       "when": 1774659000000,
       "tag": "0010_quick_orphan",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1774745400000,
+      "tag": "0011_mellow_oracle",
+      "breakpoints": true
     }
   ]
 }
