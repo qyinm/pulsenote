@@ -360,6 +360,84 @@ test("workspace policy settings route rejects incomplete payloads", async () => 
   assert.match((await response.json()).message, /includeEvidenceLinksInExport/)
 })
 
+test("workspace policy settings route returns 404 when settings are missing", async () => {
+  const app = new Hono()
+  const foundationService = {
+    async assertWorkspaceAccess() {
+      return {
+        createdAt: "2026-03-20T00:00:00.000Z",
+        id: "membership_1",
+        role: "owner" as const,
+        userId: "user_1",
+        workspaceId: "workspace_1",
+      }
+    },
+    async getWorkspacePolicySettings() {
+      throw new Error("Workspace workspace_1 was not found")
+    },
+  } as unknown as FoundationService
+
+  app.use("*", async (context, next) => {
+    context.set("authUser", createAuthenticatedSession("user_1").user)
+    await next()
+  })
+  app.route("/v1/workspaces", createWorkspacesRoute(foundationService))
+
+  const response = await app.request("/v1/workspaces/workspace_1/settings")
+
+  assert.equal(response.status, 404)
+  assert.deepEqual(await response.json(), {
+    message: "Workspace workspace_1 was not found",
+    status: 404,
+  })
+})
+
+test("workspace policy settings route returns 500 for unexpected update failures", async () => {
+  const app = new Hono()
+  const foundationService = {
+    async assertWorkspaceAccess() {
+      return {
+        createdAt: "2026-03-20T00:00:00.000Z",
+        id: "membership_1",
+        role: "owner" as const,
+        userId: "user_1",
+        workspaceId: "workspace_1",
+      }
+    },
+    async updateWorkspacePolicySettings() {
+      throw new Error("database unavailable")
+    },
+  } as unknown as FoundationService
+
+  app.use("*", async (context, next) => {
+    context.set("authUser", createAuthenticatedSession("user_1").user)
+    await next()
+  })
+  app.route("/v1/workspaces", createWorkspacesRoute(foundationService))
+
+  const response = await app.request("/v1/workspaces/workspace_1/settings", {
+    body: JSON.stringify({
+      includeEvidenceLinksInExport: true,
+      includeSourceLinksInExport: true,
+      requireClaimCheckBeforeApproval: true,
+      requireReviewerAssignment: true,
+      showBlockedClaimsInInbox: true,
+      showPendingApprovalsInInbox: true,
+      showReopenedDraftsInInbox: true,
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "PUT",
+  })
+
+  assert.equal(response.status, 500)
+  assert.deepEqual(await response.json(), {
+    message: "database unavailable",
+    status: 500,
+  })
+})
+
 test("workspace routes manage the GitHub intake connection for an authenticated workspace", async () => {
   const foundationService = createFoundationService(createInMemoryFoundationStore())
   const bootstrapApp = createApp(runtimeEnv, {

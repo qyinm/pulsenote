@@ -15,6 +15,7 @@ import {
   type Workspace,
   type WorkspacePolicySettings,
   type WorkspaceMembership,
+  createDefaultWorkspacePolicySettings,
 } from "../domain/models.js"
 
 type CreateUserInput = Pick<User, "email" | "fullName">
@@ -192,23 +193,6 @@ function createId() {
   return crypto.randomUUID()
 }
 
-function buildDefaultWorkspacePolicySettings(workspaceId: string): WorkspacePolicySettings {
-  const timestamp = nowIso()
-
-  return {
-    createdAt: timestamp,
-    includeEvidenceLinksInExport: true,
-    includeSourceLinksInExport: true,
-    requireClaimCheckBeforeApproval: true,
-    requireReviewerAssignment: true,
-    showBlockedClaimsInInbox: true,
-    showPendingApprovalsInInbox: true,
-    showReopenedDraftsInInbox: true,
-    updatedAt: timestamp,
-    workspaceId,
-  }
-}
-
 export function createInMemoryFoundationStore(): FoundationStore {
   const state: InMemoryState = {
     currentWorkspaceSelections: new Map(),
@@ -366,7 +350,7 @@ export function createInMemoryFoundationStore(): FoundationStore {
         })
         createdMembership = membership
         await this.createWorkspacePolicySettings({
-          ...buildDefaultWorkspacePolicySettings(workspace.id),
+          ...createDefaultWorkspacePolicySettings(workspace.id),
         })
         createdPolicyWorkspaceId = workspace.id
 
@@ -413,7 +397,7 @@ export function createInMemoryFoundationStore(): FoundationStore {
         workspaceId: workspace.id,
       })
       await this.createWorkspacePolicySettings({
-        ...buildDefaultWorkspacePolicySettings(workspace.id),
+        ...createDefaultWorkspacePolicySettings(workspace.id),
       })
 
       return {
@@ -620,12 +604,10 @@ export function createInMemoryFoundationStore(): FoundationStore {
     },
 
     async createWorkspacePolicySettings(input) {
-      const defaults = buildDefaultWorkspacePolicySettings(input.workspaceId)
+      const defaults = createDefaultWorkspacePolicySettings(input.workspaceId)
       const workspacePolicySettings: WorkspacePolicySettings = {
         ...defaults,
         ...input,
-        createdAt: defaults.createdAt,
-        updatedAt: defaults.updatedAt,
       }
 
       state.workspacePolicySettings.set(workspacePolicySettings.workspaceId, workspacePolicySettings)

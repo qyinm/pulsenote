@@ -36,6 +36,7 @@ import {
   type Workspace,
   type WorkspacePolicySettings,
   type WorkspaceMembership,
+  createDefaultWorkspacePolicySettings,
 } from "../domain/models.js"
 import type { FoundationStore, GitHubWorkspaceConnection, ReleaseRecordSnapshot } from "./store.js"
 
@@ -45,19 +46,6 @@ function nowIso() {
 
 function createId() {
   return crypto.randomUUID()
-}
-
-function buildDefaultWorkspacePolicySettings(workspaceId: string): Omit<WorkspacePolicySettings, "createdAt" | "updatedAt"> {
-  return {
-    includeEvidenceLinksInExport: true,
-    includeSourceLinksInExport: true,
-    requireClaimCheckBeforeApproval: true,
-    requireReviewerAssignment: true,
-    showBlockedClaimsInInbox: true,
-    showPendingApprovalsInInbox: true,
-    showReopenedDraftsInInbox: true,
-    workspaceId,
-  }
 }
 
 type PostgresFoundationStoreOptions = {
@@ -167,9 +155,7 @@ export function createPostgresFoundationStore(
           .returning()
 
         await tx.insert(workspacePolicySettings).values({
-          ...buildDefaultWorkspacePolicySettings(workspace.id),
-          createdAt: nowIso(),
-          updatedAt: nowIso(),
+          ...createDefaultWorkspacePolicySettings(workspace.id),
         })
 
         return {
@@ -216,9 +202,7 @@ export function createPostgresFoundationStore(
           .returning()
 
         await tx.insert(workspacePolicySettings).values({
-          ...buildDefaultWorkspacePolicySettings(workspace.id),
-          createdAt: nowIso(),
-          updatedAt: nowIso(),
+          ...createDefaultWorkspacePolicySettings(workspace.id),
         })
 
         return {
@@ -460,10 +444,8 @@ export function createPostgresFoundationStore(
       const [settings] = await db
         .insert(workspacePolicySettings)
         .values({
-          ...buildDefaultWorkspacePolicySettings(input.workspaceId),
+          ...createDefaultWorkspacePolicySettings(input.workspaceId),
           ...input,
-          createdAt: nowIso(),
-          updatedAt: nowIso(),
         })
         .returning()
 

@@ -47,11 +47,55 @@ function notFound(message: string) {
   } as const
 }
 
+function forbidden(message: string) {
+  return {
+    message,
+    status: 403,
+  } as const
+}
+
 function internalServerError(message: string) {
   return {
     message,
     status: 500,
   } as const
+}
+
+function getRouteErrorStatus(error: unknown, fallbackStatus = 500) {
+  const message = error instanceof Error ? error.message : ""
+
+  if (message.includes(" is required")) {
+    return 400
+  }
+
+  if (message.includes("access is not allowed")) {
+    return 403
+  }
+
+  if (message.includes("was not found")) {
+    return 404
+  }
+
+  return fallbackStatus
+}
+
+function buildRouteErrorResponse(error: unknown, fallbackMessage: string, fallbackStatus = 500) {
+  const message = error instanceof Error ? error.message : fallbackMessage
+  const status = getRouteErrorStatus(error, fallbackStatus)
+
+  if (status === 400) {
+    return badRequest(message)
+  }
+
+  if (status === 404) {
+    return notFound(message)
+  }
+
+  if (status === 403) {
+    return forbidden(message)
+  }
+
+  return internalServerError(message)
 }
 
 export function createWorkspacesRoute(
@@ -321,8 +365,11 @@ export function createWorkspacesRoute(
       const settings = await foundationService.getWorkspacePolicySettings(context.req.param("workspaceId"))
       return context.json(settings)
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Workspace policy settings were not found"
-      return context.json(notFound(message), 404)
+      const response = buildRouteErrorResponse(
+        error,
+        "Workspace policy settings were not found",
+      )
+      return context.json(response, response.status)
     }
   })
 
@@ -338,13 +385,15 @@ export function createWorkspacesRoute(
     const showReopenedDraftsInInbox = asBoolean(payload?.showReopenedDraftsInInbox)
 
     if (
-      includeEvidenceLinksInExport === null ||
-      includeSourceLinksInExport === null ||
-      requireClaimCheckBeforeApproval === null ||
-      requireReviewerAssignment === null ||
-      showBlockedClaimsInInbox === null ||
-      showPendingApprovalsInInbox === null ||
-      showReopenedDraftsInInbox === null
+      [
+        includeEvidenceLinksInExport,
+        includeSourceLinksInExport,
+        requireClaimCheckBeforeApproval,
+        requireReviewerAssignment,
+        showBlockedClaimsInInbox,
+        showPendingApprovalsInInbox,
+        showReopenedDraftsInInbox,
+      ].some((value) => value === null)
     ) {
       return context.json(
         badRequest(
@@ -354,22 +403,29 @@ export function createWorkspacesRoute(
       )
     }
 
+    const nextSettings = {
+      includeEvidenceLinksInExport: includeEvidenceLinksInExport as boolean,
+      includeSourceLinksInExport: includeSourceLinksInExport as boolean,
+      requireClaimCheckBeforeApproval: requireClaimCheckBeforeApproval as boolean,
+      requireReviewerAssignment: requireReviewerAssignment as boolean,
+      showBlockedClaimsInInbox: showBlockedClaimsInInbox as boolean,
+      showPendingApprovalsInInbox: showPendingApprovalsInInbox as boolean,
+      showReopenedDraftsInInbox: showReopenedDraftsInInbox as boolean,
+    }
+
     try {
       const settings = await foundationService.updateWorkspacePolicySettings({
-        includeEvidenceLinksInExport,
-        includeSourceLinksInExport,
-        requireClaimCheckBeforeApproval,
-        requireReviewerAssignment,
-        showBlockedClaimsInInbox,
-        showPendingApprovalsInInbox,
-        showReopenedDraftsInInbox,
+        ...nextSettings,
         workspaceId: context.req.param("workspaceId"),
       })
 
       return context.json(settings)
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Workspace policy settings could not be updated"
-      return context.json(internalServerError(message), 500)
+      const response = buildRouteErrorResponse(
+        error,
+        "Workspace policy settings could not be updated",
+      )
+      return context.json(response, response.status)
     }
   })
 

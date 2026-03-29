@@ -70,6 +70,24 @@ export type WorkspacePolicySettings = {
   workspaceId: string
 }
 
+export function createDefaultWorkspacePolicySettings(
+  workspaceId: string,
+  timestamp = new Date().toISOString(),
+): WorkspacePolicySettings {
+  return {
+    createdAt: timestamp,
+    includeEvidenceLinksInExport: true,
+    includeSourceLinksInExport: true,
+    requireClaimCheckBeforeApproval: true,
+    requireReviewerAssignment: true,
+    showBlockedClaimsInInbox: true,
+    showPendingApprovalsInInbox: true,
+    showReopenedDraftsInInbox: true,
+    updatedAt: timestamp,
+    workspaceId,
+  }
+}
+
 export type WorkspaceMembership = {
   id: string
   workspaceId: string
