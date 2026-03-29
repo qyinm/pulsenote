@@ -36,6 +36,8 @@ export type ReleaseWorkflowApprovalOwnershipFilter =
   | "requested_by_me"
   | "unassigned"
 
+export type ReleaseWorkflowMode = "approval" | "claim_check" | "overview" | "publish_pack"
+
 export type ReleaseWorkflowQueueItem = {
   allowedActions: WorkflowAllowedAction[]
   approvalLabel: string
@@ -227,6 +229,32 @@ export function filterReleaseWorkflowApprovalQueue(
   filter: ReleaseWorkflowApprovalOwnershipFilter,
 ) {
   return workflow.filter((item) => matchesApprovalOwnershipFilter(item, currentUserId, filter))
+}
+
+export function filterReleaseWorkflowQueueByMode(
+  workflow: ReleaseWorkflowListItem[],
+  currentUserId: string,
+  mode: ReleaseWorkflowMode,
+  approvalFilter: ReleaseWorkflowApprovalOwnershipFilter,
+) {
+  if (mode === "approval") {
+    return filterReleaseWorkflowApprovalQueue(workflow, currentUserId, approvalFilter)
+  }
+
+  if (mode === "claim_check") {
+    return workflow.filter((item) => item.currentDraft !== null)
+  }
+
+  if (mode === "publish_pack") {
+    return workflow.filter(
+      (item) =>
+        item.latestPublishPackSummary.state === "exported" ||
+        item.latestPublishPackSummary.state === "ready" ||
+        item.approvalSummary.state === "approved",
+    )
+  }
+
+  return workflow
 }
 
 export function buildReleaseWorkflowApprovalFilterCounts(
