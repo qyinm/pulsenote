@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { formatUtcTimestamp } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 type LogView = "all" | "blocked" | "signed-off" | "revisions"
@@ -66,14 +67,8 @@ function outcomeBadge(outcome: ReleaseWorkflowHistoryEntry["outcome"]) {
   return <Badge variant="secondary">{label}</Badge>
 }
 
-const reviewLogTimestampFormatter = new Intl.DateTimeFormat("en-US", {
-  dateStyle: "medium",
-  timeStyle: "short",
-  timeZone: "UTC",
-})
-
 function formatTimestamp(value: string) {
-  return `${reviewLogTimestampFormatter.format(new Date(value))} UTC`
+  return formatUtcTimestamp(value)
 }
 
 function formatStageLabel(stage: ReleaseWorkflowHistoryEntry["stage"]) {

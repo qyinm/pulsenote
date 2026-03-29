@@ -58,6 +58,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { formatUtcTimestamp } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 const approvalOwnershipFilters: Array<{
@@ -92,12 +93,6 @@ type SelectedWorkflowResourceParams<T> = {
   loadResource: (selectedId: string) => Promise<T>
   selectedId: string | null
 }
-
-const historyTimestampFormatter = new Intl.DateTimeFormat("en-US", {
-  dateStyle: "medium",
-  timeStyle: "short",
-  timeZone: "UTC",
-})
 
 const actionButtonLabels = {
   approve_draft: "Approve draft",
@@ -207,7 +202,7 @@ function getDefaultReviewerUserId(
 }
 
 function formatHistoryTimestamp(value: string) {
-  return `${historyTimestampFormatter.format(new Date(value))} UTC`
+  return formatUtcTimestamp(value)
 }
 
 function buildPublishPackArtifactEvidenceItems(detail: ReleaseWorkflowDetail) {
