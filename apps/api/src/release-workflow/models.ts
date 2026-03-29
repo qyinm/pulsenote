@@ -145,5 +145,5 @@ export type DraftScopedCommandInput = {
 }
 
 export type RequestApprovalInput = DraftScopedCommandInput & {
-  reviewerUserId: string
+  reviewerUserId?: string
 }

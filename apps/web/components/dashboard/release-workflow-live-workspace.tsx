@@ -15,6 +15,7 @@ import type {
   ReleaseWorkflowDetail,
   ReleaseWorkflowHistoryEntry,
   ReleaseWorkflowListItem,
+  WorkspacePolicySettings,
   WorkspaceMember,
   WorkflowAllowedAction,
 } from "@/lib/api/client"
@@ -73,6 +74,7 @@ type ReleaseWorkflowLiveWorkspaceProps = {
   currentUserId: string
   initialMembers: WorkspaceMember[]
   initialMembersUnavailable: boolean
+  initialPolicy: WorkspacePolicySettings
   initialSelectedHistory: ReleaseWorkflowHistoryEntry[]
   initialSelectedHistoryUnavailable: boolean
   initialSelectedId: string
@@ -489,6 +491,7 @@ export function ReleaseWorkflowLiveWorkspace({
   currentUserId,
   initialMembers,
   initialMembersUnavailable,
+  initialPolicy,
   initialSelectedHistory,
   initialSelectedHistoryUnavailable,
   initialSelectedId,
@@ -555,6 +558,7 @@ export function ReleaseWorkflowLiveWorkspace({
   const selectedWorkflow = getSelectedReleaseWorkflowDetail(detailById, activeSelectedId)
   const selectedHistory = activeSelectedId ? historyById[activeSelectedId] ?? [] : []
   const recentHistory = selectedHistory.slice(0, 5)
+  const approvalRequiresReviewer = initialPolicy.requireReviewerAssignment
   const selectedQueueItem = queueItems.find((item) => item.id === activeSelectedId) ?? queueItems[0] ?? null
   const selectedQueueSourceItem = selectedQueueItem
     ? getQueuedWorkflowItem(queueSourceById, selectedQueueItem.id)
@@ -608,13 +612,13 @@ export function ReleaseWorkflowLiveWorkspace({
             })
             break
           case "request_approval":
-            if (!approvalReviewerUserId) {
+            if (approvalRequiresReviewer && !approvalReviewerUserId) {
               throw new Error("Select a reviewer before requesting approval.")
             }
 
             nextDetail = await apiClient.requestReleaseWorkflowApproval(workspaceId, activeSelectedId, {
               expectedDraftRevisionId,
-              reviewerUserId: approvalReviewerUserId,
+              ...(approvalReviewerUserId ? { reviewerUserId: approvalReviewerUserId } : {}),
             })
             break
           case "approve_draft":
@@ -885,7 +889,7 @@ export function ReleaseWorkflowLiveWorkspace({
                 {canRequestApproval ? (
                   <div className="grid gap-2 rounded-xl border border-border/70 bg-muted/20 p-3">
                     <Label htmlFor="approval-reviewer" className="text-sm font-medium">
-                      Assign reviewer
+                      {approvalRequiresReviewer ? "Assign reviewer" : "Assign reviewer (optional)"}
                     </Label>
                     <Select
                       value={approvalReviewerUserId}
@@ -916,14 +920,24 @@ export function ReleaseWorkflowLiveWorkspace({
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-xs text-muted-foreground">
                         {membersUnavailable
-                          ? "Reload the release workflow once the reviewer roster is available."
+                          ? approvalRequiresReviewer
+                            ? "Reload the release workflow once the reviewer roster is available."
+                            : "Reviewer routing is optional here, so approval can still be requested without loading the roster."
                           : members.length === 0
-                            ? "Add a workspace member before routing approval."
-                            : "Approval becomes a concrete handoff once a reviewer is assigned."}
+                            ? approvalRequiresReviewer
+                              ? "Add a workspace member before routing approval."
+                              : "Reviewer routing is optional in this workspace, so approval can proceed without assigning one."
+                            : approvalRequiresReviewer
+                              ? "Approval becomes a concrete handoff once a reviewer is assigned."
+                              : "Assigning a reviewer keeps ownership explicit, but this workspace allows approval requests without one."}
                       </p>
                       <Button
                         size="sm"
-                        disabled={isRunningAction || !approvalReviewerUserId || membersUnavailable || members.length === 0}
+                        disabled={
+                          isRunningAction ||
+                          (approvalRequiresReviewer &&
+                            (!approvalReviewerUserId || membersUnavailable || members.length === 0))
+                        }
                         onClick={() => {
                           void runWorkflowAction("request_approval")
                         }}

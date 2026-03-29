@@ -442,7 +442,7 @@ type ReleaseWorkflowDraftCommandPayload = {
 }
 
 type ReleaseWorkflowApprovalCommandPayload = ReleaseWorkflowDraftCommandPayload & {
-  reviewerUserId: string
+  reviewerUserId?: string
 }
 
 export class ApiError extends Error {

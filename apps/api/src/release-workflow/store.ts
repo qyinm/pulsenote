@@ -9,6 +9,7 @@ import type {
   User,
   WorkflowEvent,
   WorkflowEventType,
+  WorkspacePolicySettings,
   WorkspaceMembership,
 } from "../domain/models.js"
 import type { ReleaseRecordSnapshot } from "../foundation/store.js"
@@ -70,6 +71,7 @@ export type ReleaseWorkflowStore = {
   getLatestDraftRevision(releaseRecordId: string): Promise<DraftRevision | null>
   getReleaseRecord(releaseRecordId: string): Promise<ReleaseRecord | null>
   getReleaseSnapshot(workspaceId: string, releaseRecordId: string): Promise<ReleaseRecordSnapshot | null>
+  getWorkspacePolicySettings(workspaceId: string): Promise<WorkspacePolicySettings | null>
   linkDraftClaimCheckResultEvidenceBlock(
     input: LinkDraftClaimCheckResultEvidenceBlockInput,
   ): Promise<void>

@@ -5,7 +5,9 @@ import type {
   ReviewStatus,
   User,
   WorkflowEvent,
+  WorkspacePolicySettings,
 } from "../domain/models.js"
+import { createDefaultWorkspacePolicySettings } from "../domain/models.js"
 import type { ReleaseRecordSnapshot } from "../foundation/store.js"
 import type {
   ApprovalSummary,
@@ -478,6 +480,7 @@ function buildAllowedActions(input: {
   approvalSummary: ApprovalSummary
   claimCheckSummary: ClaimCheckSummary
   currentDraft: Pick<DraftRevision, "id"> | null
+  policy: Pick<WorkspacePolicySettings, "requireClaimCheckBeforeApproval">
   publishPackSummary: PublishPackSummary
   stage: ReleaseRecordSnapshot["releaseRecord"]["stage"]
 }): WorkflowAllowedAction[] {
@@ -491,7 +494,13 @@ function buildAllowedActions(input: {
     allowedActions.push("run_claim_check")
   }
 
-  if (input.stage === "claim_check" && input.currentDraft && input.claimCheckSummary.state === "cleared") {
+  if (
+    input.currentDraft &&
+    ((input.policy.requireClaimCheckBeforeApproval === false &&
+      ((input.stage === "draft" && input.currentDraft) ||
+        (input.stage === "claim_check" && input.claimCheckSummary.state !== "blocked"))) ||
+      (input.stage === "claim_check" && input.claimCheckSummary.state === "cleared"))
+  ) {
     allowedActions.push("request_approval")
   }
 
@@ -549,6 +558,7 @@ function buildBaseRecord(input: {
 
 function buildWorkflowDetailFromBaseRecord(
   baseRecord: ReleaseWorkflowBaseRecord,
+  policy: WorkspacePolicySettings,
   workflowEvents: WorkflowEvent[],
   userById: Map<string, User>,
 ): ReleaseWorkflowDetail {
@@ -571,6 +581,7 @@ function buildWorkflowDetailFromBaseRecord(
     approvalSummary,
     claimCheckSummary,
     currentDraft: baseRecord.currentDraft,
+    policy,
     publishPackSummary,
     stage: baseRecord.releaseSnapshot.releaseRecord.stage,
   })
@@ -607,12 +618,14 @@ function buildWorkflowDetailFromBaseRecord(
 function withClaimCheckItems(
   detail: ReleaseWorkflowDetail,
   claimCheckResults: DraftClaimCheckResult[],
+  policy: WorkspacePolicySettings,
 ): ReleaseWorkflowDetail {
   const claimCheckSummary = buildClaimCheckSummary(detail.currentDraft, claimCheckResults)
   const allowedActions = buildAllowedActions({
     approvalSummary: detail.approvalSummary,
     claimCheckSummary,
     currentDraft: detail.currentDraft,
+    policy,
     publishPackSummary: detail.latestPublishPackSummary,
     stage: detail.releaseRecord.stage,
   })
@@ -828,6 +841,9 @@ export function createReleaseWorkflowService(
         ? []
         : await workflowStore.listDraftClaimCheckResultsByDraftRevisionIds([currentDraft.id])
     const workflowEvents = await workflowStore.listWorkflowEventsByReleaseRecordIds([releaseRecordId])
+    const policy =
+      (await workflowStore.getWorkspacePolicySettings(workspaceId)) ??
+      createDefaultWorkspacePolicySettings(workspaceId)
 
     return {
       baseRecord: buildBaseRecord({
@@ -837,6 +853,7 @@ export function createReleaseWorkflowService(
       }),
       claimCheckResults,
       currentDraft,
+      policy,
       releaseSnapshot,
       workflowEvents,
     }
@@ -937,7 +954,11 @@ export function createReleaseWorkflowService(
     store,
 
     async listReleaseWorkflow(workspaceId: string): Promise<ReleaseWorkflowListItem[]> {
-      const releaseSnapshots = await store.listReleaseSnapshots(workspaceId)
+      const [releaseSnapshots, persistedPolicy] = await Promise.all([
+        store.listReleaseSnapshots(workspaceId),
+        store.getWorkspacePolicySettings(workspaceId),
+      ])
+      const policy = persistedPolicy ?? createDefaultWorkspacePolicySettings(workspaceId)
 
       if (releaseSnapshots.length === 0) {
         return []
@@ -988,12 +1009,17 @@ export function createReleaseWorkflowService(
               latestPublishPackByReleaseRecordId.get(releaseSnapshot.releaseRecord.id) ?? null,
             releaseSnapshot,
           }),
+          policy,
           workflowEventsByReleaseRecordId.get(releaseSnapshot.releaseRecord.id) ?? [],
           userById,
         )
 
         return detailToListItem(
-          withClaimCheckItems(detail, currentDraft ? claimCheckResultsByDraftRevisionId.get(currentDraft.id) ?? [] : []),
+          withClaimCheckItems(
+            detail,
+            currentDraft ? claimCheckResultsByDraftRevisionId.get(currentDraft.id) ?? [] : [],
+            policy,
+          ),
         )
       })
     },
@@ -1008,11 +1034,12 @@ export function createReleaseWorkflowService(
       )
       const detail = buildWorkflowDetailFromBaseRecord(
         resources.baseRecord,
+        resources.policy,
         resources.workflowEvents,
         new Map(users.map((user) => [user.id, user])),
       )
 
-      return withClaimCheckItems(detail, resources.claimCheckResults)
+      return withClaimCheckItems(detail, resources.claimCheckResults, resources.policy)
     },
 
     async listReleaseWorkflowHistory(workspaceId: string): Promise<ReleaseWorkflowHistoryEntry[]> {
@@ -1137,18 +1164,21 @@ export function createReleaseWorkflowService(
 
     async requestApproval(input: RequestApprovalInput): Promise<ReleaseWorkflowDetail> {
       const resources = await getWorkflowResources(store, input.workspaceId, input.releaseRecordId)
+      const reviewerUserId = input.reviewerUserId?.trim() ?? ""
 
-      if (!input.reviewerUserId.trim()) {
+      if (resources.policy.requireReviewerAssignment && reviewerUserId.length === 0) {
         throw new ReviewerAssignmentRequiredError()
       }
 
-      const reviewerMembership = await store.findWorkspaceMembership(input.workspaceId, input.reviewerUserId)
+      if (reviewerUserId.length > 0) {
+        const reviewerMembership = await store.findWorkspaceMembership(input.workspaceId, reviewerUserId)
 
-      if (!reviewerMembership) {
-        throw new ReviewerAssignmentNotAllowedError(input.reviewerUserId, input.workspaceId)
+        if (!reviewerMembership) {
+          throw new ReviewerAssignmentNotAllowedError(reviewerUserId, input.workspaceId)
+        }
       }
 
-      if (resources.releaseSnapshot.releaseRecord.stage === "draft") {
+      if (resources.policy.requireClaimCheckBeforeApproval && resources.releaseSnapshot.releaseRecord.stage === "draft") {
         assertExpectedDraftRevision(resources.currentDraft, input.expectedDraftRevisionId)
 
         if (resources.currentDraft) {
@@ -1156,7 +1186,10 @@ export function createReleaseWorkflowService(
         }
       }
 
-      if (resources.releaseSnapshot.releaseRecord.stage !== "claim_check") {
+      if (
+        resources.releaseSnapshot.releaseRecord.stage !== "claim_check" &&
+        !(resources.releaseSnapshot.releaseRecord.stage === "draft" && resources.policy.requireClaimCheckBeforeApproval === false)
+      ) {
         throw new InvalidStageTransitionError(resources.releaseSnapshot.releaseRecord.stage, "request approval")
       }
 
@@ -1168,7 +1201,7 @@ export function createReleaseWorkflowService(
 
       const claimCheckSummary = buildClaimCheckSummary(resources.currentDraft, resources.claimCheckResults)
 
-      if (claimCheckSummary.state === "not_started") {
+      if (resources.policy.requireClaimCheckBeforeApproval && claimCheckSummary.state === "not_started") {
         throw new ClaimCheckRequiredError()
       }
 
@@ -1179,7 +1212,7 @@ export function createReleaseWorkflowService(
       await store.transaction(async (transactionStore) => {
         await transactionStore.upsertReviewStatus({
           note: input.note ?? "Approval requested for the current draft",
-          ownerUserId: input.reviewerUserId,
+          ownerUserId: reviewerUserId.length > 0 ? reviewerUserId : null,
           releaseRecordId: input.releaseRecordId,
           stage: "approval",
           state: "pending",

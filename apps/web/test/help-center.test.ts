@@ -4,6 +4,7 @@ import test from "node:test"
 import type {
   ReleaseWorkflowHistoryEntry,
   ReleaseWorkflowListItem,
+  WorkspacePolicySettings,
   WorkspaceSnapshot,
 } from "../lib/api/client.js"
 import {
@@ -174,6 +175,23 @@ function createHistoryEntry(
   }
 }
 
+function createWorkspacePolicySettings(
+  overrides: Partial<WorkspacePolicySettings> = {},
+): WorkspacePolicySettings {
+  return {
+    createdAt: overrides.createdAt ?? "2026-03-20T00:00:00.000Z",
+    includeEvidenceLinksInExport: overrides.includeEvidenceLinksInExport ?? true,
+    includeSourceLinksInExport: overrides.includeSourceLinksInExport ?? true,
+    requireClaimCheckBeforeApproval: overrides.requireClaimCheckBeforeApproval ?? true,
+    requireReviewerAssignment: overrides.requireReviewerAssignment ?? true,
+    showBlockedClaimsInInbox: overrides.showBlockedClaimsInInbox ?? true,
+    showPendingApprovalsInInbox: overrides.showPendingApprovalsInInbox ?? true,
+    showReopenedDraftsInInbox: overrides.showReopenedDraftsInInbox ?? true,
+    updatedAt: overrides.updatedAt ?? "2026-03-20T00:00:00.000Z",
+    workspaceId: overrides.workspaceId ?? "workspace_1",
+  }
+}
+
 test("buildLiveHelpData reflects live workflow blockers and guidance", () => {
   const data = buildLiveHelpData(
     createWorkspaceSnapshot(),
@@ -221,6 +239,7 @@ test("buildLiveHelpData reflects live workflow blockers and guidance", () => {
     ],
     [createHistoryEntry()],
     "user_1",
+    createWorkspacePolicySettings(),
   )
 
   assert.equal(data.metrics.workflowGuides, 4)
@@ -261,6 +280,7 @@ test("buildLiveHelpData does not mark unstarted claim checks as clear", () => {
     ],
     [],
     "user_1",
+    createWorkspacePolicySettings(),
   )
 
   assert.equal(data.modules[1]?.status, "1 not started")
@@ -288,11 +308,16 @@ test("getServerHelpCenterData forwards auth headers and returns live help data",
         requests.push(init ?? {})
         return [createHistoryEntry()]
       },
+      async getWorkspacePolicySettings(workspaceId, init) {
+        assert.equal(workspaceId, "workspace_1")
+        requests.push(init ?? {})
+        return createWorkspacePolicySettings()
+      },
     },
   )
 
   assert.equal(data.metrics.workflowGuides, 4)
-  assert.equal(requests.length, 2)
+  assert.equal(requests.length, 3)
 
   for (const request of requests) {
     const headers = request.headers

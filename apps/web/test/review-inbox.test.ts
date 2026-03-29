@@ -4,6 +4,7 @@ import test from "node:test"
 import type {
   ReleaseWorkflowHistoryEntry,
   ReleaseWorkflowListItem,
+  WorkspacePolicySettings,
 } from "../lib/api/client.js"
 import {
   buildReviewInboxItems,
@@ -95,6 +96,23 @@ function createReleaseWorkflowHistoryEntry(
     releaseTitle: overrides.releaseTitle ?? "SDK rollout v2.4",
     sourceLinkCount: overrides.sourceLinkCount ?? 2,
     stage: overrides.stage ?? "approval",
+  }
+}
+
+function createWorkspacePolicySettings(
+  overrides: Partial<WorkspacePolicySettings> = {},
+): WorkspacePolicySettings {
+  return {
+    createdAt: overrides.createdAt ?? "2026-03-20T00:00:00.000Z",
+    includeEvidenceLinksInExport: overrides.includeEvidenceLinksInExport ?? true,
+    includeSourceLinksInExport: overrides.includeSourceLinksInExport ?? true,
+    requireClaimCheckBeforeApproval: overrides.requireClaimCheckBeforeApproval ?? true,
+    requireReviewerAssignment: overrides.requireReviewerAssignment ?? true,
+    showBlockedClaimsInInbox: overrides.showBlockedClaimsInInbox ?? true,
+    showPendingApprovalsInInbox: overrides.showPendingApprovalsInInbox ?? true,
+    showReopenedDraftsInInbox: overrides.showReopenedDraftsInInbox ?? true,
+    updatedAt: overrides.updatedAt ?? "2026-03-20T00:00:00.000Z",
+    workspaceId: overrides.workspaceId ?? "workspace_1",
   }
 }
 
@@ -241,6 +259,53 @@ test("buildReviewInboxItems excludes reopened history when the workflow is no lo
   assert.equal(items.length, 0)
 })
 
+test("buildReviewInboxItems respects workspace inbox visibility policy", () => {
+  const workflow = [
+    createReleaseWorkflowListItem({
+      approvalSummary: {
+        ownerName: "Reviewer User",
+        ownerUserId: "user_2",
+        state: "pending",
+      },
+      claimCheckSummary: {
+        blockerNotes: ["Availability claim is still unsupported."],
+        flaggedClaims: 2,
+        state: "blocked",
+        totalClaims: 4,
+      },
+      releaseRecord: {
+        id: "release_policy",
+        title: "Policy gated release",
+      },
+    }),
+  ]
+  const history = [
+    createReleaseWorkflowHistoryEntry({
+      createdAt: "2026-03-20T03:00:00.000Z",
+      eventLabel: "Draft reopened",
+      eventType: "draft_reopened",
+      id: "history_reopen",
+      releaseRecordId: "release_policy",
+      releaseTitle: "Policy gated release",
+      stage: "approval",
+    }),
+  ]
+
+  const items = buildReviewInboxItems(
+    workflow,
+    history,
+    "user_2",
+    createWorkspacePolicySettings({
+      showBlockedClaimsInInbox: false,
+      showPendingApprovalsInInbox: true,
+      showReopenedDraftsInInbox: false,
+    }),
+  )
+
+  assert.equal(items.length, 1)
+  assert.equal(items[0]?.source, "approval")
+})
+
 test("getServerReviewInboxData forwards auth headers and returns badge count", async () => {
   const requests: Array<{ init?: RequestInit; kind: "history" | "workflow" }> = []
   const workflow = [
@@ -275,6 +340,11 @@ test("getServerReviewInboxData forwards auth headers and returns badge count", a
         assert.equal(workspaceId, "workspace_1")
         return history
       },
+      async getWorkspacePolicySettings(workspaceId, init) {
+        requests.push({ init, kind: "workflow" })
+        assert.equal(workspaceId, "workspace_1")
+        return createWorkspacePolicySettings()
+      },
     },
   )
 
@@ -286,6 +356,10 @@ test("getServerReviewInboxData forwards auth headers and returns badge count", a
   )
   assert.equal(
     ((requests[1]?.init?.headers as Record<string, string> | undefined) ?? {}).cookie,
+    "better-auth.session=abc123",
+  )
+  assert.equal(
+    ((requests[2]?.init?.headers as Record<string, string> | undefined) ?? {}).cookie,
     "better-auth.session=abc123",
   )
 })

@@ -5,6 +5,7 @@ import type {
   ReleaseRecordSnapshot,
   ReleaseWorkflowHistoryEntry,
   ReleaseWorkflowListItem,
+  WorkspacePolicySettings,
 } from "../lib/api/client.js"
 import {
   buildLiveSearchData,
@@ -160,6 +161,23 @@ function createReleaseRecordSnapshot(
   }
 }
 
+function createWorkspacePolicySettings(
+  overrides: Partial<WorkspacePolicySettings> = {},
+): WorkspacePolicySettings {
+  return {
+    createdAt: overrides.createdAt ?? "2026-03-20T00:00:00.000Z",
+    includeEvidenceLinksInExport: overrides.includeEvidenceLinksInExport ?? true,
+    includeSourceLinksInExport: overrides.includeSourceLinksInExport ?? true,
+    requireClaimCheckBeforeApproval: overrides.requireClaimCheckBeforeApproval ?? true,
+    requireReviewerAssignment: overrides.requireReviewerAssignment ?? true,
+    showBlockedClaimsInInbox: overrides.showBlockedClaimsInInbox ?? true,
+    showPendingApprovalsInInbox: overrides.showPendingApprovalsInInbox ?? true,
+    showReopenedDraftsInInbox: overrides.showReopenedDraftsInInbox ?? true,
+    updatedAt: overrides.updatedAt ?? "2026-03-20T00:00:00.000Z",
+    workspaceId: overrides.workspaceId ?? "workspace_1",
+  }
+}
+
 test("buildLiveSearchData indexes workflow, evidence, history, and review signals", () => {
   const workflow = [
     createWorkflowItem(),
@@ -286,6 +304,23 @@ test("buildLiveSearchData omits the blocked shortcut when blocked state is not s
   assert.ok(!data.suggestedQueries.includes("blocked"))
 })
 
+test("buildLiveSearchData removes review signal results when inbox visibility is disabled", () => {
+  const data = buildLiveSearchData(
+    [createWorkflowItem()],
+    [createHistoryEntry()],
+    [],
+    "user_1",
+    createWorkspacePolicySettings({
+      showBlockedClaimsInInbox: false,
+      showPendingApprovalsInInbox: false,
+      showReopenedDraftsInInbox: false,
+    }),
+  )
+
+  assert.equal(data.results.some((result) => result.type === "Review signal"), false)
+  assert.equal(data.metrics.reviewSignals, 0)
+})
+
 test("getServerLiveSearchData forwards auth headers to live search reads", async () => {
   const requests: RequestInit[] = []
   const workflow = [createWorkflowItem()]
@@ -329,6 +364,11 @@ test("getServerLiveSearchData forwards auth headers to live search reads", async
         assert.equal(workspaceId, "workspace_1")
         requests.push(init ?? {})
         return history
+      },
+      async getWorkspacePolicySettings(workspaceId, init) {
+        assert.equal(workspaceId, "workspace_1")
+        requests.push(init ?? {})
+        return createWorkspacePolicySettings()
       },
     },
   )

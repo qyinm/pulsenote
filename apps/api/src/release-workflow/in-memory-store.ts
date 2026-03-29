@@ -204,6 +204,10 @@ export function createInMemoryReleaseWorkflowStore(
       return snapshot
     },
 
+    async getWorkspacePolicySettings(workspaceId: string) {
+      return foundationStore.getWorkspacePolicySettings(workspaceId)
+    },
+
     async linkDraftClaimCheckResultEvidenceBlock(input: LinkDraftClaimCheckResultEvidenceBlockInput) {
       state.draftClaimCheckResultEvidenceLinks.push({
         draftClaimCheckResultId: input.draftClaimCheckResultId,

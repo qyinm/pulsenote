@@ -1,6 +1,7 @@
 import type {
   ReleaseWorkflowHistoryEntry,
   ReleaseWorkflowListItem,
+  WorkspacePolicySettings,
 } from "./api/client"
 import { createApiClient } from "./api/client"
 import { getForwardedAuthHeaders } from "./auth/headers"
@@ -10,10 +11,11 @@ import {
   getReleaseWorkflowPublishPackLabel,
   getReleaseWorkflowStageLabel,
 } from "./release-workflow"
+import { createDefaultWorkspacePolicySettings } from "./workspace-policy"
 
 type ExportFramesApiClient = Pick<
   ReturnType<typeof createApiClient>,
-  "listReleaseWorkflow" | "listReleaseWorkflowHistory"
+  "getWorkspacePolicySettings" | "listReleaseWorkflow" | "listReleaseWorkflowHistory"
 >
 
 export type LiveExportFrameState = "Exported" | "Needs review" | "Ready to export"
@@ -126,18 +128,30 @@ function buildRecentActivity(sortedHistory: ReleaseWorkflowHistoryEntry[]) {
   })
 }
 
-function buildFrameContents(item: ReleaseWorkflowListItem) {
+function buildFrameContents(
+  item: ReleaseWorkflowListItem,
+  policy: Pick<WorkspacePolicySettings, "includeEvidenceLinksInExport" | "includeSourceLinksInExport">,
+) {
   const draftLabel = item.currentDraft
     ? `Freeze draft v${item.currentDraft.version} as the wording source for handoff.`
     : "No draft is available yet, so no wording can be frozen for export."
   const evidenceLabel = `${item.evidenceCount} evidence block${item.evidenceCount === 1 ? "" : "s"} and ${item.sourceLinkCount} linked source${item.sourceLinkCount === 1 ? "" : "s"} stay attached to this handoff.`
   const approvalLabel = `Approval state remains explicit: ${getReleaseWorkflowApprovalLabel(item.approvalSummary.state)}.`
+  const exportDefaults = [
+    policy.includeEvidenceLinksInExport
+      ? "Evidence links are included in the frozen export by default."
+      : "Evidence links stay in the review trail by default and are not included in the frozen export.",
+    policy.includeSourceLinksInExport
+      ? "Source links are included in the frozen export by default."
+      : "Source links stay in the review trail by default and are not included in the frozen export.",
+  ]
 
   return [
     draftLabel,
     evidenceLabel,
     approvalLabel,
     `Publish-pack status: ${getReleaseWorkflowPublishPackLabel(item.latestPublishPackSummary.state)}.`,
+    ...exportDefaults,
   ]
 }
 
@@ -218,6 +232,7 @@ function compareExportFrames(left: LiveExportFrameEntry, right: LiveExportFrameE
 export function buildLiveExportFramesData(
   workflow: ReleaseWorkflowListItem[],
   history: ReleaseWorkflowHistoryEntry[],
+  policy: Pick<WorkspacePolicySettings, "includeEvidenceLinksInExport" | "includeSourceLinksInExport">,
 ): LiveExportFramesData {
   const historyByReleaseId = new Map<string, ReleaseWorkflowHistoryEntry[]>()
 
@@ -243,7 +258,7 @@ export function buildLiveExportFramesData(
           ? `Draft v${item.currentDraft.version}`
           : "No draft yet",
         evidenceCount: item.evidenceCount,
-        frameContents: buildFrameContents(item),
+        frameContents: buildFrameContents(item, policy),
         guardrails: buildFrameGuardrails(item),
         id: item.releaseRecord.id,
         lastActivityAt: latestHistory?.createdAt ?? item.releaseRecord.updatedAt,
@@ -286,10 +301,13 @@ export async function getServerLiveExportFramesData(
     headers: getForwardedAuthHeaders(requestHeaders),
   } satisfies RequestInit
 
-  const [workflow, history] = await Promise.all([
+  const [workflow, history, policy] = await Promise.all([
     apiClient.listReleaseWorkflow(workspaceId, init),
     apiClient.listReleaseWorkflowHistory(workspaceId, init),
+    apiClient
+      .getWorkspacePolicySettings(workspaceId, init)
+      .catch(() => createDefaultWorkspacePolicySettings(workspaceId)),
   ])
 
-  return buildLiveExportFramesData(workflow, history)
+  return buildLiveExportFramesData(workflow, history, policy)
 }

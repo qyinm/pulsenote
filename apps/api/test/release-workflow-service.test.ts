@@ -93,6 +93,41 @@ test("release workflow service requires claim check before approval can be reque
   )
 })
 
+test("release workflow service allows approval requests before claim check when workspace policy makes it optional", async () => {
+  const fixture = await seedReleaseWorkflowFixture({
+    async composeDraft() {
+      return {
+        changelogBody: "- Adds founder release workflow and approval checkpoints",
+        releaseNotesBody: "- Adds founder release workflow and approval checkpoints",
+      }
+    },
+  })
+
+  await fixture.foundationStore.updateWorkspacePolicySettings({
+    requireClaimCheckBeforeApproval: false,
+    requireReviewerAssignment: false,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  const draft = await fixture.workflowService.createDraft({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedLatestDraftRevisionId: null,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  const detail = await fixture.workflowService.requestApproval({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  assert.equal(detail.releaseRecord.stage, "approval")
+  assert.equal(detail.approvalSummary.state, "pending")
+  assert.equal(detail.approvalSummary.ownerUserId, null)
+})
+
 test("release workflow service requires assigning a reviewer before approval is requested", async () => {
   const fixture = await seedReleaseWorkflowFixture({
     async composeDraft() {
@@ -138,6 +173,36 @@ test("release workflow service requires assigning a reviewer before approval is 
       }),
     ReviewerAssignmentRequiredError,
   )
+})
+
+test("release workflow detail exposes request approval from draft when claim check is optional", async () => {
+  const fixture = await seedReleaseWorkflowFixture({
+    async composeDraft() {
+      return {
+        changelogBody: "- Adds founder release workflow and approval checkpoints",
+        releaseNotesBody: "- Adds founder release workflow and approval checkpoints",
+      }
+    },
+  })
+
+  await fixture.foundationStore.updateWorkspacePolicySettings({
+    requireClaimCheckBeforeApproval: false,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  await fixture.workflowService.createDraft({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedLatestDraftRevisionId: null,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  const detail = await fixture.workflowService.getReleaseWorkflowDetail(
+    fixture.bootstrap.workspace.id,
+    fixture.releaseRecord.id,
+  )
+
+  assert.ok(detail.allowedActions.includes("request_approval"))
 })
 
 test("release workflow service rejects reviewers outside the workspace", async () => {

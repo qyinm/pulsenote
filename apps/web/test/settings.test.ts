@@ -264,7 +264,7 @@ test("buildLiveSettingsData summarizes live workspace settings coverage", () => 
   assert.equal(data.metrics.activeMembers, 2)
   assert.equal(data.metrics.activeIntegrations, 1)
   assert.equal(data.metrics.readyToExport, 1)
-  assert.ok(data.metrics.openReviewSignals >= 2)
+  assert.equal(data.metrics.openReviewSignals, 1)
   assert.deepEqual(data.workspaceProfile.items[0], {
     label: "Workspace",
     value: "PulseNote Ops",

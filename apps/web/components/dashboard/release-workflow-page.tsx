@@ -80,6 +80,7 @@ export async function ReleaseWorkflowPage({
         currentUserId={accessState.session.user.id}
         initialMembers={workflowData.members}
         initialMembersUnavailable={workflowData.membersUnavailable}
+        initialPolicy={workflowData.policy}
         initialSelectedHistory={workflowData.selectedHistory}
         initialSelectedHistoryUnavailable={workflowData.selectedHistoryUnavailable}
         initialWorkflow={workflowData.workflow}
