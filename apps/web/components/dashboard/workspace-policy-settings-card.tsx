@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 
 import type { WorkspacePolicySettings } from "@/lib/api/client"
 import { createApiClient } from "@/lib/api/client"
@@ -96,11 +96,13 @@ function getEditableSettings(settings: WorkspacePolicySettings): EditableWorkspa
 }
 
 function PolicyToggleGroup({
+  disabled = false,
   onCheckedChange,
   settings,
   title,
   toggles,
 }: {
+  disabled?: boolean
   onCheckedChange: (key: keyof EditableWorkspacePolicySettings, nextValue: boolean) => void
   settings: EditableWorkspacePolicySettings
   title: string
@@ -125,6 +127,7 @@ function PolicyToggleGroup({
           <Switch
             id={toggle.key}
             checked={settings[toggle.key]}
+            disabled={disabled}
             onCheckedChange={(checked) => onCheckedChange(toggle.key, checked)}
           />
         </div>
@@ -145,6 +148,14 @@ export function WorkspacePolicySettingsCard({
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
+  useEffect(() => {
+    setSettings(initialSettings)
+    setDraftSettings(getEditableSettings(initialSettings))
+    setIsSaving(false)
+    setError(null)
+    setNotice(null)
+  }, [initialSettings, workspaceId])
+
   const hasChanges = useMemo(() => {
     const persistedSettings = getEditableSettings(settings)
 
@@ -154,6 +165,10 @@ export function WorkspacePolicySettingsCard({
   }, [draftSettings, settings])
 
   function updateDraftSetting(key: keyof EditableWorkspacePolicySettings, nextValue: boolean) {
+    if (isSaving) {
+      return
+    }
+
     setDraftSettings((currentSettings) => ({
       ...currentSettings,
       [key]: nextValue,
@@ -219,18 +234,21 @@ export function WorkspacePolicySettingsCard({
       <div className="grid gap-4">
         <PolicyToggleGroup
           title="Review policy defaults"
+          disabled={isSaving}
           settings={draftSettings}
           toggles={reviewPolicyToggles}
           onCheckedChange={updateDraftSetting}
         />
         <PolicyToggleGroup
           title="Inbox signal defaults"
+          disabled={isSaving}
           settings={draftSettings}
           toggles={notificationPolicyToggles}
           onCheckedChange={updateDraftSetting}
         />
         <PolicyToggleGroup
           title="Export handoff defaults"
+          disabled={isSaving}
           settings={draftSettings}
           toggles={exportPolicyToggles}
           onCheckedChange={updateDraftSetting}
