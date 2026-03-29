@@ -454,7 +454,20 @@ export function buildReleaseWorkflowApprovalNotes(detail: ReleaseWorkflowDetail)
 
 export function buildReleaseWorkflowPublishPackNotes(detail: ReleaseWorkflowDetail) {
   if (detail.latestPublishPackSummary.state === "exported") {
-    return ["The current draft revision is already frozen into a publish pack export."]
+    const notes = ["The current draft revision is already frozen into a publish pack export."]
+
+    if (detail.latestPublishPackArtifact) {
+      notes.push(
+        detail.latestPublishPackArtifact.context.exportedByName
+          ? `The frozen handoff was exported by ${detail.latestPublishPackArtifact.context.exportedByName}.`
+          : "The frozen handoff keeps its exporter identity explicit.",
+      )
+      notes.push(
+        `The frozen handoff includes ${detail.latestPublishPackSummary.includedEvidenceCount} evidence link${detail.latestPublishPackSummary.includedEvidenceCount === 1 ? "" : "s"} and ${detail.latestPublishPackSummary.includedSourceLinkCount} source link${detail.latestPublishPackSummary.includedSourceLinkCount === 1 ? "" : "s"}.`,
+      )
+    }
+
+    return notes
   }
 
   if (detail.latestPublishPackSummary.state === "ready") {
@@ -462,6 +475,28 @@ export function buildReleaseWorkflowPublishPackNotes(detail: ReleaseWorkflowDeta
   }
 
   return ["A publish pack will appear once the current draft is approved."]
+}
+
+export function buildReleaseWorkflowPublishPackArtifactNotes(detail: ReleaseWorkflowDetail) {
+  const artifact = detail.latestPublishPackArtifact
+
+  if (!artifact) {
+    return ["No frozen publish pack has been created for this release yet."]
+  }
+
+  const approvalOwner = artifact.context.approvalOwnerName ?? "an unnamed reviewer"
+  const requester = artifact.context.approvalRequestedByName ?? "an unnamed requester"
+
+  return [
+    `Exported ${artifact.exportedAt} by ${artifact.context.exportedByName ?? "an unknown workspace user"}.`,
+    `Approval was frozen as ${artifact.context.approvalState.replaceAll("_", " ")} with ${approvalOwner} as the reviewer and ${requester} as the requester.`,
+    artifact.policy.includeEvidenceLinksInExport
+      ? `Evidence links were included in the frozen handoff (${artifact.evidenceSnapshots.length} total).`
+      : "Evidence links were intentionally excluded from the frozen handoff by workspace policy.",
+    artifact.policy.includeSourceLinksInExport
+      ? `Source links were included in the frozen handoff (${artifact.sourceSnapshots.length} total).`
+      : "Source links were intentionally excluded from the frozen handoff by workspace policy.",
+  ]
 }
 
 export async function getServerReleaseWorkflowData(

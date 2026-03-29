@@ -77,11 +77,13 @@ export type PublishPackSummary = {
 }
 
 export type PublishPackArtifact = {
+  changelogBody: string
   context: PublishPackExportContextSnapshot
   evidenceSnapshots: PublishPackExportEvidenceSnapshot[]
   exportId: string
   exportedAt: string
   policy: PublishPackExportPolicySnapshot
+  releaseNotesBody: string
   sourceSnapshots: PublishPackExportSourceSnapshot[]
 }
 

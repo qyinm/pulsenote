@@ -154,9 +154,53 @@ const workflowApprovalSummarySchema = z.object({
 
 const workflowPublishPackSummarySchema = z.object({
   draftRevisionId: z.string().nullable(),
+  exportedByName: z.string().nullable(),
+  exportedByUserId: z.string().nullable(),
   exportId: z.string().nullable(),
   exportedAt: z.string().nullable(),
+  includedEvidenceCount: z.number().int(),
+  includedSourceLinkCount: z.number().int(),
+  includesEvidenceLinks: z.boolean(),
+  includesSourceLinks: z.boolean(),
   state: publishPackStateSchema,
+})
+
+const workflowPublishPackArtifactSchema = z.object({
+  changelogBody: z.string(),
+  context: z.object({
+    approvalNote: z.string().nullable(),
+    approvalOwnerName: z.string().nullable(),
+    approvalOwnerUserId: z.string().nullable(),
+    approvalRequestedByName: z.string().nullable(),
+    approvalRequestedByUserId: z.string().nullable(),
+    approvalState: approvalStateSchema,
+    exportedByName: z.string().nullable(),
+    exportedByUserId: z.string().nullable(),
+  }),
+  evidenceSnapshots: z.array(
+    z.object({
+      capturedAt: z.string(),
+      evidenceBlockId: z.string(),
+      evidenceState: evidenceStateSchema,
+      sourceRef: z.string(),
+      sourceType: evidenceSourceTypeSchema,
+      title: z.string(),
+    }),
+  ),
+  exportId: z.string(),
+  exportedAt: z.string(),
+  policy: z.object({
+    includeEvidenceLinksInExport: z.boolean(),
+    includeSourceLinksInExport: z.boolean(),
+  }),
+  releaseNotesBody: z.string(),
+  sourceSnapshots: z.array(
+    z.object({
+      label: z.string(),
+      sourceLinkId: z.string(),
+      url: z.string(),
+    }),
+  ),
 })
 
 const releaseWorkflowListItemSchema = z.object({
@@ -190,6 +234,7 @@ const releaseWorkflowDetailSchema = z.object({
   claimCheckSummary: workflowClaimCheckSummarySchema,
   currentDraft: workflowCurrentDraftSchema.nullable(),
   evidenceBlocks: releaseRecordSnapshotSchema.shape.evidenceBlocks,
+  latestPublishPackArtifact: workflowPublishPackArtifactSchema.nullable(),
   latestPublishPackSummary: workflowPublishPackSummarySchema,
   readiness: workflowReadinessSchema,
   releaseRecord: releaseRecordSnapshotSchema.shape.releaseRecord,
