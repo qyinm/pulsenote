@@ -22,6 +22,7 @@ import type {
 import { createApiClient } from "@/lib/api/client"
 import {
   type ReleaseWorkflowApprovalOwnershipFilter,
+  type ReleaseWorkflowMode,
   buildReleaseWorkflowApprovalFilterCounts,
   buildReleaseWorkflowApprovalNotes,
   buildReleaseWorkflowClaimCheckNotes,
@@ -31,7 +32,7 @@ import {
   buildReleaseWorkflowPublishPackNotes,
   buildReleaseWorkflowQueueItem,
   detailToReleaseWorkflowListItem,
-  filterReleaseWorkflowApprovalQueue,
+  filterReleaseWorkflowQueueByMode,
   getReleaseWorkflowActionLabel,
   getReleaseWorkflowOwnershipCue,
   getSelectedReleaseWorkflowDetail,
@@ -58,8 +59,6 @@ import {
 } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
-
-type ReleaseWorkflowMode = "approval" | "claim_check" | "overview" | "publish_pack"
 
 const approvalOwnershipFilters: Array<{
   label: string
@@ -274,11 +273,18 @@ function useSelectedWorkflowResource<T>({
   const [isLoading, setIsLoading] = useState(initialIsLoading)
 
   useEffect(() => {
-    if (!selectedId || resourceById[selectedId]) {
+    if (!selectedId) {
+      setIsLoading(false)
+      return
+    }
+
+    if (resourceById[selectedId]) {
+      setIsLoading(false)
       return
     }
 
     let isCancelled = false
+    setIsLoading(true)
 
     loadResource(selectedId)
       .then((resource) => {
@@ -544,10 +550,12 @@ export function ReleaseWorkflowLiveWorkspace({
   const [isRunningAction, setIsRunningAction] = useState(false)
   const members = initialMembers
   const membersUnavailable = initialMembersUnavailable
-  const queueSource =
-    mode === "approval"
-      ? filterReleaseWorkflowApprovalQueue(workflow, currentUserId, approvalOwnershipFilter)
-      : workflow
+  const queueSource = filterReleaseWorkflowQueueByMode(
+    workflow,
+    currentUserId,
+    mode,
+    approvalOwnershipFilter,
+  )
   const queueSourceById = new Map(queueSource.map((item) => [item.releaseRecord.id, item]))
   const queueItems = queueSource.map(buildReleaseWorkflowQueueItem)
   const activeSelectedId =
@@ -594,6 +602,7 @@ export function ReleaseWorkflowLiveWorkspace({
   const selectedHistory = activeSelectedId ? historyById[activeSelectedId] ?? [] : []
   const recentHistory = selectedHistory.slice(0, 5)
   const approvalRequiresReviewer = initialPolicy.requireReviewerAssignment
+  const selectedDraftRevisionId = selectedWorkflow?.currentDraft?.id ?? null
   const selectedQueueItem = queueItems.find((item) => item.id === activeSelectedId) ?? queueItems[0] ?? null
   const selectedQueueSourceItem = selectedQueueItem
     ? getQueuedWorkflowItem(queueSourceById, selectedQueueItem.id)
@@ -602,8 +611,16 @@ export function ReleaseWorkflowLiveWorkspace({
     ? getReleaseWorkflowOwnershipCue(selectedQueueSourceItem, currentUserId)
     : null
   const focusContent = buildModeFocus(selectedWorkflow, mode)
-  const otherActions = (selectedWorkflow?.allowedActions ?? []).filter((action) => action !== "request_approval")
-  const canRequestApproval = (selectedWorkflow?.allowedActions ?? []).includes("request_approval")
+  const otherActions = (selectedWorkflow?.allowedActions ?? []).filter((action) => {
+    if (action === "request_approval") {
+      return false
+    }
+
+    return action === "create_draft" || selectedDraftRevisionId !== null
+  })
+  const canRequestApproval =
+    selectedDraftRevisionId !== null &&
+    (selectedWorkflow?.allowedActions ?? []).includes("request_approval")
 
   useEffect(() => {
     if (selectedId === activeSelectedId) {
@@ -634,16 +651,15 @@ export function ReleaseWorkflowLiveWorkspace({
           expectedLatestDraftRevisionId: selectedWorkflow.currentDraft?.id ?? null,
         })
       } else {
-        const expectedDraftRevisionId = selectedWorkflow.currentDraft?.id
-
-        if (!expectedDraftRevisionId) {
-          throw new Error("The selected workflow does not have a current draft revision.")
+        if (!selectedDraftRevisionId) {
+          setActionError("The selected workflow does not have a current draft revision yet.")
+          return
         }
 
         switch (action) {
           case "run_claim_check":
             nextDetail = await apiClient.runReleaseWorkflowClaimCheck(workspaceId, activeSelectedId, {
-              expectedDraftRevisionId,
+              expectedDraftRevisionId: selectedDraftRevisionId,
             })
             break
           case "request_approval":
@@ -652,18 +668,18 @@ export function ReleaseWorkflowLiveWorkspace({
             }
 
             nextDetail = await apiClient.requestReleaseWorkflowApproval(workspaceId, activeSelectedId, {
-              expectedDraftRevisionId,
+              expectedDraftRevisionId: selectedDraftRevisionId,
               ...(approvalReviewerUserId ? { reviewerUserId: approvalReviewerUserId } : {}),
             })
             break
           case "approve_draft":
             nextDetail = await apiClient.approveReleaseWorkflowDraft(workspaceId, activeSelectedId, {
-              expectedDraftRevisionId,
+              expectedDraftRevisionId: selectedDraftRevisionId,
             })
             break
           case "reopen_draft":
             nextDetail = await apiClient.reopenReleaseWorkflowDraft(workspaceId, activeSelectedId, {
-              expectedDraftRevisionId,
+              expectedDraftRevisionId: selectedDraftRevisionId,
             })
             break
           case "create_publish_pack":
@@ -671,7 +687,7 @@ export function ReleaseWorkflowLiveWorkspace({
               workspaceId,
               activeSelectedId,
               {
-                expectedDraftRevisionId,
+                expectedDraftRevisionId: selectedDraftRevisionId,
               },
             )
             break

@@ -17,6 +17,7 @@ import {
   buildReleaseWorkflowPublishPackNotes,
   buildReleaseWorkflowQueueItem,
   createReleaseWorkflowDetailCache,
+  filterReleaseWorkflowQueueByMode,
   filterReleaseWorkflowApprovalQueue,
   getReleaseWorkflowActionLabel,
   getReleaseWorkflowOwnershipCue,
@@ -512,6 +513,85 @@ test("buildReleaseWorkflowApprovalNotes keeps assigned reviewer context for pend
   )
 
   assert.deepEqual(notes, ["Approval has been requested and is waiting on Reviewer User."])
+})
+
+test("filterReleaseWorkflowQueueByMode keeps claim-check records scoped to drafted releases", () => {
+  const draftedRelease = createReleaseWorkflowListItem({
+    currentDraft: {
+      id: "draft_1",
+      version: 1,
+    },
+    releaseRecord: {
+      id: "release_draft",
+      stage: "draft",
+    },
+  })
+  const intakeOnlyRelease = createReleaseWorkflowListItem({
+    currentDraft: null,
+    releaseRecord: {
+      id: "release_intake",
+      stage: "intake",
+    },
+  })
+
+  const queue = filterReleaseWorkflowQueueByMode(
+    [draftedRelease, intakeOnlyRelease],
+    "user_1",
+    "claim_check",
+    "all",
+  )
+
+  assert.deepEqual(queue.map((item) => item.releaseRecord.id), ["release_draft"])
+})
+
+test("filterReleaseWorkflowQueueByMode keeps publish-pack records scoped to approved, ready, or exported releases", () => {
+  const exportedRelease = createReleaseWorkflowListItem({
+    latestPublishPackSummary: {
+      state: "exported",
+    },
+    releaseRecord: {
+      id: "release_exported",
+      stage: "publish_pack",
+    },
+  })
+  const readyRelease = createReleaseWorkflowListItem({
+    latestPublishPackSummary: {
+      state: "ready",
+    },
+    releaseRecord: {
+      id: "release_ready",
+      stage: "publish_pack",
+    },
+  })
+  const approvedRelease = createReleaseWorkflowListItem({
+    approvalSummary: {
+      state: "approved",
+    },
+    releaseRecord: {
+      id: "release_approved",
+      stage: "publish_pack",
+    },
+  })
+  const intakeOnlyRelease = createReleaseWorkflowListItem({
+    currentDraft: null,
+    releaseRecord: {
+      id: "release_intake",
+      stage: "intake",
+    },
+  })
+
+  const queue = filterReleaseWorkflowQueueByMode(
+    [exportedRelease, readyRelease, approvedRelease, intakeOnlyRelease],
+    "user_1",
+    "publish_pack",
+    "all",
+  )
+
+  assert.deepEqual(queue.map((item) => item.releaseRecord.id), [
+    "release_exported",
+    "release_ready",
+    "release_approved",
+  ])
 })
 
 test("buildReleaseWorkflowPublishPackNotes and artifact notes keep frozen handoff context visible", () => {
