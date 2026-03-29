@@ -11,7 +11,7 @@ import {
   getReleaseWorkflowPublishPackLabel,
   getReleaseWorkflowStageLabel,
 } from "./release-workflow"
-import { createDefaultWorkspacePolicySettings } from "./workspace-policy"
+import { getWorkspacePolicySettingsOrDefault } from "./workspace-policy"
 
 type ExportFramesApiClient = Pick<
   ReturnType<typeof createApiClient>,
@@ -304,9 +304,9 @@ export async function getServerLiveExportFramesData(
   const [workflow, history, policy] = await Promise.all([
     apiClient.listReleaseWorkflow(workspaceId, init),
     apiClient.listReleaseWorkflowHistory(workspaceId, init),
-    apiClient
-      .getWorkspacePolicySettings(workspaceId, init)
-      .catch(() => createDefaultWorkspacePolicySettings(workspaceId)),
+    getWorkspacePolicySettingsOrDefault(workspaceId, () =>
+      apiClient.getWorkspacePolicySettings(workspaceId, init),
+    ),
   ])
 
   return buildLiveExportFramesData(workflow, history, policy)

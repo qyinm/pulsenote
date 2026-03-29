@@ -494,13 +494,7 @@ function buildAllowedActions(input: {
     allowedActions.push("run_claim_check")
   }
 
-  if (
-    input.currentDraft &&
-    ((input.policy.requireClaimCheckBeforeApproval === false &&
-      ((input.stage === "draft" && input.currentDraft) ||
-        (input.stage === "claim_check" && input.claimCheckSummary.state !== "blocked"))) ||
-      (input.stage === "claim_check" && input.claimCheckSummary.state === "cleared"))
-  ) {
+  if (canRequestApproval(input)) {
     allowedActions.push("request_approval")
   }
 
@@ -525,6 +519,27 @@ function buildAllowedActions(input: {
   }
 
   return allowedActions
+}
+
+function canRequestApproval(input: {
+  claimCheckSummary: ClaimCheckSummary
+  currentDraft: Pick<DraftRevision, "id"> | null
+  policy: Pick<WorkspacePolicySettings, "requireClaimCheckBeforeApproval">
+  stage: ReleaseRecordSnapshot["releaseRecord"]["stage"]
+}) {
+  if (!input.currentDraft) {
+    return false
+  }
+
+  if (input.policy.requireClaimCheckBeforeApproval === false) {
+    if (input.stage === "draft") {
+      return input.claimCheckSummary.state !== "blocked"
+    }
+
+    return input.stage === "claim_check" && input.claimCheckSummary.state !== "blocked"
+  }
+
+  return input.stage === "claim_check" && input.claimCheckSummary.state === "cleared"
 }
 
 function buildReadiness(input: {
@@ -1186,10 +1201,12 @@ export function createReleaseWorkflowService(
         }
       }
 
-      if (
-        resources.releaseSnapshot.releaseRecord.stage !== "claim_check" &&
-        !(resources.releaseSnapshot.releaseRecord.stage === "draft" && resources.policy.requireClaimCheckBeforeApproval === false)
-      ) {
+      const isClaimCheckStage = resources.releaseSnapshot.releaseRecord.stage === "claim_check"
+      const isDraftStageWithOptionalClaimCheck =
+        resources.releaseSnapshot.releaseRecord.stage === "draft" &&
+        resources.policy.requireClaimCheckBeforeApproval === false
+
+      if (!isClaimCheckStage && !isDraftStageWithOptionalClaimCheck) {
         throw new InvalidStageTransitionError(resources.releaseSnapshot.releaseRecord.stage, "request approval")
       }
 

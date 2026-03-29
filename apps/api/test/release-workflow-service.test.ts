@@ -205,6 +205,62 @@ test("release workflow detail exposes request approval from draft when claim che
   assert.ok(detail.allowedActions.includes("request_approval"))
 })
 
+test("release workflow detail keeps request approval unavailable when optional claim check is still blocked", async () => {
+  const fixture = await seedReleaseWorkflowFixture({
+    async composeDraft() {
+      return {
+        changelogBody: "- Adds founder release workflow and approval checkpoints",
+        releaseNotesBody: "- Adds founder release workflow and approval checkpoints",
+      }
+    },
+    async runClaimCheck() {
+      return [
+        {
+          evidenceBlockIds: [],
+          note: "This sentence sounds customer-facing but could not be traced to release evidence.",
+          sentence: "Adds founder release workflow and approval checkpoints",
+          status: "flagged" as const,
+        },
+      ]
+    },
+  })
+
+  await fixture.foundationStore.updateWorkspacePolicySettings({
+    requireClaimCheckBeforeApproval: false,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  const draft = await fixture.workflowService.createDraft({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedLatestDraftRevisionId: null,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  await fixture.workflowService.runClaimCheck({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  await fixture.workflowService.reopenDraft({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  const detail = await fixture.workflowService.getReleaseWorkflowDetail(
+    fixture.bootstrap.workspace.id,
+    fixture.releaseRecord.id,
+  )
+
+  assert.equal(detail.releaseRecord.stage, "draft")
+  assert.equal(detail.claimCheckSummary.state, "blocked")
+  assert.equal(detail.allowedActions.includes("request_approval"), false)
+})
+
 test("release workflow service rejects reviewers outside the workspace", async () => {
   const fixture = await seedReleaseWorkflowFixture({
     async composeDraft() {

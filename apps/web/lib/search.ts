@@ -14,7 +14,10 @@ import {
   getReleaseWorkflowReadinessLabel,
   getReleaseWorkflowStageLabel,
 } from "./release-workflow"
-import { createDefaultWorkspacePolicySettings } from "./workspace-policy"
+import {
+  createDefaultWorkspacePolicySettings,
+  getWorkspacePolicySettingsOrDefault,
+} from "./workspace-policy"
 
 type SearchApiClient = Pick<
   ReturnType<typeof createApiClient>,
@@ -326,7 +329,7 @@ export function buildLiveSearchData(
   policy: Pick<
     WorkspacePolicySettings,
     "showBlockedClaimsInInbox" | "showPendingApprovalsInInbox" | "showReopenedDraftsInInbox"
-  > = createDefaultWorkspacePolicySettings("workspace_policy_defaults"),
+  > = createDefaultWorkspacePolicySettings(),
 ): LiveSearchData {
   const results = [
     ...buildWorkflowSearchResults(workflow),
@@ -362,9 +365,9 @@ export async function getServerLiveSearchData(
     apiClient.listReleaseWorkflow(workspaceId, init),
     apiClient.listReleaseWorkflowHistory(workspaceId, init),
     apiClient.listReleaseRecords(workspaceId, init),
-    apiClient
-      .getWorkspacePolicySettings(workspaceId, init)
-      .catch(() => createDefaultWorkspacePolicySettings(workspaceId)),
+    getWorkspacePolicySettingsOrDefault(workspaceId, () =>
+      apiClient.getWorkspacePolicySettings(workspaceId, init),
+    ),
   ])
 
   return buildLiveSearchData(workflow, history, snapshots, currentUserId, policy)

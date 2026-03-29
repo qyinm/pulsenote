@@ -7,7 +7,10 @@ import type {
 import { createApiClient } from "./api/client"
 import { getForwardedAuthHeaders } from "./auth/headers"
 import { buildReviewInboxItems } from "./review-inbox"
-import { createDefaultWorkspacePolicySettings } from "./workspace-policy"
+import {
+  createDefaultWorkspacePolicySettings,
+  getWorkspacePolicySettingsOrDefault,
+} from "./workspace-policy"
 
 type HelpCenterApiClient = Pick<
   ReturnType<typeof createApiClient>,
@@ -332,9 +335,9 @@ export async function getServerHelpCenterData(
   const [workflow, history, policy] = await Promise.all([
     apiClient.listReleaseWorkflow(workspace.workspace.id, init),
     apiClient.listReleaseWorkflowHistory(workspace.workspace.id, init),
-    apiClient
-      .getWorkspacePolicySettings(workspace.workspace.id, init)
-      .catch(() => createDefaultWorkspacePolicySettings(workspace.workspace.id)),
+    getWorkspacePolicySettingsOrDefault(workspace.workspace.id, () =>
+      apiClient.getWorkspacePolicySettings(workspace.workspace.id, init),
+    ),
   ])
 
   return buildLiveHelpData(workspace, workflow, history, currentUserId, policy)

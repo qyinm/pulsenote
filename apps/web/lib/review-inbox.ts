@@ -6,7 +6,10 @@ import type {
 import { createApiClient } from "./api/client"
 import { getForwardedAuthHeaders } from "./auth/headers"
 import { getReleaseWorkflowOwnershipCue } from "./release-workflow"
-import { createDefaultWorkspacePolicySettings } from "./workspace-policy"
+import {
+  createDefaultWorkspacePolicySettings,
+  getWorkspacePolicySettingsOrDefault,
+} from "./workspace-policy"
 
 type ReviewInboxApiClient = Pick<
   ReturnType<typeof createApiClient>,
@@ -228,7 +231,7 @@ export function buildReviewInboxItems(
   policy: Pick<
     WorkspacePolicySettings,
     "showBlockedClaimsInInbox" | "showPendingApprovalsInInbox" | "showReopenedDraftsInInbox"
-  > = createDefaultWorkspacePolicySettings("workspace_policy_defaults"),
+  > = createDefaultWorkspacePolicySettings(),
 ): ReviewInboxItem[] {
   const latestHistoryByKey = buildHistoryIndex(history)
   const workflowByReleaseId = new Map(workflow.map((item) => [item.releaseRecord.id, item]))
@@ -262,9 +265,9 @@ export async function getServerReviewInboxData(
   const [workflow, history, persistedPolicy] = await Promise.all([
     apiClient.listReleaseWorkflow(workspaceId, init),
     apiClient.listReleaseWorkflowHistory(workspaceId, init),
-    apiClient
-      .getWorkspacePolicySettings(workspaceId, init)
-      .catch(() => createDefaultWorkspacePolicySettings(workspaceId)),
+    getWorkspacePolicySettingsOrDefault(workspaceId, () =>
+      apiClient.getWorkspacePolicySettings(workspaceId, init),
+    ),
   ])
   const items = buildReviewInboxItems(workflow, history, currentUserId, persistedPolicy)
 
