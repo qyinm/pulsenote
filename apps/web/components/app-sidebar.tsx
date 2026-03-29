@@ -77,15 +77,17 @@ export function AppSidebar({ inboxBadge, user, ...props }: AppSidebarProps) {
             icon: <route.icon />,
           }))}
         />
-        <NavDocuments
-          items={assetRoutes.map((route) => ({
-            title: route.title,
-            href: route.href,
-            badge: route.badge,
-            isActive: pathname === route.href,
-            icon: <route.icon />,
-          }))}
-        />
+        {assetRoutes.length > 0 ? (
+          <NavDocuments
+            items={assetRoutes.map((route) => ({
+              title: route.title,
+              href: route.href,
+              badge: route.badge,
+              isActive: pathname === route.href,
+              icon: <route.icon />,
+            }))}
+          />
+        ) : null}
         <NavSecondary
           items={utilityRoutes.map((route) => ({
             title: route.sidebarTitle ?? route.title,

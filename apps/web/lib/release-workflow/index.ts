@@ -37,6 +37,12 @@ export type ReleaseWorkflowApprovalOwnershipFilter =
   | "unassigned"
 
 export type ReleaseWorkflowMode = "approval" | "claim_check" | "overview" | "publish_pack"
+export type ReleaseWorkflowBoardStage =
+  | "approval"
+  | "claim_check"
+  | "exported"
+  | "intake"
+  | "publish_pack"
 
 export type ReleaseWorkflowQueueItem = {
   allowedActions: WorkflowAllowedAction[]
@@ -64,6 +70,13 @@ export type ReleaseWorkflowMetrics = {
   pendingApprovalRecords: number
   readyToExportRecords: number
   recordsInQueue: number
+}
+
+export type ReleaseWorkflowBoardColumn = {
+  description: string
+  items: ReleaseWorkflowQueueItem[]
+  stage: ReleaseWorkflowBoardStage
+  title: string
 }
 
 export type ReleaseWorkflowApprovalFilterCounts = Record<
@@ -118,6 +131,29 @@ const workflowActionLabels = {
   request_approval: "Request approval on the current checked draft.",
   run_claim_check: "Run claim check on the current draft revision.",
 } satisfies Record<WorkflowAllowedAction, string>
+
+const releaseWorkflowBoardColumnMeta = {
+  intake: {
+    description: "New scopes live here until PulseNote turns them into a reviewable draft.",
+    title: "Intake",
+  },
+  claim_check: {
+    description: "Drafted releases stay here until wording, evidence, and risky claims are checked.",
+    title: "Claim check",
+  },
+  approval: {
+    description: "These releases are waiting on one explicit reviewer handoff before export.",
+    title: "Approval",
+  },
+  publish_pack: {
+    description: "Approved releases gather frozen handoff context before they are exported.",
+    title: "Publish pack",
+  },
+  exported: {
+    description: "These releases already have a frozen publish pack artifact attached to them.",
+    title: "Exported",
+  },
+} satisfies Record<ReleaseWorkflowBoardStage, { description: string; title: string }>
 
 export function createReleaseWorkflowDetailCache(
   selectedId: string,
@@ -377,6 +413,57 @@ export function buildReleaseWorkflowMetrics(
     ).length,
     recordsInQueue: workflow.length,
   }
+}
+
+export function getReleaseWorkflowBoardStage(
+  item: ReleaseWorkflowListItem,
+): ReleaseWorkflowBoardStage {
+  if (item.latestPublishPackSummary.state === "exported") {
+    return "exported"
+  }
+
+  if (
+    item.releaseRecord.stage === "publish_pack" ||
+    item.latestPublishPackSummary.state === "ready" ||
+    item.approvalSummary.state === "approved"
+  ) {
+    return "publish_pack"
+  }
+
+  if (item.releaseRecord.stage === "approval") {
+    return "approval"
+  }
+
+  if (item.releaseRecord.stage === "claim_check" || item.releaseRecord.stage === "draft") {
+    return "claim_check"
+  }
+
+  return "intake"
+}
+
+export function buildReleaseWorkflowBoardColumns(
+  workflow: ReleaseWorkflowListItem[],
+): ReleaseWorkflowBoardColumn[] {
+  const itemsByStage = new Map<ReleaseWorkflowBoardStage, ReleaseWorkflowQueueItem[]>(
+    (Object.keys(releaseWorkflowBoardColumnMeta) as ReleaseWorkflowBoardStage[]).map((stage) => [
+      stage,
+      [],
+    ]),
+  )
+
+  for (const item of workflow) {
+    const stage = getReleaseWorkflowBoardStage(item)
+    itemsByStage.get(stage)?.push(buildReleaseWorkflowQueueItem(item))
+  }
+
+  return (Object.keys(releaseWorkflowBoardColumnMeta) as ReleaseWorkflowBoardStage[]).map(
+    (stage) => ({
+      description: releaseWorkflowBoardColumnMeta[stage].description,
+      items: itemsByStage.get(stage) ?? [],
+      stage,
+      title: releaseWorkflowBoardColumnMeta[stage].title,
+    }),
+  )
 }
 
 export function detailToReleaseWorkflowListItem(
