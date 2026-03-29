@@ -1,65 +1,110 @@
+import { headers } from "next/headers"
 import {
-  LayoutTemplateIcon,
-  MailIcon,
+  FolderKanbanIcon,
   PackageCheckIcon,
-  ShapesIcon,
+  ShieldAlertIcon,
+  WaypointsIcon,
 } from "lucide-react"
 
+import { DashboardAccessState } from "@/components/dashboard/dashboard-access-state"
 import {
   DashboardPage,
   MetricCard,
   MetricGrid,
+  SurfaceCard,
 } from "@/components/dashboard/surfaces"
-import { TemplateLibraryWorkspace } from "@/components/dashboard/template-library-workspace"
+import { ExportFramesWorkspace } from "@/components/dashboard/export-frames-workspace"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { templateItems } from "@/lib/dashboard"
+import { resolveDashboardAccessState } from "@/lib/dashboard/access"
+import { getServerLiveExportFramesData } from "@/lib/export-frames"
 
-export default function ExportTemplatesPage() {
+export default async function ExportTemplatesPage() {
+  const requestHeaders = await headers()
+  const accessState = await resolveDashboardAccessState(requestHeaders)
+
+  if (accessState.kind !== "ready") {
+    return <DashboardAccessState state={accessState.kind} />
+  }
+
+  let exportFramesData: Awaited<ReturnType<typeof getServerLiveExportFramesData>> | null = null
+  let isUnavailable = false
+
+  try {
+    exportFramesData = await getServerLiveExportFramesData(
+      requestHeaders,
+      accessState.workspace.workspace.id,
+    )
+  } catch {
+    isUnavailable = true
+    console.error("Failed to load export frames")
+  }
+
+  if (isUnavailable || !exportFramesData) {
+    return (
+      <DashboardPage>
+        <SurfaceCard
+          title="Export frames are unavailable"
+          description="Live publish-pack handoff records could not be loaded right now."
+        >
+          <p className="text-sm text-muted-foreground">
+            Try again after the current request completes or check back once the workspace data is available.
+          </p>
+        </SurfaceCard>
+      </DashboardPage>
+    )
+  }
+
+  const metrics = exportFramesData.metrics
+  const priorityFrame = exportFramesData.priorityFrame
+
   return (
     <DashboardPage>
-      <Alert>
-        <AlertTitle>Templates should reduce review work, not broaden the product</AlertTitle>
-        <AlertDescription>
-          Every export template here stays tied to a release channel and keeps evidence
-          qualifiers explicit instead of acting like a generic writing preset.
-        </AlertDescription>
-      </Alert>
+      {priorityFrame ? (
+        <Alert variant={priorityFrame.state === "Needs review" ? "destructive" : "default"}>
+          <AlertTitle>
+            {priorityFrame.state === "Needs review"
+              ? "Export readiness is still blocked by review work"
+              : priorityFrame.state === "Ready to export"
+                ? "At least one release is ready to freeze into a publish pack"
+                : "Frozen publish packs remain visible as handoff records"}
+          </AlertTitle>
+          <AlertDescription>{priorityFrame.guardrails[0] ?? priorityFrame.summary}</AlertDescription>
+        </Alert>
+      ) : null}
 
       <MetricGrid>
         <MetricCard
-          title="Templates"
-          value={String(templateItems.length)}
-          detail="Channel-specific defaults"
-          description="Templates keep export structure consistent without broadening the product beyond release communication."
-          badge="Library"
-          icon={LayoutTemplateIcon}
+          title="Export frames"
+          value={String(metrics.framesInScope)}
+          detail="Live release handoff scope"
+          description="Each record here reflects the current publish-pack shape of a real release, not a reusable writing preset."
+          badge="Live"
+          icon={FolderKanbanIcon}
         />
         <MetricCard
           title="Needs review"
-          value={String(
-            templateItems.filter((item) => item.status !== "Current").length
-          )}
-          detail="Outdated export structure"
-          description="Out-of-date templates are visible before they produce inconsistent publish packs."
+          value={String(metrics.needsReviewFrames)}
+          detail="Blocked before export"
+          description="These records still need evidence, claim-check cleanup, or approval handoff before they can freeze into a publish pack."
           icon={PackageCheckIcon}
         />
         <MetricCard
-          title="Email-ready"
-          value="1"
-          detail="Customer notice template"
-          description="Email templates stay separate so customer timing and support CTA language stay exact."
-          icon={MailIcon}
+          title="Ready to export"
+          value={String(metrics.readyFrames)}
+          detail="Approved and waiting"
+          description="These records can freeze into a publish pack without recomputing the reviewed wording."
+          icon={WaypointsIcon}
         />
         <MetricCard
-          title="Channels covered"
-          value="4"
-          detail="Release note, email, status, changelog"
-          description="Each channel keeps a dedicated export frame rather than a generic content shell."
-          icon={ShapesIcon}
+          title="Exported"
+          value={String(metrics.exportedFrames)}
+          detail="Frozen handoff records"
+          description="Frozen publish packs stay visible so downstream publishing does not drift away from the approved release scope."
+          icon={ShieldAlertIcon}
         />
       </MetricGrid>
 
-      <TemplateLibraryWorkspace />
+      <ExportFramesWorkspace initialEntries={exportFramesData.entries} />
     </DashboardPage>
   )
 }

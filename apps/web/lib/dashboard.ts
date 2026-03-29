@@ -867,15 +867,15 @@ export const helpModules: HelpModule[] = [
 export const knownIssues: KnownIssue[] = [
   {
     id: "issue-1",
-    title: "Template previews use sample data only",
+    title: "Workspace settings are read-only summaries",
     description:
-      "Current previews reflect mock release records and should not be treated as live publish output.",
+      "Settings reflect live workflow state, but policy persistence and editable workspace rules are not implemented yet.",
   },
   {
     id: "issue-2",
-    title: "Search indexes route metadata and sample workflow state",
+    title: "Help center guidance is still static",
     description:
-      "Search is implemented with typed mock data until backend indexing is connected.",
+      "Help modules are instructional content and do not yet adapt to the live workspace state.",
   },
 ]
 
@@ -901,10 +901,6 @@ const publishBadge = String(
 )
 const evidenceBadge = String(evidenceItems.length)
 const reviewLogBadge = "24h"
-const templateBadge = String(
-  templateItems.filter((item) => item.status !== "Current").length
-)
-
 export const dashboardRoutes: DashboardRoute[] = [
   {
     href: "/dashboard",
@@ -1021,7 +1017,7 @@ export const dashboardRoutes: DashboardRoute[] = [
     icon: PackageCheckIcon,
     badge: publishBadge,
     primaryAction: {
-      label: "Open templates",
+      label: "Open export frames",
       href: "/dashboard/export-templates",
       icon: PackageCheckIcon,
       variant: "outline",
@@ -1077,12 +1073,12 @@ export const dashboardRoutes: DashboardRoute[] = [
   },
   {
     href: "/dashboard/export-templates",
-    title: "Export Templates",
+    title: "Export Frames",
     description:
-      "Manage channel-specific export structures so every publish pack stays consistent and reviewable.",
+      "Inspect live export readiness and the evidence-backed handoff shape for each release record.",
     group: "asset",
     icon: PackageCheckIcon,
-    badge: templateBadge,
+    badge: publishBadge,
     primaryAction: {
       label: "Go to publish pack",
       href: "/dashboard/publish-pack",
@@ -1090,9 +1086,9 @@ export const dashboardRoutes: DashboardRoute[] = [
       variant: "outline",
     },
     secondaryAction: {
-      label: "Open settings",
-      href: "/dashboard/settings",
-      icon: Settings2Icon,
+      label: "Open review log",
+      href: "/dashboard/review-log",
+      icon: ArchiveIcon,
       variant: "secondary",
     },
   },
@@ -1104,7 +1100,7 @@ export const dashboardRoutes: DashboardRoute[] = [
     group: "utility",
     icon: Settings2Icon,
     primaryAction: {
-      label: "Open templates",
+      label: "Open export frames",
       href: "/dashboard/export-templates",
       icon: PackageCheckIcon,
       variant: "outline",
