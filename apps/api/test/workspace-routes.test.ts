@@ -262,6 +262,104 @@ test("workspace member roster route returns 500 for unexpected failures", async 
   })
 })
 
+test("workspace routes expose persisted workspace policy settings", async () => {
+  const foundationService = createFoundationService(createInMemoryFoundationStore())
+  const bootstrap = await foundationService.bootstrapWorkspace({
+    user: {
+      email: "policy-owner@pulsenote.dev",
+      fullName: "Policy Owner",
+    },
+    workspace: {
+      name: "Policy workspace",
+      slug: "policy-workspace",
+    },
+  })
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(bootstrap.user.id)),
+    foundationService,
+  })
+
+  const response = await app.request(`/v1/workspaces/${bootstrap.workspace.id}/settings`)
+
+  assert.equal(response.status, 200)
+  const body = await response.json()
+  assert.equal(body.workspaceId, bootstrap.workspace.id)
+  assert.equal(body.requireReviewerAssignment, true)
+  assert.equal(body.showPendingApprovalsInInbox, true)
+})
+
+test("workspace routes update persisted workspace policy settings", async () => {
+  const foundationService = createFoundationService(createInMemoryFoundationStore())
+  const bootstrap = await foundationService.bootstrapWorkspace({
+    user: {
+      email: "policy-editor@pulsenote.dev",
+      fullName: "Policy Editor",
+    },
+    workspace: {
+      name: "Editable policy workspace",
+      slug: "editable-policy-workspace",
+    },
+  })
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(bootstrap.user.id)),
+    foundationService,
+  })
+
+  const response = await app.request(`/v1/workspaces/${bootstrap.workspace.id}/settings`, {
+    body: JSON.stringify({
+      includeEvidenceLinksInExport: false,
+      includeSourceLinksInExport: true,
+      requireClaimCheckBeforeApproval: true,
+      requireReviewerAssignment: true,
+      showBlockedClaimsInInbox: true,
+      showPendingApprovalsInInbox: false,
+      showReopenedDraftsInInbox: true,
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "PUT",
+  })
+
+  assert.equal(response.status, 200)
+  assert.deepEqual(await response.json(), {
+    ...(await foundationService.getWorkspacePolicySettings(bootstrap.workspace.id)),
+    includeEvidenceLinksInExport: false,
+    showPendingApprovalsInInbox: false,
+  })
+})
+
+test("workspace policy settings route rejects incomplete payloads", async () => {
+  const foundationService = createFoundationService(createInMemoryFoundationStore())
+  const bootstrap = await foundationService.bootstrapWorkspace({
+    user: {
+      email: "invalid-policy@pulsenote.dev",
+      fullName: "Invalid Policy User",
+    },
+    workspace: {
+      name: "Invalid policy workspace",
+      slug: "invalid-policy-workspace",
+    },
+  })
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(bootstrap.user.id)),
+    foundationService,
+  })
+
+  const response = await app.request(`/v1/workspaces/${bootstrap.workspace.id}/settings`, {
+    body: JSON.stringify({
+      includeEvidenceLinksInExport: true,
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "PUT",
+  })
+
+  assert.equal(response.status, 400)
+  assert.match((await response.json()).message, /includeEvidenceLinksInExport/)
+})
+
 test("workspace routes manage the GitHub intake connection for an authenticated workspace", async () => {
   const foundationService = createFoundationService(createInMemoryFoundationStore())
   const bootstrapApp = createApp(runtimeEnv, {

@@ -13,6 +13,7 @@ import {
   type SyncRun,
   type User,
   type Workspace,
+  type WorkspacePolicySettings,
   type WorkspaceMembership,
 } from "../domain/models.js"
 
@@ -20,6 +21,7 @@ type CreateUserInput = Pick<User, "email" | "fullName">
 type SyncAuthenticatedUserInput = Pick<User, "email" | "fullName" | "id">
 type SetCurrentWorkspaceSelectionInput = Pick<CurrentWorkspaceSelection, "userId" | "workspaceId">
 type CreateWorkspaceInput = Pick<Workspace, "name" | "slug">
+type CreateWorkspacePolicySettingsInput = Omit<WorkspacePolicySettings, "createdAt" | "updatedAt">
 type CreateWorkspaceMembershipInput = Pick<WorkspaceMembership, "role" | "userId" | "workspaceId">
 type BootstrapWorkspaceInput = {
   user: CreateUserInput
@@ -68,6 +70,19 @@ type UpdateSyncRunInput = Pick<SyncRun, "id" | "status"> &
   Partial<Pick<SyncRun, "errorMessage" | "finishedAt">>
 type UpdateIntegrationConnectionInput = Pick<IntegrationConnection, "id"> &
   Partial<Pick<IntegrationConnection, "externalAccountId" | "lastSyncedAt" | "status">>
+type UpdateWorkspacePolicySettingsInput = Pick<WorkspacePolicySettings, "workspaceId"> &
+  Partial<
+    Pick<
+      WorkspacePolicySettings,
+      | "includeEvidenceLinksInExport"
+      | "includeSourceLinksInExport"
+      | "requireClaimCheckBeforeApproval"
+      | "requireReviewerAssignment"
+      | "showBlockedClaimsInInbox"
+      | "showPendingApprovalsInInbox"
+      | "showReopenedDraftsInInbox"
+    >
+  >
 
 export type WorkspaceSnapshot = {
   integrationAccounts: IntegrationAccount[]
@@ -110,6 +125,7 @@ export type FoundationStore = {
   createSyncRun(input: CreateSyncRunInput): Promise<SyncRun>
   createUser(input: CreateUserInput): Promise<User>
   createWorkspace(input: CreateWorkspaceInput): Promise<Workspace>
+  createWorkspacePolicySettings(input: CreateWorkspacePolicySettingsInput): Promise<WorkspacePolicySettings>
   createWorkspaceMembership(input: CreateWorkspaceMembershipInput): Promise<WorkspaceMembership>
   deleteGitHubConnectionConfig(connectionId: string): Promise<void>
   findWorkspaceMembership(workspaceId: string, userId: string): Promise<WorkspaceMembership | null>
@@ -126,6 +142,7 @@ export type FoundationStore = {
   getSyncRun(syncRunId: string): Promise<SyncRun | null>
   getUser(userId: string): Promise<User | null>
   getWorkspace(workspaceId: string): Promise<Workspace | null>
+  getWorkspacePolicySettings(workspaceId: string): Promise<WorkspacePolicySettings | null>
   getWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnapshot | null>
   linkClaimCandidateEvidenceBlock(input: LinkClaimCandidateEvidenceBlockInput): Promise<void>
   listWorkspaceMembershipsForUser(userId: string): Promise<WorkspaceMembership[]>
@@ -136,6 +153,9 @@ export type FoundationStore = {
   updateIntegrationConnection(input: UpdateIntegrationConnectionInput): Promise<IntegrationConnection>
   updateReleaseRecordStage(releaseRecordId: string, stage: ReleaseRecord["stage"]): Promise<ReleaseRecord>
   updateSyncRun(input: UpdateSyncRunInput): Promise<SyncRun>
+  updateWorkspacePolicySettings(
+    input: UpdateWorkspacePolicySettingsInput,
+  ): Promise<WorkspacePolicySettings>
   upsertGitHubConnectionConfig(input: UpsertGitHubConnectionConfigInput): Promise<GitHubConnectionConfig>
   upsertReviewStatus(input: CreateReviewStatusInput): Promise<ReviewStatus>
 }
@@ -160,6 +180,7 @@ type InMemoryState = {
   syncRuns: Map<string, SyncRun>
   users: Map<string, User>
   workspaceMemberships: Map<string, WorkspaceMembership>
+  workspacePolicySettings: Map<string, WorkspacePolicySettings>
   workspaces: Map<string, Workspace>
 }
 
@@ -169,6 +190,23 @@ function nowIso() {
 
 function createId() {
   return crypto.randomUUID()
+}
+
+function buildDefaultWorkspacePolicySettings(workspaceId: string): WorkspacePolicySettings {
+  const timestamp = nowIso()
+
+  return {
+    createdAt: timestamp,
+    includeEvidenceLinksInExport: true,
+    includeSourceLinksInExport: true,
+    requireClaimCheckBeforeApproval: true,
+    requireReviewerAssignment: true,
+    showBlockedClaimsInInbox: true,
+    showPendingApprovalsInInbox: true,
+    showReopenedDraftsInInbox: true,
+    updatedAt: timestamp,
+    workspaceId,
+  }
 }
 
 export function createInMemoryFoundationStore(): FoundationStore {
@@ -187,6 +225,7 @@ export function createInMemoryFoundationStore(): FoundationStore {
     syncRuns: new Map(),
     users: new Map(),
     workspaceMemberships: new Map(),
+    workspacePolicySettings: new Map(),
     workspaces: new Map(),
   }
 
@@ -270,6 +309,9 @@ export function createInMemoryFoundationStore(): FoundationStore {
       workspaceMemberships: new Map(
         Array.from(state.workspaceMemberships.entries()).map(([key, value]) => [key, { ...value }]),
       ),
+      workspacePolicySettings: new Map(
+        Array.from(state.workspacePolicySettings.entries()).map(([key, value]) => [key, { ...value }]),
+      ),
       workspaces: new Map(
         Array.from(state.workspaces.entries()).map(([key, value]) => [key, { ...value }]),
       ),
@@ -291,6 +333,7 @@ export function createInMemoryFoundationStore(): FoundationStore {
     state.syncRuns = snapshot.syncRuns
     state.users = snapshot.users
     state.workspaceMemberships = snapshot.workspaceMemberships
+    state.workspacePolicySettings = snapshot.workspacePolicySettings
     state.workspaces = snapshot.workspaces
   }
 
@@ -299,6 +342,7 @@ export function createInMemoryFoundationStore(): FoundationStore {
       const previousUser = state.users.get(input.user.id) ?? null
       let createdWorkspace: Workspace | null = null
       let createdMembership: WorkspaceMembership | null = null
+      let createdPolicyWorkspaceId: string | null = null
 
       try {
         if (Array.from(state.workspaces.values()).some((workspace) => workspace.slug === input.workspace.slug)) {
@@ -321,6 +365,10 @@ export function createInMemoryFoundationStore(): FoundationStore {
           workspaceId: workspace.id,
         })
         createdMembership = membership
+        await this.createWorkspacePolicySettings({
+          ...buildDefaultWorkspacePolicySettings(workspace.id),
+        })
+        createdPolicyWorkspaceId = workspace.id
 
         return {
           membership,
@@ -334,6 +382,10 @@ export function createInMemoryFoundationStore(): FoundationStore {
 
         if (createdWorkspace) {
           state.workspaces.delete(createdWorkspace.id)
+        }
+
+        if (createdPolicyWorkspaceId) {
+          state.workspacePolicySettings.delete(createdPolicyWorkspaceId)
         }
 
         if (previousUser) {
@@ -359,6 +411,9 @@ export function createInMemoryFoundationStore(): FoundationStore {
         role: "owner",
         userId: user.id,
         workspaceId: workspace.id,
+      })
+      await this.createWorkspacePolicySettings({
+        ...buildDefaultWorkspacePolicySettings(workspace.id),
       })
 
       return {
@@ -564,6 +619,19 @@ export function createInMemoryFoundationStore(): FoundationStore {
       return workspace
     },
 
+    async createWorkspacePolicySettings(input) {
+      const defaults = buildDefaultWorkspacePolicySettings(input.workspaceId)
+      const workspacePolicySettings: WorkspacePolicySettings = {
+        ...defaults,
+        ...input,
+        createdAt: defaults.createdAt,
+        updatedAt: defaults.updatedAt,
+      }
+
+      state.workspacePolicySettings.set(workspacePolicySettings.workspaceId, workspacePolicySettings)
+      return workspacePolicySettings
+    },
+
     async createWorkspaceMembership(input) {
       const workspaceMembership: WorkspaceMembership = {
         createdAt: nowIso(),
@@ -714,6 +782,10 @@ export function createInMemoryFoundationStore(): FoundationStore {
       return state.workspaces.get(workspaceId) ?? null
     },
 
+    async getWorkspacePolicySettings(workspaceId) {
+      return state.workspacePolicySettings.get(workspaceId) ?? null
+    },
+
     async getWorkspaceSnapshot(workspaceId) {
       const workspace = state.workspaces.get(workspaceId)
 
@@ -819,6 +891,23 @@ export function createInMemoryFoundationStore(): FoundationStore {
 
       state.syncRuns.set(syncRun.id, syncRun)
       return syncRun
+    },
+
+    async updateWorkspacePolicySettings(input) {
+      const existingSettings = state.workspacePolicySettings.get(input.workspaceId)
+
+      if (!existingSettings) {
+        throw new Error(`Workspace policy settings for ${input.workspaceId} were not found`)
+      }
+
+      const workspacePolicySettings: WorkspacePolicySettings = {
+        ...existingSettings,
+        ...input,
+        updatedAt: nowIso(),
+      }
+
+      state.workspacePolicySettings.set(workspacePolicySettings.workspaceId, workspacePolicySettings)
+      return workspacePolicySettings
     },
 
     async deleteGitHubConnectionConfig(connectionId) {

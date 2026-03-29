@@ -15,6 +15,7 @@ import {
   syncRuns,
   users,
   workspaceMemberships,
+  workspacePolicySettings,
   workspaces,
 } from "../db/schema.js"
 import type { DatabaseClient } from "../db/client.js"
@@ -33,6 +34,7 @@ import {
   type SyncRun,
   type User,
   type Workspace,
+  type WorkspacePolicySettings,
   type WorkspaceMembership,
 } from "../domain/models.js"
 import type { FoundationStore, GitHubWorkspaceConnection, ReleaseRecordSnapshot } from "./store.js"
@@ -43,6 +45,19 @@ function nowIso() {
 
 function createId() {
   return crypto.randomUUID()
+}
+
+function buildDefaultWorkspacePolicySettings(workspaceId: string): Omit<WorkspacePolicySettings, "createdAt" | "updatedAt"> {
+  return {
+    includeEvidenceLinksInExport: true,
+    includeSourceLinksInExport: true,
+    requireClaimCheckBeforeApproval: true,
+    requireReviewerAssignment: true,
+    showBlockedClaimsInInbox: true,
+    showPendingApprovalsInInbox: true,
+    showReopenedDraftsInInbox: true,
+    workspaceId,
+  }
 }
 
 type PostgresFoundationStoreOptions = {
@@ -151,6 +166,12 @@ export function createPostgresFoundationStore(
           })
           .returning()
 
+        await tx.insert(workspacePolicySettings).values({
+          ...buildDefaultWorkspacePolicySettings(workspace.id),
+          createdAt: nowIso(),
+          updatedAt: nowIso(),
+        })
+
         return {
           membership: membership satisfies WorkspaceMembership,
           user: user satisfies User,
@@ -193,6 +214,12 @@ export function createPostgresFoundationStore(
             workspaceId: workspace.id,
           })
           .returning()
+
+        await tx.insert(workspacePolicySettings).values({
+          ...buildDefaultWorkspacePolicySettings(workspace.id),
+          createdAt: nowIso(),
+          updatedAt: nowIso(),
+        })
 
         return {
           membership: membership satisfies WorkspaceMembership,
@@ -429,6 +456,20 @@ export function createPostgresFoundationStore(
       return workspace satisfies Workspace
     },
 
+    async createWorkspacePolicySettings(input) {
+      const [settings] = await db
+        .insert(workspacePolicySettings)
+        .values({
+          ...buildDefaultWorkspacePolicySettings(input.workspaceId),
+          ...input,
+          createdAt: nowIso(),
+          updatedAt: nowIso(),
+        })
+        .returning()
+
+      return settings satisfies WorkspacePolicySettings
+    },
+
     async createWorkspaceMembership(input) {
       const [workspaceMembership] = await db
         .insert(workspaceMemberships)
@@ -635,6 +676,14 @@ export function createPostgresFoundationStore(
       return workspace ?? null
     },
 
+    async getWorkspacePolicySettings(workspaceId) {
+      const settings = await db.query.workspacePolicySettings.findFirst({
+        where: eq(workspacePolicySettings.workspaceId, workspaceId),
+      })
+
+      return settings ?? null
+    },
+
     async getWorkspaceSnapshot(workspaceId) {
       const workspace = await db.query.workspaces.findFirst({
         where: eq(workspaces.id, workspaceId),
@@ -768,6 +817,40 @@ export function createPostgresFoundationStore(
         .returning()
 
       return syncRun satisfies SyncRun
+    },
+
+    async updateWorkspacePolicySettings(input) {
+      const existingSettings = await db.query.workspacePolicySettings.findFirst({
+        where: eq(workspacePolicySettings.workspaceId, input.workspaceId),
+      })
+
+      if (!existingSettings) {
+        throw new Error(`Workspace policy settings for ${input.workspaceId} were not found`)
+      }
+
+      const [settings] = await db
+        .update(workspacePolicySettings)
+        .set({
+          includeEvidenceLinksInExport:
+            input.includeEvidenceLinksInExport ?? existingSettings.includeEvidenceLinksInExport,
+          includeSourceLinksInExport:
+            input.includeSourceLinksInExport ?? existingSettings.includeSourceLinksInExport,
+          requireClaimCheckBeforeApproval:
+            input.requireClaimCheckBeforeApproval ?? existingSettings.requireClaimCheckBeforeApproval,
+          requireReviewerAssignment:
+            input.requireReviewerAssignment ?? existingSettings.requireReviewerAssignment,
+          showBlockedClaimsInInbox:
+            input.showBlockedClaimsInInbox ?? existingSettings.showBlockedClaimsInInbox,
+          showPendingApprovalsInInbox:
+            input.showPendingApprovalsInInbox ?? existingSettings.showPendingApprovalsInInbox,
+          showReopenedDraftsInInbox:
+            input.showReopenedDraftsInInbox ?? existingSettings.showReopenedDraftsInInbox,
+          updatedAt: nowIso(),
+        })
+        .where(eq(workspacePolicySettings.workspaceId, input.workspaceId))
+        .returning()
+
+      return settings satisfies WorkspacePolicySettings
     },
 
     async deleteGitHubConnectionConfig(connectionId) {

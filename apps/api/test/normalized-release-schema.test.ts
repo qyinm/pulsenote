@@ -23,6 +23,7 @@ import {
   syncRuns,
   workflowEvents,
   workspaceMemberships,
+  workspacePolicySettings,
 } from "../src/db/schema.js"
 
 test("normalized release schema exports the core release workflow tables", () => {
@@ -66,11 +67,15 @@ test("claim candidates use explicit status values and join to evidence blocks", 
 
 test("workspace and review workflow tables enforce idempotent uniqueness constraints", () => {
   const workspaceMembershipConfig = getTableConfig(workspaceMemberships)
+  const workspacePolicySettingsColumns = getTableColumns(workspacePolicySettings)
   const sourceCursorConfig = getTableConfig(sourceCursors)
   const reviewStatusConfig = getTableConfig(reviewStatuses)
   const integrationConnectionConfig = getTableConfig(integrationConnections)
   const draftRevisionConfig = getTableConfig(draftRevisions)
 
+  assert.ok(
+    workspacePolicySettingsColumns.workspaceId,
+  )
   assert.ok(
     workspaceMembershipConfig.uniqueConstraints.some(
       (constraint) => constraint.getName() === "workspace_memberships_workspace_id_user_id_unique",

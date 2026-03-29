@@ -57,6 +57,19 @@ export type Workspace = {
   updatedAt: string
 }
 
+export type WorkspacePolicySettings = {
+  createdAt: string
+  includeEvidenceLinksInExport: boolean
+  includeSourceLinksInExport: boolean
+  requireClaimCheckBeforeApproval: boolean
+  requireReviewerAssignment: boolean
+  showBlockedClaimsInInbox: boolean
+  showPendingApprovalsInInbox: boolean
+  showReopenedDraftsInInbox: boolean
+  updatedAt: string
+  workspaceId: string
+}
+
 export type WorkspaceMembership = {
   id: string
   workspaceId: string
@@ -220,6 +233,7 @@ export type PublishPackExport = {
 export const foundationModelNames = [
   "user",
   "workspace",
+  "workspace_policy_settings",
   "workspace_membership",
   "current_workspace_selection",
   "integration_connection",

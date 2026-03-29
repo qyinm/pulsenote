@@ -4,6 +4,7 @@ import test from "node:test"
 import type {
   ReleaseWorkflowHistoryEntry,
   ReleaseWorkflowListItem,
+  WorkspacePolicySettings,
   WorkspaceSnapshot,
 } from "../lib/api/client.js"
 import {
@@ -187,6 +188,23 @@ function createHistoryEntry(
   }
 }
 
+function createWorkspacePolicySettings(
+  overrides: Partial<WorkspacePolicySettings> = {},
+): WorkspacePolicySettings {
+  return {
+    createdAt: overrides.createdAt ?? "2026-03-20T00:00:00.000Z",
+    includeEvidenceLinksInExport: overrides.includeEvidenceLinksInExport ?? true,
+    includeSourceLinksInExport: overrides.includeSourceLinksInExport ?? true,
+    requireClaimCheckBeforeApproval: overrides.requireClaimCheckBeforeApproval ?? true,
+    requireReviewerAssignment: overrides.requireReviewerAssignment ?? true,
+    showBlockedClaimsInInbox: overrides.showBlockedClaimsInInbox ?? true,
+    showPendingApprovalsInInbox: overrides.showPendingApprovalsInInbox ?? true,
+    showReopenedDraftsInInbox: overrides.showReopenedDraftsInInbox ?? true,
+    updatedAt: overrides.updatedAt ?? "2026-03-20T00:00:00.000Z",
+    workspaceId: overrides.workspaceId ?? "workspace_1",
+  }
+}
+
 test("buildLiveSettingsData summarizes live workspace settings coverage", () => {
   const workspace = createWorkspaceSnapshot()
   const workflow = [
@@ -236,8 +254,12 @@ test("buildLiveSettingsData summarizes live workspace settings coverage", () => 
       stage: "approval",
     }),
   ]
+  const policy = createWorkspacePolicySettings({
+    includeSourceLinksInExport: false,
+    showPendingApprovalsInInbox: false,
+  })
 
-  const data = buildLiveSettingsData(workspace, workflow, history, "user_1")
+  const data = buildLiveSettingsData(workspace, workflow, history, policy, "user_1")
 
   assert.equal(data.metrics.activeMembers, 2)
   assert.equal(data.metrics.activeIntegrations, 1)
@@ -254,12 +276,17 @@ test("buildLiveSettingsData summarizes live workspace settings coverage", () => 
   )
   assert.ok(
     data.notifications.items.some(
-      (item) => item.label === "External delivery" && item.value === "Not configured",
+      (item) => item.label === "Pending approvals in inbox" && item.value === "Disabled",
     ),
   )
   assert.ok(
     data.exportReadiness.items.some(
       (item) => item.label === "Publish packs exported" && item.value === "1",
+    ),
+  )
+  assert.ok(
+    data.exportReadiness.items.some(
+      (item) => item.label === "Include source links" && item.value === "Disabled",
     ),
   )
 })
@@ -285,11 +312,17 @@ test("getServerSettingsData forwards auth headers and returns live settings data
         requests.push(init ?? {})
         return [createHistoryEntry()]
       },
+      async getWorkspacePolicySettings(workspaceId, init) {
+        assert.equal(workspaceId, "workspace_1")
+        requests.push(init ?? {})
+        return createWorkspacePolicySettings()
+      },
     },
   )
 
   assert.equal(data.metrics.activeMembers, 2)
   assert.equal(data.metrics.activeIntegrations, 1)
+  assert.equal(data.policy.requireReviewerAssignment, true)
 
   for (const request of requests) {
     const headers = request.headers

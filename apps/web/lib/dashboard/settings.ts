@@ -1,6 +1,7 @@
 import type {
   ReleaseWorkflowHistoryEntry,
   ReleaseWorkflowListItem,
+  WorkspacePolicySettings,
   WorkspaceSnapshot,
 } from "../api/client"
 import { createApiClient } from "../api/client"
@@ -9,7 +10,7 @@ import { buildReviewInboxItems } from "../review-inbox"
 
 type SettingsApiClient = Pick<
   ReturnType<typeof createApiClient>,
-  "listReleaseWorkflow" | "listReleaseWorkflowHistory"
+  "getWorkspacePolicySettings" | "listReleaseWorkflow" | "listReleaseWorkflowHistory"
 >
 
 export type LiveSettingsSectionItem = {
@@ -34,6 +35,7 @@ export type LiveSettingsData = {
   exportReadiness: LiveSettingsSection
   metrics: LiveSettingsMetrics
   notifications: LiveSettingsSection
+  policy: WorkspacePolicySettings
   reviewPolicy: LiveSettingsSection
   workspaceProfile: LiveSettingsSection
 }
@@ -78,6 +80,7 @@ export function buildLiveSettingsData(
   workspace: WorkspaceSnapshot,
   workflow: ReleaseWorkflowListItem[],
   history: ReleaseWorkflowHistoryEntry[],
+  policy: WorkspacePolicySettings,
   currentUserId: string,
 ): LiveSettingsData {
   const inboxItems = buildReviewInboxItems(workflow, history, currentUserId)
@@ -118,6 +121,14 @@ export function buildLiveSettingsData(
         { label: "Publish packs exported", value: String(exportedPublishPacks) },
         { label: "Releases with evidence", value: String(releasesWithEvidence) },
         { label: "Releases missing evidence", value: String(releasesMissingEvidence) },
+        {
+          label: "Include evidence links",
+          value: policy.includeEvidenceLinksInExport ? "Enabled" : "Disabled",
+        },
+        {
+          label: "Include source links",
+          value: policy.includeSourceLinksInExport ? "Enabled" : "Disabled",
+        },
       ],
       title: "Export readiness",
     },
@@ -134,10 +145,22 @@ export function buildLiveSettingsData(
         { label: "Approval alerts", value: String(approvalAlerts) },
         { label: "Claim alerts", value: String(claimAlerts) },
         { label: "Reopened draft alerts", value: String(reopenedAlerts) },
-        { label: "External delivery", value: "Not configured" },
+        {
+          label: "Blocked claims in inbox",
+          value: policy.showBlockedClaimsInInbox ? "Enabled" : "Disabled",
+        },
+        {
+          label: "Pending approvals in inbox",
+          value: policy.showPendingApprovalsInInbox ? "Enabled" : "Disabled",
+        },
+        {
+          label: "Reopened drafts in inbox",
+          value: policy.showReopenedDraftsInInbox ? "Enabled" : "Disabled",
+        },
       ],
       title: "Notification coverage",
     },
+    policy,
     reviewPolicy: {
       description: "These live workflow counts show where review is still gating public wording and publish readiness.",
       items: [
@@ -146,6 +169,14 @@ export function buildLiveSettingsData(
         { label: "Unassigned handoffs", value: String(unassignedApprovals) },
         { label: "Reopened drafts", value: String(reopenedDrafts) },
         { label: "Logged decisions", value: String(history.length) },
+        {
+          label: "Claim check before approval",
+          value: policy.requireClaimCheckBeforeApproval ? "Required" : "Optional",
+        },
+        {
+          label: "Reviewer assignment",
+          value: policy.requireReviewerAssignment ? "Required" : "Optional",
+        },
       ],
       title: "Review policy status",
     },
@@ -173,10 +204,11 @@ export async function getServerSettingsData(
     headers: getForwardedAuthHeaders(requestHeaders),
   } satisfies RequestInit
 
-  const [workflow, history] = await Promise.all([
+  const [workflow, history, policy] = await Promise.all([
     apiClient.listReleaseWorkflow(workspace.workspace.id, init),
     apiClient.listReleaseWorkflowHistory(workspace.workspace.id, init),
+    apiClient.getWorkspacePolicySettings(workspace.workspace.id, init),
   ])
 
-  return buildLiveSettingsData(workspace, workflow, history, currentUserId)
+  return buildLiveSettingsData(workspace, workflow, history, policy, currentUserId)
 }

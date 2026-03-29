@@ -23,6 +23,10 @@ function asString(value: unknown): string | null {
   return typeof value === "string" ? value : null
 }
 
+function asBoolean(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null
+}
+
 function asIntegrationProvider(value: unknown): IntegrationProvider | null {
   return typeof value === "string" && integrationProviders.includes(value as IntegrationProvider)
     ? (value as IntegrationProvider)
@@ -308,6 +312,63 @@ export function createWorkspacesRoute(
         return context.json(notFound(message), 404)
       }
 
+      return context.json(internalServerError(message), 500)
+    }
+  })
+
+  route.get("/:workspaceId/settings", async (context) => {
+    try {
+      const settings = await foundationService.getWorkspacePolicySettings(context.req.param("workspaceId"))
+      return context.json(settings)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Workspace policy settings were not found"
+      return context.json(notFound(message), 404)
+    }
+  })
+
+  route.put("/:workspaceId/settings", async (context) => {
+    const body = await context.req.json().catch(() => null)
+    const payload = asRecord(body)
+    const includeEvidenceLinksInExport = asBoolean(payload?.includeEvidenceLinksInExport)
+    const includeSourceLinksInExport = asBoolean(payload?.includeSourceLinksInExport)
+    const requireClaimCheckBeforeApproval = asBoolean(payload?.requireClaimCheckBeforeApproval)
+    const requireReviewerAssignment = asBoolean(payload?.requireReviewerAssignment)
+    const showBlockedClaimsInInbox = asBoolean(payload?.showBlockedClaimsInInbox)
+    const showPendingApprovalsInInbox = asBoolean(payload?.showPendingApprovalsInInbox)
+    const showReopenedDraftsInInbox = asBoolean(payload?.showReopenedDraftsInInbox)
+
+    if (
+      includeEvidenceLinksInExport === null ||
+      includeSourceLinksInExport === null ||
+      requireClaimCheckBeforeApproval === null ||
+      requireReviewerAssignment === null ||
+      showBlockedClaimsInInbox === null ||
+      showPendingApprovalsInInbox === null ||
+      showReopenedDraftsInInbox === null
+    ) {
+      return context.json(
+        badRequest(
+          "includeEvidenceLinksInExport, includeSourceLinksInExport, requireClaimCheckBeforeApproval, requireReviewerAssignment, showBlockedClaimsInInbox, showPendingApprovalsInInbox, and showReopenedDraftsInInbox are required",
+        ),
+        400,
+      )
+    }
+
+    try {
+      const settings = await foundationService.updateWorkspacePolicySettings({
+        includeEvidenceLinksInExport,
+        includeSourceLinksInExport,
+        requireClaimCheckBeforeApproval,
+        requireReviewerAssignment,
+        showBlockedClaimsInInbox,
+        showPendingApprovalsInInbox,
+        showReopenedDraftsInInbox,
+        workspaceId: context.req.param("workspaceId"),
+      })
+
+      return context.json(settings)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Workspace policy settings could not be updated"
       return context.json(internalServerError(message), 500)
     }
   })
