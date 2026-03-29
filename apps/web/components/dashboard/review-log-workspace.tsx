@@ -66,13 +66,14 @@ function outcomeBadge(outcome: ReleaseWorkflowHistoryEntry["outcome"]) {
   return <Badge variant="secondary">{label}</Badge>
 }
 
+const reviewLogTimestampFormatter = new Intl.DateTimeFormat("en-US", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "UTC",
+})
+
 function formatTimestamp(value: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "UTC",
-    timeZoneName: "short",
-  }).format(new Date(value))
+  return `${reviewLogTimestampFormatter.format(new Date(value))} UTC`
 }
 
 function formatStageLabel(stage: ReleaseWorkflowHistoryEntry["stage"]) {
