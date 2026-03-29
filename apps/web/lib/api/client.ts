@@ -198,7 +198,7 @@ const workflowPublishPackArtifactSchema = z.object({
     z.object({
       label: z.string(),
       sourceLinkId: z.string(),
-      url: z.string(),
+      url: z.string().url(),
     }),
   ),
 })

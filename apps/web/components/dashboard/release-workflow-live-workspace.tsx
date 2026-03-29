@@ -237,6 +237,15 @@ function buildPublishPackArtifactSourceItems(detail: ReleaseWorkflowDetail) {
   return artifact.sourceSnapshots.map((sourceSnapshot) => `Linked source: ${sourceSnapshot.label}`)
 }
 
+function getPublishPackArtifactCounts(detail: ReleaseWorkflowDetail) {
+  const artifact = detail.latestPublishPackArtifact
+
+  return {
+    includedEvidenceCount: artifact?.evidenceSnapshots.length ?? 0,
+    includedSourceLinkCount: artifact?.sourceSnapshots.length ?? 0,
+  }
+}
+
 function getQueuedWorkflowItem(
   queueSourceById: Map<string, ReleaseWorkflowListItem>,
   releaseRecordId: string,
@@ -1061,11 +1070,11 @@ export function ReleaseWorkflowLiveWorkspace({
                         },
                         {
                           label: "Evidence links",
-                          value: String(selectedWorkflow.latestPublishPackSummary.includedEvidenceCount),
+                          value: String(getPublishPackArtifactCounts(selectedWorkflow).includedEvidenceCount),
                         },
                         {
                           label: "Source links",
-                          value: String(selectedWorkflow.latestPublishPackSummary.includedSourceLinkCount),
+                          value: String(getPublishPackArtifactCounts(selectedWorkflow).includedSourceLinkCount),
                         },
                       ]}
                     />

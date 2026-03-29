@@ -455,6 +455,12 @@ export function buildReleaseWorkflowApprovalNotes(detail: ReleaseWorkflowDetail)
 export function buildReleaseWorkflowPublishPackNotes(detail: ReleaseWorkflowDetail) {
   if (detail.latestPublishPackSummary.state === "exported") {
     const notes = ["The current draft revision is already frozen into a publish pack export."]
+    const includedEvidenceCount =
+      detail.latestPublishPackArtifact?.evidenceSnapshots.length ??
+      detail.latestPublishPackSummary.includedEvidenceCount
+    const includedSourceLinkCount =
+      detail.latestPublishPackArtifact?.sourceSnapshots.length ??
+      detail.latestPublishPackSummary.includedSourceLinkCount
 
     if (detail.latestPublishPackArtifact) {
       notes.push(
@@ -463,7 +469,7 @@ export function buildReleaseWorkflowPublishPackNotes(detail: ReleaseWorkflowDeta
           : "The frozen handoff keeps its exporter identity explicit.",
       )
       notes.push(
-        `The frozen handoff includes ${detail.latestPublishPackSummary.includedEvidenceCount} evidence link${detail.latestPublishPackSummary.includedEvidenceCount === 1 ? "" : "s"} and ${detail.latestPublishPackSummary.includedSourceLinkCount} source link${detail.latestPublishPackSummary.includedSourceLinkCount === 1 ? "" : "s"}.`,
+        `The frozen handoff includes ${pluralize("evidence link", includedEvidenceCount)} and ${pluralize("source link", includedSourceLinkCount)}.`,
       )
     }
 
@@ -475,6 +481,10 @@ export function buildReleaseWorkflowPublishPackNotes(detail: ReleaseWorkflowDeta
   }
 
   return ["A publish pack will appear once the current draft is approved."]
+}
+
+function pluralize(word: string, count: number) {
+  return `${count} ${word}${count === 1 ? "" : "s"}`
 }
 
 export function buildReleaseWorkflowPublishPackArtifactNotes(detail: ReleaseWorkflowDetail) {

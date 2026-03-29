@@ -553,7 +553,7 @@ test("buildReleaseWorkflowPublishPackNotes and artifact notes keep frozen handof
       exportedByUserId: "user_1",
       exportId: "export_1",
       exportedAt: "2026-03-20T03:00:00.000Z",
-      includedEvidenceCount: 1,
+      includedEvidenceCount: 0,
       includedSourceLinkCount: 0,
       includesEvidenceLinks: true,
       includesSourceLinks: false,
