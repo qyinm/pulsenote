@@ -444,6 +444,12 @@ function buildPublishPackSummary(
   if (!currentDraft) {
     return {
       draftRevisionId: null,
+      exportedByName: null,
+      exportedByUserId: null,
+      includedEvidenceCount: 0,
+      includedSourceLinkCount: 0,
+      includesEvidenceLinks: false,
+      includesSourceLinks: false,
       exportId: null,
       exportedAt: null,
       state: "not_ready",
@@ -453,6 +459,12 @@ function buildPublishPackSummary(
   if (latestPublishPackExport && latestPublishPackExport.draftRevisionId === currentDraft.id) {
     return {
       draftRevisionId: currentDraft.id,
+      exportedByName: latestPublishPackExport.contextSnapshot.exportedByName,
+      exportedByUserId: latestPublishPackExport.contextSnapshot.exportedByUserId,
+      includedEvidenceCount: latestPublishPackExport.evidenceSnapshots.length,
+      includedSourceLinkCount: latestPublishPackExport.sourceSnapshots.length,
+      includesEvidenceLinks: latestPublishPackExport.policySnapshot.includeEvidenceLinksInExport,
+      includesSourceLinks: latestPublishPackExport.policySnapshot.includeSourceLinksInExport,
       exportId: latestPublishPackExport.id,
       exportedAt: latestPublishPackExport.createdAt,
       state: "exported",
@@ -462,6 +474,12 @@ function buildPublishPackSummary(
   if (approvalSummary.state === "approved") {
     return {
       draftRevisionId: currentDraft.id,
+      exportedByName: null,
+      exportedByUserId: null,
+      includedEvidenceCount: 0,
+      includedSourceLinkCount: 0,
+      includesEvidenceLinks: false,
+      includesSourceLinks: false,
       exportId: null,
       exportedAt: null,
       state: "ready",
@@ -470,9 +488,32 @@ function buildPublishPackSummary(
 
   return {
     draftRevisionId: currentDraft.id,
+    exportedByName: null,
+    exportedByUserId: null,
+    includedEvidenceCount: 0,
+    includedSourceLinkCount: 0,
+    includesEvidenceLinks: false,
+    includesSourceLinks: false,
     exportId: null,
     exportedAt: null,
     state: "not_ready",
+  }
+}
+
+function buildPublishPackArtifact(
+  latestPublishPackExport: ReleaseWorkflowBaseRecord["latestPublishPackExport"],
+) {
+  if (!latestPublishPackExport) {
+    return null
+  }
+
+  return {
+    context: latestPublishPackExport.contextSnapshot,
+    evidenceSnapshots: latestPublishPackExport.evidenceSnapshots,
+    exportId: latestPublishPackExport.id,
+    exportedAt: latestPublishPackExport.createdAt,
+    policy: latestPublishPackExport.policySnapshot,
+    sourceSnapshots: latestPublishPackExport.sourceSnapshots,
   }
 }
 
@@ -592,6 +633,7 @@ function buildWorkflowDetailFromBaseRecord(
     baseRecord.latestPublishPackExport,
     approvalSummary,
   )
+  const publishPackArtifact = buildPublishPackArtifact(baseRecord.latestPublishPackExport)
   const allowedActions = buildAllowedActions({
     approvalSummary,
     claimCheckSummary,
@@ -622,6 +664,7 @@ function buildWorkflowDetailFromBaseRecord(
             version: baseRecord.currentDraft.version,
           },
     evidenceBlocks: baseRecord.releaseSnapshot.evidenceBlocks,
+    latestPublishPackArtifact: publishPackArtifact,
     latestPublishPackSummary: publishPackSummary,
     readiness,
     releaseRecord: baseRecord.releaseSnapshot.releaseRecord,
@@ -743,6 +786,51 @@ function buildHistoryActorName(user: User | null | undefined) {
 
   const fullName = user.fullName?.trim()
   return fullName && fullName.length > 0 ? fullName : user.email
+}
+
+function buildPublishPackExportContextSnapshot(input: {
+  actor: User | null
+  actorUserId: string | null
+  approvalSummary: ApprovalSummary
+}) {
+  return {
+    approvalNote: input.approvalSummary.note,
+    approvalOwnerName: input.approvalSummary.ownerName,
+    approvalOwnerUserId: input.approvalSummary.ownerUserId,
+    approvalRequestedByName: input.approvalSummary.requestedByName,
+    approvalRequestedByUserId: input.approvalSummary.requestedByUserId,
+    approvalState: input.approvalSummary.state,
+    exportedByName: buildHistoryActorName(input.actor),
+    exportedByUserId: input.actorUserId,
+  }
+}
+
+function buildPublishPackExportEvidenceSnapshots(releaseSnapshot: ReleaseRecordSnapshot) {
+  return releaseSnapshot.evidenceBlocks.map((evidenceBlock) => ({
+    capturedAt: evidenceBlock.capturedAt,
+    evidenceBlockId: evidenceBlock.id,
+    evidenceState: evidenceBlock.evidenceState,
+    sourceRef: evidenceBlock.sourceRef,
+    sourceType: evidenceBlock.sourceType,
+    title: evidenceBlock.title,
+  }))
+}
+
+function buildPublishPackExportPolicySnapshot(
+  policy: Pick<WorkspacePolicySettings, "includeEvidenceLinksInExport" | "includeSourceLinksInExport">,
+) {
+  return {
+    includeEvidenceLinksInExport: policy.includeEvidenceLinksInExport,
+    includeSourceLinksInExport: policy.includeSourceLinksInExport,
+  }
+}
+
+function buildPublishPackExportSourceSnapshots(releaseSnapshot: ReleaseRecordSnapshot) {
+  return releaseSnapshot.sourceLinks.map((sourceLink) => ({
+    label: sourceLink.label,
+    sourceLinkId: sourceLink.id,
+    url: sourceLink.url,
+  }))
 }
 
 function collectWorkflowUserIds(
@@ -1350,12 +1438,25 @@ export function createReleaseWorkflowService(
         throw new DraftRevisionNotFoundError(input.expectedDraftRevisionId)
       }
 
+      const users = await store.listUsersByIds(
+        Array.from(
+          new Set(
+            [
+              input.actorUserId,
+              ...collectWorkflowUserIds([resources.releaseSnapshot], resources.workflowEvents),
+            ].filter((userId): userId is string => userId !== null),
+          ),
+        ),
+      )
+      const userById = new Map(users.map((user) => [user.id, user]))
       const approvalSummary = buildApprovalSummary(
         resources.currentDraft,
         resources.baseRecord.reviewStatusesByStage,
         resources.workflowEvents,
-        new Map(),
+        userById,
       )
+      const actor =
+        input.actorUserId === null ? null : userById.get(input.actorUserId) ?? null
 
       if (approvalSummary.state !== "approved") {
         throw new ApprovedDraftRequiredError()
@@ -1374,10 +1475,22 @@ export function createReleaseWorkflowService(
       await store.transaction(async (transactionStore) => {
         await transactionStore.createPublishPackExport({
           changelogBody: resources.currentDraft!.changelogBody,
+          contextSnapshot: buildPublishPackExportContextSnapshot({
+            actor,
+            actorUserId: input.actorUserId,
+            approvalSummary,
+          }),
           createdByUserId: input.actorUserId,
           draftRevisionId: resources.currentDraft!.id,
+          evidenceSnapshots: resources.policy.includeEvidenceLinksInExport
+            ? buildPublishPackExportEvidenceSnapshots(resources.releaseSnapshot)
+            : [],
+          policySnapshot: buildPublishPackExportPolicySnapshot(resources.policy),
           releaseNotesBody: resources.currentDraft!.releaseNotesBody,
           releaseRecordId: input.releaseRecordId,
+          sourceSnapshots: resources.policy.includeSourceLinksInExport
+            ? buildPublishPackExportSourceSnapshots(resources.releaseSnapshot)
+            : [],
         })
         await transactionStore.upsertReviewStatus({
           note: input.note ?? "Publish pack exported from the approved draft",

@@ -4,6 +4,10 @@ import {
   evidenceSourceTypes,
   integrationConnectionStatuses,
   integrationProviders,
+  type PublishPackExportContextSnapshot,
+  type PublishPackExportEvidenceSnapshot,
+  type PublishPackExportPolicySnapshot,
+  type PublishPackExportSourceSnapshot,
   reviewStates,
   reviewStages,
   workflowEventTypes,
@@ -11,10 +15,12 @@ import {
   workspaceMembershipRoles,
 } from "../domain/models.js"
 
+import { sql } from "drizzle-orm"
 import {
   foreignKey,
   boolean,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   primaryKey,
@@ -431,16 +437,26 @@ export const publishPackExports = pgTable(
   "publish_pack_exports",
   {
     changelogBody: text("changelog_body").notNull(),
+    contextSnapshot: jsonb("context_snapshot").$type<PublishPackExportContextSnapshot>().notNull(),
     createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
     createdByUserId: uuid("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
     draftRevisionId: uuid("draft_revision_id")
       .notNull()
       .references(() => draftRevisions.id, { onDelete: "cascade" }),
+    evidenceSnapshots: jsonb("evidence_snapshots")
+      .$type<PublishPackExportEvidenceSnapshot[]>()
+      .default(sql`'[]'::jsonb`)
+      .notNull(),
     id: uuid("id").defaultRandom().primaryKey(),
+    policySnapshot: jsonb("policy_snapshot").$type<PublishPackExportPolicySnapshot>().notNull(),
     releaseNotesBody: text("release_notes_body").notNull(),
     releaseRecordId: uuid("release_record_id")
       .notNull()
       .references(() => releaseRecords.id, { onDelete: "cascade" }),
+    sourceSnapshots: jsonb("source_snapshots")
+      .$type<PublishPackExportSourceSnapshot[]>()
+      .default(sql`'[]'::jsonb`)
+      .notNull(),
   },
   (table) => [
     foreignKey({

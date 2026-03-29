@@ -3,6 +3,10 @@ import type {
   DraftClaimCheckResult,
   DraftRevision,
   PublishPackExport,
+  PublishPackExportContextSnapshot,
+  PublishPackExportEvidenceSnapshot,
+  PublishPackExportPolicySnapshot,
+  PublishPackExportSourceSnapshot,
   ReleaseRecord,
   ReviewStage,
   ReviewState,
@@ -46,10 +50,14 @@ export type CreateWorkflowEventInput = {
 
 export type CreatePublishPackExportInput = {
   changelogBody: string
+  contextSnapshot: PublishPackExportContextSnapshot
   createdByUserId: string | null
   draftRevisionId: string
+  evidenceSnapshots: PublishPackExportEvidenceSnapshot[]
+  policySnapshot: PublishPackExportPolicySnapshot
   releaseNotesBody: string
   releaseRecordId: string
+  sourceSnapshots: PublishPackExportSourceSnapshot[]
 }
 
 export type UpdateReleaseReviewStatusInput = {

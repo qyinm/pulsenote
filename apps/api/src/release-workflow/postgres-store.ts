@@ -205,12 +205,16 @@ export function createPostgresReleaseWorkflowStore(
         .insert(publishPackExports)
         .values({
           changelogBody: input.changelogBody,
+          contextSnapshot: input.contextSnapshot,
           createdAt: nowIso(),
           createdByUserId: input.createdByUserId,
           draftRevisionId: input.draftRevisionId,
+          evidenceSnapshots: input.evidenceSnapshots,
           id: createId(),
+          policySnapshot: input.policySnapshot,
           releaseNotesBody: input.releaseNotesBody,
           releaseRecordId: input.releaseRecordId,
+          sourceSnapshots: input.sourceSnapshots,
         })
         .returning()
 

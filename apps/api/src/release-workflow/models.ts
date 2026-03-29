@@ -2,6 +2,10 @@ import type {
   DraftClaimCheckResult,
   DraftRevision,
   PublishPackExport,
+  PublishPackExportContextSnapshot,
+  PublishPackExportEvidenceSnapshot,
+  PublishPackExportPolicySnapshot,
+  PublishPackExportSourceSnapshot,
   ReleaseRecord,
   ReviewStatus,
   ReviewStage,
@@ -61,9 +65,24 @@ export type ApprovalSummary = {
 
 export type PublishPackSummary = {
   draftRevisionId: string | null
+  exportedByName: string | null
+  exportedByUserId: string | null
+  includedEvidenceCount: number
+  includedSourceLinkCount: number
+  includesEvidenceLinks: boolean
+  includesSourceLinks: boolean
   exportId: string | null
   exportedAt: string | null
   state: PublishPackState
+}
+
+export type PublishPackArtifact = {
+  context: PublishPackExportContextSnapshot
+  evidenceSnapshots: PublishPackExportEvidenceSnapshot[]
+  exportId: string
+  exportedAt: string
+  policy: PublishPackExportPolicySnapshot
+  sourceSnapshots: PublishPackExportSourceSnapshot[]
 }
 
 export type WorkflowCurrentDraft = Pick<
@@ -92,6 +111,7 @@ export type ReleaseWorkflowDetail = {
   claimCheckSummary: ClaimCheckSummary
   currentDraft: WorkflowCurrentDraft | null
   evidenceBlocks: ReleaseRecordSnapshot["evidenceBlocks"]
+  latestPublishPackArtifact: PublishPackArtifact | null
   latestPublishPackSummary: PublishPackSummary
   readiness: WorkflowReadiness
   releaseRecord: ReleaseRecord

@@ -413,7 +413,182 @@ test("release workflow service supports the founder happy path end to end", asyn
   assert.equal(approved.approvalSummary.state, "approved")
   assert.equal(exported.latestPublishPackSummary.state, "exported")
   assert.equal(exported.latestPublishPackSummary.draftRevisionId, draft.currentDraft!.id)
+  assert.equal(exported.latestPublishPackSummary.exportedByUserId, fixture.bootstrap.user.id)
+  assert.equal(exported.latestPublishPackSummary.exportedByName, fixture.bootstrap.user.fullName)
+  assert.equal(exported.latestPublishPackSummary.includesEvidenceLinks, true)
+  assert.equal(exported.latestPublishPackSummary.includesSourceLinks, true)
+  assert.equal(exported.latestPublishPackSummary.includedEvidenceCount, exported.evidenceBlocks.length)
+  assert.equal(exported.latestPublishPackSummary.includedSourceLinkCount, exported.sourceLinks.length)
+  assert.equal(exported.latestPublishPackArtifact?.context.approvalOwnerUserId, fixture.reviewer.id)
+  assert.equal(exported.latestPublishPackArtifact?.context.approvalOwnerName, fixture.reviewer.fullName)
+  assert.equal(exported.latestPublishPackArtifact?.context.approvalRequestedByUserId, fixture.bootstrap.user.id)
+  assert.equal(exported.latestPublishPackArtifact?.context.approvalRequestedByName, fixture.bootstrap.user.fullName)
+  assert.equal(exported.latestPublishPackArtifact?.context.exportedByUserId, fixture.bootstrap.user.id)
+  assert.equal(exported.latestPublishPackArtifact?.policy.includeEvidenceLinksInExport, true)
+  assert.equal(exported.latestPublishPackArtifact?.policy.includeSourceLinksInExport, true)
+  assert.equal(exported.latestPublishPackArtifact?.evidenceSnapshots.length, exported.evidenceBlocks.length)
+  assert.equal(exported.latestPublishPackArtifact?.sourceSnapshots.length, exported.sourceLinks.length)
   assert.deepEqual(exported.allowedActions, ["reopen_draft"])
+})
+
+test("release workflow service respects export policy when freezing a publish pack artifact", async () => {
+  const fixture = await seedReleaseWorkflowFixture({
+    async composeDraft() {
+      return {
+        changelogBody: "- Adds founder release workflow and approval checkpoints",
+        releaseNotesBody: "- Adds founder release workflow and approval checkpoints",
+      }
+    },
+    async runClaimCheck(releaseSnapshot, draftRevision) {
+      return [
+        {
+          evidenceBlockIds: releaseSnapshot.claimCandidates[0]?.evidenceBlockIds ?? [],
+          note: null,
+          sentence: draftRevision.releaseNotesBody.replace(/^- /, ""),
+          status: "approved" as const,
+        },
+      ]
+    },
+  })
+
+  await fixture.foundationStore.updateWorkspacePolicySettings({
+    includeEvidenceLinksInExport: false,
+    includeSourceLinksInExport: false,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  const draft = await fixture.workflowService.createDraft({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedLatestDraftRevisionId: null,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  await fixture.workflowService.runClaimCheck({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  await fixture.workflowService.requestApproval({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    reviewerUserId: fixture.reviewer.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  await fixture.workflowService.approveDraft({
+    actorUserId: fixture.reviewer.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  const exported = await fixture.workflowService.createPublishPack({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  assert.equal(exported.latestPublishPackSummary.includesEvidenceLinks, false)
+  assert.equal(exported.latestPublishPackSummary.includesSourceLinks, false)
+  assert.equal(exported.latestPublishPackSummary.includedEvidenceCount, 0)
+  assert.equal(exported.latestPublishPackSummary.includedSourceLinkCount, 0)
+  assert.equal(exported.latestPublishPackArtifact?.policy.includeEvidenceLinksInExport, false)
+  assert.equal(exported.latestPublishPackArtifact?.policy.includeSourceLinksInExport, false)
+  assert.deepEqual(exported.latestPublishPackArtifact?.evidenceSnapshots, [])
+  assert.deepEqual(exported.latestPublishPackArtifact?.sourceSnapshots, [])
+})
+
+test("release workflow service keeps publish pack artifacts frozen after release evidence changes", async () => {
+  const fixture = await seedReleaseWorkflowFixture({
+    async composeDraft() {
+      return {
+        changelogBody: "- Adds founder release workflow and approval checkpoints",
+        releaseNotesBody: "- Adds founder release workflow and approval checkpoints",
+      }
+    },
+    async runClaimCheck(releaseSnapshot, draftRevision) {
+      return [
+        {
+          evidenceBlockIds: releaseSnapshot.claimCandidates[0]?.evidenceBlockIds ?? [],
+          note: null,
+          sentence: draftRevision.releaseNotesBody.replace(/^- /, ""),
+          status: "approved" as const,
+        },
+      ]
+    },
+  })
+
+  const draft = await fixture.workflowService.createDraft({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedLatestDraftRevisionId: null,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  await fixture.workflowService.runClaimCheck({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  await fixture.workflowService.requestApproval({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    reviewerUserId: fixture.reviewer.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  await fixture.workflowService.approveDraft({
+    actorUserId: fixture.reviewer.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  const exported = await fixture.workflowService.createPublishPack({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: draft.currentDraft!.id,
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  const frozenEvidenceCount = exported.latestPublishPackArtifact?.evidenceSnapshots.length ?? 0
+  const frozenSourceCount = exported.latestPublishPackArtifact?.sourceSnapshots.length ?? 0
+
+  await fixture.foundationStore.createEvidenceBlock({
+    body: "A later support note should not rewrite the frozen publish pack artifact.",
+    evidenceState: "fresh",
+    provider: "github",
+    releaseRecordId: fixture.releaseRecord.id,
+    sourceRef: "support-note-2",
+    sourceType: "document",
+    title: "Support note follow-up",
+  })
+  await fixture.foundationStore.createSourceLink({
+    label: "Later support note",
+    provider: "github",
+    releaseRecordId: fixture.releaseRecord.id,
+    url: "https://example.com/support-note-follow-up",
+  })
+
+  const detail = await fixture.workflowService.getReleaseWorkflowDetail(
+    fixture.bootstrap.workspace.id,
+    fixture.releaseRecord.id,
+  )
+
+  assert.equal(detail.evidenceBlocks.length, frozenEvidenceCount + 1)
+  assert.equal(detail.sourceLinks.length, frozenSourceCount + 1)
+  assert.equal(detail.latestPublishPackArtifact?.evidenceSnapshots.length, frozenEvidenceCount)
+  assert.equal(detail.latestPublishPackArtifact?.sourceSnapshots.length, frozenSourceCount)
+  assert.equal(detail.latestPublishPackSummary.includedEvidenceCount, frozenEvidenceCount)
+  assert.equal(detail.latestPublishPackSummary.includedSourceLinkCount, frozenSourceCount)
 })
 
 test("release workflow service treats approved events as newer than approval requests when timestamps tie", async () => {
