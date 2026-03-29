@@ -58,6 +58,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { formatUtcTimestamp } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 const approvalOwnershipFilters: Array<{
@@ -92,13 +93,6 @@ type SelectedWorkflowResourceParams<T> = {
   loadResource: (selectedId: string) => Promise<T>
   selectedId: string | null
 }
-
-const historyTimestampFormatter = new Intl.DateTimeFormat("en-US", {
-  dateStyle: "medium",
-  timeStyle: "short",
-  timeZone: "UTC",
-  timeZoneName: "short",
-})
 
 const actionButtonLabels = {
   approve_draft: "Approve draft",
@@ -208,7 +202,7 @@ function getDefaultReviewerUserId(
 }
 
 function formatHistoryTimestamp(value: string) {
-  return historyTimestampFormatter.format(new Date(value))
+  return formatUtcTimestamp(value)
 }
 
 function buildPublishPackArtifactEvidenceItems(detail: ReleaseWorkflowDetail) {
@@ -271,20 +265,18 @@ function useSelectedWorkflowResource<T>({
   })
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(initialIsLoading)
+  const derivedIsLoading = selectedId ? !resourceById[selectedId] || isLoading : isLoading
 
   useEffect(() => {
     if (!selectedId) {
-      setIsLoading(false)
       return
     }
 
     if (resourceById[selectedId]) {
-      setIsLoading(false)
       return
     }
 
     let isCancelled = false
-    setIsLoading(true)
 
     loadResource(selectedId)
       .then((resource) => {
@@ -318,7 +310,7 @@ function useSelectedWorkflowResource<T>({
 
   return {
     error,
-    isLoading,
+    isLoading: derivedIsLoading,
     resourceById,
     setError,
     setIsLoading,
