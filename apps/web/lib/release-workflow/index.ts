@@ -309,11 +309,19 @@ export function formatReleaseWorkflowCompareRange(compareRange: string | null) {
     return "Release tag scope"
   }
 
-  const [base, head] = compareRange.split("...")
+  const normalizedCompareRange = compareRange.trim()
 
-  if (!base || !head) {
-    return shortenCompareRef(compareRange)
+  if (!normalizedCompareRange) {
+    return "Release tag scope"
   }
+
+  const parts = normalizedCompareRange.split("...")
+
+  if (parts.length !== 2) {
+    return shortenCompareRef(normalizedCompareRange)
+  }
+
+  const [base, head] = parts
 
   return `${shortenCompareRef(base)}...${shortenCompareRef(head)}`
 }
@@ -325,14 +333,15 @@ export function getReleaseWorkflowDisplayTitle(releaseRecord: Pick<ReleaseWorkfl
     return "Untitled release"
   }
 
-  if (!releaseRecord.compareRange) {
+  const compareRange = releaseRecord.compareRange?.trim()
+
+  if (!compareRange) {
     return trimmedTitle
   }
 
-  return trimmedTitle.replace(
-    releaseRecord.compareRange,
-    formatReleaseWorkflowCompareRange(releaseRecord.compareRange),
-  )
+  return trimmedTitle.includes(compareRange)
+    ? trimmedTitle.replace(compareRange, formatReleaseWorkflowCompareRange(compareRange))
+    : trimmedTitle
 }
 
 export function getReleaseWorkflowNextAction(item: ReleaseWorkflowListItem) {
