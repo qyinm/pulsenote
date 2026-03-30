@@ -53,7 +53,7 @@ export async function ReleaseWorkflowPage({
     errorMessage =
       error instanceof Error
         ? error.message
-        : "Founder release workflow could not be loaded from the authenticated API."
+        : "Release workflow could not be loaded from the authenticated API."
   }
 
   if (errorMessage) {

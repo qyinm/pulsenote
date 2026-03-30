@@ -33,6 +33,7 @@ type NewReleaseScopeMode = "compare" | "release" | "since_date"
 type NewReleaseLiveWorkspaceProps = {
   initialGitHubConnection: GitHubConnection | null
   initialGitHubInstallUrl: string | null
+  recentReleasesUnavailable?: boolean
   recentReleaseRecords: ReleaseRecordSnapshot[]
   workspaceId: string
 }
@@ -118,11 +119,12 @@ function buildScopePreviewNotes({
 export function NewReleaseLiveWorkspace({
   initialGitHubConnection,
   initialGitHubInstallUrl,
+  recentReleasesUnavailable = false,
   recentReleaseRecords,
   workspaceId,
 }: NewReleaseLiveWorkspaceProps) {
   const router = useRouter()
-  const [githubConnection] = useState(initialGitHubConnection)
+  const githubConnection = initialGitHubConnection
   const [scopeMode, setScopeMode] = useState<NewReleaseScopeMode>("compare")
   const [releaseTag, setReleaseTag] = useState("")
   const [compareBase, setCompareBase] = useState("main")
@@ -302,16 +304,28 @@ export function NewReleaseLiveWorkspace({
                     <form className="grid gap-4" onSubmit={handleCompareSync}>
                       <div className="grid gap-3 md:grid-cols-2">
                         <div className="grid gap-2">
-                          <label className="text-sm font-medium text-foreground">Base ref</label>
+                          <label
+                            htmlFor="new-release-compare-base"
+                            className="text-sm font-medium text-foreground"
+                          >
+                            Base ref
+                          </label>
                           <Input
+                            id="new-release-compare-base"
                             value={compareBase}
                             onChange={(event) => setCompareBase(event.target.value)}
                             placeholder="main"
                           />
                         </div>
                         <div className="grid gap-2">
-                          <label className="text-sm font-medium text-foreground">Head ref</label>
+                          <label
+                            htmlFor="new-release-compare-head"
+                            className="text-sm font-medium text-foreground"
+                          >
+                            Head ref
+                          </label>
                           <Input
+                            id="new-release-compare-head"
                             value={compareHead}
                             onChange={(event) => setCompareHead(event.target.value)}
                             placeholder="release/2026-03-30"
@@ -332,8 +346,14 @@ export function NewReleaseLiveWorkspace({
                   <TabsContent value="release">
                     <form className="grid gap-4" onSubmit={handleReleaseSync}>
                       <div className="grid gap-2">
-                        <label className="text-sm font-medium text-foreground">Release tag</label>
+                        <label
+                          htmlFor="new-release-tag"
+                          className="text-sm font-medium text-foreground"
+                        >
+                          Release tag
+                        </label>
                         <Input
+                          id="new-release-tag"
                           value={releaseTag}
                           onChange={(event) => setReleaseTag(event.target.value)}
                           placeholder="v2.4.0"
@@ -353,8 +373,14 @@ export function NewReleaseLiveWorkspace({
                   <TabsContent value="since_date">
                     <div className="grid gap-4 rounded-2xl border border-dashed border-border bg-muted/20 p-4">
                       <div className="grid gap-2">
-                        <label className="text-sm font-medium text-foreground">Since date</label>
+                        <label
+                          htmlFor="new-release-since-date"
+                          className="text-sm font-medium text-foreground"
+                        >
+                          Since date
+                        </label>
                         <Input
+                          id="new-release-since-date"
                           type="date"
                           value={sinceDate}
                           onChange={(event) => setSinceDate(event.target.value)}
@@ -430,6 +456,11 @@ export function NewReleaseLiveWorkspace({
               </Link>
             }
           >
+            {recentReleasesUnavailable ? (
+              <p className="mb-3 text-sm text-muted-foreground">
+                Recent releases could not be loaded right now, but the release scope builder is still available.
+              </p>
+            ) : null}
             <SimpleTable
               columns={[
                 { key: "release", label: "Release" },

@@ -34,12 +34,8 @@ export default async function NewReleasePage() {
       requestHeaders,
       accessState.workspace.workspace.id,
     )
-    releaseContextData = await getServerReleaseContextData(
-      requestHeaders,
-      accessState.workspace.workspace.id,
-    )
   } catch (error) {
-    console.error("New release page could not load the release scope builder.", error)
+    console.error("New release page could not load the GitHub connection state.", error)
     return (
       <DashboardPage>
         <SurfaceCard
@@ -54,11 +50,21 @@ export default async function NewReleasePage() {
     )
   }
 
+  try {
+    releaseContextData = await getServerReleaseContextData(
+      requestHeaders,
+      accessState.workspace.workspace.id,
+    )
+  } catch (error) {
+    console.error("New release page could not load recent release context data.", error)
+  }
+
   return (
     <DashboardPage>
       <NewReleaseLiveWorkspace
         initialGitHubConnection={githubState.connection}
         initialGitHubInstallUrl={githubState.installUrl}
+        recentReleasesUnavailable={releaseContextData === null}
         recentReleaseRecords={releaseContextData?.releaseRecords ?? []}
         workspaceId={accessState.workspace.workspace.id}
       />
