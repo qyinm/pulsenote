@@ -210,6 +210,27 @@ export function buildDraftTemplateFields(input: {
   }
 }
 
+export function normalizeDraftTemplateFieldSnapshots(
+  template: DraftTemplateDefinition,
+  fieldSnapshots: DraftFieldSnapshot[],
+): DraftFieldSnapshot[] {
+  const fieldSnapshotByKey = new Map(fieldSnapshots.map((fieldSnapshot) => [fieldSnapshot.fieldKey, fieldSnapshot]))
+
+  return template.fields.map((field, index) => {
+    const currentFieldSnapshot = fieldSnapshotByKey.get(field.key)
+    const nextContent = currentFieldSnapshot?.content ?? ""
+
+    return {
+      content: nextContent,
+      contentFormat: currentFieldSnapshot?.contentFormat ?? field.defaultContentFormat,
+      fieldKey: field.key,
+      label: field.label,
+      plainText: stripMarkdown(nextContent),
+      sortOrder: index,
+    }
+  })
+}
+
 export function projectDraftBodiesFromFields(
   template: DraftTemplateDefinition,
   fieldSnapshots: DraftFieldSnapshot[],

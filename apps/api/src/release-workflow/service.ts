@@ -14,6 +14,7 @@ import {
   createDraftEvidenceRefs,
   getReleaseDraftTemplate,
   isReleaseDraftTemplateId,
+  normalizeDraftTemplateFieldSnapshots,
   projectDraftBodiesFromFields,
 } from "./draft-templates.js"
 import type {
@@ -27,6 +28,7 @@ import type {
   ReleaseWorkflowHistoryEntry,
   ReleaseWorkflowListItem,
   RequestApprovalInput,
+  UpdateDraftInput,
   WorkflowAllowedAction,
   WorkflowReadiness,
 } from "./models.js"
@@ -1238,6 +1240,51 @@ export function createReleaseWorkflowService(
           actorUserId: input.actorUserId,
           draftRevisionId: draftRevision.id,
           note: null,
+          releaseRecordId: input.releaseRecordId,
+          stage: "draft",
+          type: "draft_created",
+        })
+      })
+
+      return service.getReleaseWorkflowDetail(input.workspaceId, input.releaseRecordId)
+    },
+
+    async updateDraft(input: UpdateDraftInput): Promise<ReleaseWorkflowDetail> {
+      const resources = await getWorkflowResources(store, input.workspaceId, input.releaseRecordId)
+
+      if (resources.releaseSnapshot.releaseRecord.stage !== "draft") {
+        throw new InvalidStageTransitionError(resources.releaseSnapshot.releaseRecord.stage, "update the draft")
+      }
+
+      assertExpectedDraftRevision(resources.currentDraft, input.expectedDraftRevisionId)
+
+      if (!resources.currentDraft) {
+        throw new DraftRevisionNotFoundError(input.expectedDraftRevisionId)
+      }
+
+      const draftTemplate = getReleaseDraftTemplate(resources.currentDraft.templateId)
+      const fieldSnapshots = normalizeDraftTemplateFieldSnapshots(draftTemplate, input.fieldSnapshots)
+      const projectedDraftBodies = projectDraftBodiesFromFields(draftTemplate, fieldSnapshots)
+      const evidenceRefs = input.evidenceRefs ?? resources.currentDraft.evidenceRefs
+
+      await store.transaction(async (transactionStore) => {
+        const draftRevision = await transactionStore.createDraftRevision({
+          changelogBody: projectedDraftBodies.changelogBody,
+          createdByUserId: input.actorUserId,
+          evidenceRefs,
+          fieldSnapshots,
+          releaseNotesBody: projectedDraftBodies.releaseNotesBody,
+          releaseRecordId: input.releaseRecordId,
+          templateId: resources.currentDraft!.templateId,
+          templateLabel: resources.currentDraft!.templateLabel,
+          templateVersion: resources.currentDraft!.templateVersion,
+          version: resources.currentDraft!.version + 1,
+        })
+
+        await transactionStore.createWorkflowEvent({
+          actorUserId: input.actorUserId,
+          draftRevisionId: draftRevision.id,
+          note: "Draft fields updated",
           releaseRecordId: input.releaseRecordId,
           stage: "draft",
           type: "draft_created",

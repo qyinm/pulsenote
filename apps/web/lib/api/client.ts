@@ -527,6 +527,10 @@ export type GitHubConnection = z.infer<typeof githubConnectionSchema>
 export type GitHubInstallationRepository = z.infer<typeof githubInstallationRepositorySchema>
 export type GitHubScopePreview = z.infer<typeof githubScopePreviewSchema>
 export type ReleaseRecordSnapshot = z.infer<typeof releaseRecordSnapshotSchema>
+export type ReleaseWorkflowDraftEvidenceRef = z.infer<typeof workflowCurrentDraftSchema.shape.evidenceRefs.element>
+export type ReleaseWorkflowDraftFieldSnapshot = z.infer<
+  typeof workflowCurrentDraftSchema.shape.fieldSnapshots.element
+>
 export type ReleaseWorkflowDetail = z.infer<typeof releaseWorkflowDetailSchema>
 export type ReleaseWorkflowHistoryEntry = z.infer<typeof releaseWorkflowHistoryEntrySchema>
 export type ReleaseWorkflowListItem = z.infer<typeof releaseWorkflowListItemSchema>
@@ -551,6 +555,11 @@ type CreateReleaseWorkflowDraftPayload = {
   expectedLatestDraftRevisionId?: string | null
   releaseNotesBody?: string
   templateId?: string
+}
+
+type UpdateReleaseWorkflowDraftPayload = {
+  evidenceRefs?: ReleaseWorkflowDraftEvidenceRef[]
+  fieldSnapshots: ReleaseWorkflowDraftFieldSnapshot[]
 }
 
 type ReleaseWorkflowDraftCommandPayload = {
@@ -837,6 +846,23 @@ export function createApiClient(options: CreateApiClientOptions = {}) {
           ...init,
           body: JSON.stringify(payload),
           method: "POST",
+        },
+      )
+    },
+    updateReleaseWorkflowDraft(
+      workspaceId: string,
+      releaseRecordId: string,
+      draftRevisionId: string,
+      payload: UpdateReleaseWorkflowDraftPayload,
+      init?: RequestInit,
+    ) {
+      return request(
+        `/v1/workspaces/${encodeURIComponent(workspaceId)}/release-workflow/${encodeURIComponent(releaseRecordId)}/drafts/${encodeURIComponent(draftRevisionId)}`,
+        releaseWorkflowDetailSchema,
+        {
+          ...init,
+          body: JSON.stringify(payload),
+          method: "PATCH",
         },
       )
     },

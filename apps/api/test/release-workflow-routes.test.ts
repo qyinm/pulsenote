@@ -91,6 +91,58 @@ test("release workflow draft route rejects unsupported templates", async () => {
   })
 })
 
+test("release workflow draft route saves edited draft fields as the next revision", async () => {
+  const fixture = await seedReleaseWorkflowFixture()
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(fixture.bootstrap.user.id)),
+    foundationService: fixture.foundationService,
+    releaseWorkflowService: fixture.workflowService,
+  })
+
+  const createResponse = await app.request(
+    `/v1/workspaces/${fixture.bootstrap.workspace.id}/release-workflow/${fixture.releaseRecord.id}/drafts`,
+    {
+      body: JSON.stringify({
+        expectedLatestDraftRevisionId: null,
+        templateId: "customer_update",
+      }),
+      headers: {
+        "content-type": "application/json",
+      },
+      method: "POST",
+    },
+  )
+
+  assert.equal(createResponse.status, 201)
+  const createdDraftBody = await createResponse.json()
+
+  const updateResponse = await app.request(
+    `/v1/workspaces/${fixture.bootstrap.workspace.id}/release-workflow/${fixture.releaseRecord.id}/drafts/${createdDraftBody.currentDraft.id}`,
+    {
+      body: JSON.stringify({
+        evidenceRefs: createdDraftBody.currentDraft.evidenceRefs,
+        fieldSnapshots: createdDraftBody.currentDraft.fieldSnapshots.map((fieldSnapshot: { fieldKey: string; content: string }) =>
+          fieldSnapshot.fieldKey === "customer_update"
+            ? {
+                ...fieldSnapshot,
+                content: "Customers can now track release-ready founder notes with explicit proof.",
+              }
+            : fieldSnapshot,
+        ),
+      }),
+      headers: {
+        "content-type": "application/json",
+      },
+      method: "PATCH",
+    },
+  )
+
+  assert.equal(updateResponse.status, 200)
+  const updatedBody = await updateResponse.json()
+  assert.equal(updatedBody.currentDraft.version, 2)
+  assert.match(updatedBody.currentDraft.releaseNotesBody, /customers can now track release-ready founder notes/i)
+})
+
 test("release workflow routes expose workspace and release history read models", async () => {
   const fixture = await seedReleaseWorkflowFixture({
     async composeDraft() {
