@@ -34,6 +34,7 @@ import {
   buildReleaseWorkflowApprovalFilterCounts,
   buildReleaseWorkflowApprovalNotes,
   buildReleaseWorkflowClaimCheckNotes,
+  formatReleaseWorkflowCompareRange,
   buildReleaseWorkflowEvidenceNotes,
   buildReleaseWorkflowMetrics,
   buildReleaseWorkflowPublishPackArtifactNotes,
@@ -1224,7 +1225,9 @@ export function ReleaseWorkflowLiveWorkspace({
                     items={[
                       {
                         label: "Compare range",
-                        value: selectedWorkflow.releaseRecord.compareRange ?? "Release tag scope",
+                        value: formatReleaseWorkflowCompareRange(
+                          selectedWorkflow.releaseRecord.compareRange,
+                        ),
                       },
                       {
                         label: "Evidence blocks",
