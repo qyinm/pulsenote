@@ -130,10 +130,10 @@ export function InlineList({
       {items.map((item, index) => (
         <div
           key={`${item.label}-${index}`}
-          className="flex items-start justify-between gap-3 border-b border-border/60 pb-3 last:border-b-0 last:pb-0"
+          className="grid gap-1 border-b border-border/60 pb-3 last:border-b-0 last:pb-0 md:grid-cols-[minmax(0,160px)_minmax(0,1fr)] md:items-start md:gap-3"
         >
           <span className="text-sm text-muted-foreground">{item.label}</span>
-          <div className="text-right text-sm font-medium text-foreground">
+          <div className="min-w-0 text-sm font-medium text-foreground md:text-right [overflow-wrap:anywhere]">
             {item.value}
           </div>
         </div>

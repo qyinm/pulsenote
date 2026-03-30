@@ -554,44 +554,56 @@ function OverviewBoardCard({
       type="button"
       onClick={() => onSelect(item.id)}
       className={cn(
-        "grid gap-4 rounded-3xl border border-border/70 bg-background p-4 text-left shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+        "grid min-w-0 gap-4 overflow-hidden rounded-3xl border border-border/70 bg-background p-4 text-left shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
         isSelected && "border-foreground/35 bg-muted/20 shadow-sm ring-1 ring-foreground/10",
       )}
     >
       <div className="grid gap-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="grid gap-1">
-            <span className="text-sm font-medium leading-5 text-foreground">{item.title}</span>
-            <span className="text-xs text-muted-foreground">{item.stageLabel}</span>
+          <div className="grid min-w-0 flex-1 gap-1">
+            <span className="line-clamp-2 text-sm font-semibold leading-5 text-foreground [overflow-wrap:anywhere]">
+              {item.title}
+            </span>
+            <span className="text-[11px] text-muted-foreground uppercase tracking-[0.12em]">
+              {item.stageLabel}
+            </span>
           </div>
-          <div className="flex flex-wrap justify-end gap-2">
+          <div className="flex shrink-0 flex-wrap justify-end gap-2">
             {statusBadge(item.readinessTone, item.readinessLabel)}
             {queuedWorkflowItem?.approvalSummary.state === "pending" && ownershipCue
               ? ownershipCueBadge(ownershipCue)
               : null}
           </div>
         </div>
-        <p className="text-xs text-muted-foreground">{item.summary}</p>
+        <p className="line-clamp-3 text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
+          {item.summary}
+        </p>
       </div>
-      <div className="grid gap-3 rounded-2xl border border-border/60 bg-muted/15 p-3 text-xs text-muted-foreground">
-        <div className="flex items-center justify-between gap-3">
+      <div className="grid grid-cols-[auto,minmax(0,1fr)] gap-x-3 gap-y-2 rounded-2xl border border-border/60 bg-muted/15 p-3 text-xs text-muted-foreground">
+        <div className="self-start">
           <span>Draft</span>
-          <span className="font-medium text-foreground">{item.versionLabel}</span>
         </div>
-        <div className="flex items-center justify-between gap-3">
+        <span className="min-w-0 text-right font-medium text-foreground [overflow-wrap:anywhere]">
+          {item.versionLabel}
+        </span>
+        <div className="self-start">
           <span>Reviewer</span>
-          <span className="font-medium text-foreground">{item.ownerName ?? "Not assigned"}</span>
         </div>
-        <div className="flex items-center justify-between gap-3">
+        <span className="min-w-0 text-right font-medium text-foreground [overflow-wrap:anywhere]">
+          {item.ownerName ?? "Not assigned"}
+        </span>
+        <div className="self-start">
           <span>Proof</span>
-          <span className="font-medium text-foreground">
-            {item.evidenceCount} evidence · {item.sourceLinkCount} sources
-          </span>
         </div>
+        <span className="min-w-0 text-right font-medium text-foreground [overflow-wrap:anywhere]">
+          {item.evidenceCount} evidence · {item.sourceLinkCount} sources
+        </span>
       </div>
-      <div className="rounded-2xl bg-muted/30 p-3">
+      <div className="grid gap-1 rounded-2xl bg-muted/30 p-3">
         <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Next</p>
-        <p className="mt-1 text-sm text-foreground">{item.nextAction}</p>
+        <p className="line-clamp-3 text-sm leading-5 text-foreground [overflow-wrap:anywhere]">
+          {item.nextAction}
+        </p>
       </div>
     </button>
   )
@@ -612,18 +624,18 @@ function renderOverviewBoard({
 }) {
   return (
     <div className="-mx-1 overflow-x-auto px-1 pb-2">
-      <div className="flex min-w-max snap-x gap-5">
+      <div className="flex min-w-max snap-x gap-5 pb-1">
       {boardColumns.map((column) => (
         <div
           key={column.stage}
-          className="grid w-[352px] shrink-0 snap-start content-start gap-3 rounded-3xl border border-border/70 bg-muted/20 p-4"
+          className="grid w-[320px] shrink-0 snap-start content-start gap-3 rounded-3xl border border-border/70 bg-muted/20 p-4"
         >
           <div className="grid gap-2">
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm font-medium text-foreground">{column.title}</p>
               <Badge variant="secondary">{column.items.length}</Badge>
             </div>
-            <p className="text-xs text-muted-foreground">{column.description}</p>
+            <p className="text-xs leading-5 text-muted-foreground">{column.description}</p>
           </div>
           <div className="grid gap-3">
             {column.items.length > 0 ? (
@@ -1256,13 +1268,13 @@ export function ReleaseWorkflowLiveWorkspace({
                     <div className="grid gap-3 xl:grid-cols-2">
                       <div className="grid gap-2 rounded-xl border border-border/70 bg-muted/20 p-4">
                         <p className="text-sm font-medium text-foreground">Release notes</p>
-                        <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+                        <p className="min-w-0 whitespace-pre-wrap text-sm text-muted-foreground [overflow-wrap:anywhere]">
                           {selectedWorkflow.currentDraft.releaseNotesBody}
                         </p>
                       </div>
                       <div className="grid gap-2 rounded-xl border border-border/70 bg-muted/20 p-4">
                         <p className="text-sm font-medium text-foreground">Changelog</p>
-                        <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+                        <p className="min-w-0 whitespace-pre-wrap text-sm text-muted-foreground [overflow-wrap:anywhere]">
                           {selectedWorkflow.currentDraft.changelogBody}
                         </p>
                       </div>
