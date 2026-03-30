@@ -4,16 +4,15 @@ import {
 } from "@/lib/release-workflow"
 import { ReleaseWorkflowPage } from "@/components/dashboard/release-workflow-page"
 
-export default async function ReleasesPage({
+export default async function ReleaseDetailPage({
+  params,
   searchParams,
 }: {
+  params: Promise<{ releaseRecordId: string }>
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
+  const { releaseRecordId } = await params
   const resolvedSearchParams = await searchParams
-  const preferredReleaseRecordId =
-    typeof resolvedSearchParams.selected === "string"
-      ? resolvedSearchParams.selected
-      : null
   const preferredFocusSectionRaw =
     typeof resolvedSearchParams.focus === "string" ? resolvedSearchParams.focus : null
   const preferredFocusSection: ReleaseWorkflowWorkspaceFocus | null =
@@ -23,15 +22,15 @@ export default async function ReleasesPage({
 
   return (
     <ReleaseWorkflowPage
+      emptyDescription="The requested release record is no longer available in this workspace."
+      emptyTitle="Release not found"
       invalidFocusValue={invalidFocusValue}
       mode="overview"
-      overviewVariant="workspace"
+      overviewVariant="detail"
       preferredFocusSection={preferredFocusSection}
-      preferredReleaseRecordId={preferredReleaseRecordId}
-      unavailableTitle="Releases are unavailable"
-      unavailableDescription="The authenticated API request failed before the releases board could be rendered."
-      emptyTitle="No releases yet"
-      emptyDescription="Create one release scope first, then PulseNote will keep the full workflow on one release record."
+      preferredReleaseRecordId={releaseRecordId}
+      unavailableDescription="The authenticated API request failed before the release workspace could be rendered."
+      unavailableTitle="Release is unavailable"
     />
   )
 }
