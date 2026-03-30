@@ -18,9 +18,12 @@ export default async function ReleasesPage({
     typeof resolvedSearchParams.focus === "string" ? resolvedSearchParams.focus : null
   const preferredFocusSection: ReleaseWorkflowWorkspaceFocus | null =
     isReleaseWorkflowWorkspaceFocus(preferredFocusSectionRaw) ? preferredFocusSectionRaw : null
+  const invalidFocusValue =
+    preferredFocusSectionRaw && !preferredFocusSection ? preferredFocusSectionRaw : null
 
   return (
     <ReleaseWorkflowPage
+      invalidFocusValue={invalidFocusValue}
       mode="overview"
       preferredFocusSection={preferredFocusSection}
       preferredReleaseRecordId={preferredReleaseRecordId}

@@ -86,7 +86,7 @@ export const dashboardRoutes: DashboardRoute[] = [
     icon: InboxIcon,
     showInSidebar: false,
     primaryAction: {
-      label: "Open blocked stage",
+      label: "Open claim check",
       href: "/dashboard/releases?focus=claim_check",
       icon: ShieldAlertIcon,
       variant: "outline",

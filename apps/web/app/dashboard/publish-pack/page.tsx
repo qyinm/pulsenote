@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation"
+import { permanentRedirect } from "next/navigation"
 
 export default function PublishPackPage() {
-  redirect("/dashboard/releases?focus=publish_pack")
+  permanentRedirect("/dashboard/releases?focus=publish_pack")
 }

@@ -17,6 +17,7 @@ type ReleaseWorkflowMode = "approval" | "claim_check" | "overview" | "publish_pa
 type ReleaseWorkflowPageProps = {
   emptyDescription: string
   emptyTitle: string
+  invalidFocusValue?: string | null
   mode: ReleaseWorkflowMode
   preferredFocusSection?: ReleaseWorkflowWorkspaceFocus | null
   preferredReleaseRecordId?: string | null
@@ -31,6 +32,7 @@ export function renderReleaseWorkflowAccessFallback(state: DashboardAccessStateK
 export async function ReleaseWorkflowPage({
   emptyDescription,
   emptyTitle,
+  invalidFocusValue,
   mode,
   preferredFocusSection,
   preferredReleaseRecordId,
@@ -53,6 +55,7 @@ export async function ReleaseWorkflowPage({
       accessState.workspace.workspace.id,
       undefined,
       preferredReleaseRecordId,
+      preferredFocusSection,
     )
   } catch (error) {
     errorMessage =
@@ -85,6 +88,16 @@ export async function ReleaseWorkflowPage({
 
   return (
     <DashboardPage>
+      {mode === "overview" && invalidFocusValue ? (
+        <SurfaceCard
+          title="Release focus was ignored"
+          description="The requested releases workspace section did not match a supported focus value."
+        >
+          <p className="text-sm text-muted-foreground">
+            Focus value <code className="rounded bg-muted px-1 py-0.5 text-xs">{invalidFocusValue}</code> is not supported, so PulseNote opened the default releases workspace instead.
+          </p>
+        </SurfaceCard>
+      ) : null}
       <ReleaseWorkflowLiveWorkspace
         currentUserId={accessState.session.user.id}
         initialFocusedSection={preferredFocusSection}

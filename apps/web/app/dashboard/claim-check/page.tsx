@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation"
+import { permanentRedirect } from "next/navigation"
 
 export default function ClaimCheckPage() {
-  redirect("/dashboard/releases?focus=claim_check")
+  permanentRedirect("/dashboard/releases?focus=claim_check")
 }

@@ -197,6 +197,45 @@ export function buildReleaseWorkspaceHref({
   return query ? `/dashboard/releases?${query}` : "/dashboard/releases"
 }
 
+function matchesReleaseWorkflowFocus(
+  item: ReleaseWorkflowListItem,
+  focus: ReleaseWorkflowWorkspaceFocus,
+) {
+  if (focus === "scope") {
+    return true
+  }
+
+  if (focus === "draft") {
+    return item.currentDraft !== null
+  }
+
+  if (focus === "claim_check") {
+    return (
+      item.releaseRecord.stage === "claim_check" ||
+      item.releaseRecord.stage === "draft" ||
+      item.claimCheckSummary.state === "blocked" ||
+      item.allowedActions.includes("run_claim_check")
+    )
+  }
+
+  if (focus === "approval") {
+    return (
+      item.releaseRecord.stage === "approval" ||
+      item.approvalSummary.state === "pending" ||
+      item.allowedActions.includes("request_approval") ||
+      item.allowedActions.includes("approve_draft")
+    )
+  }
+
+  return (
+    item.releaseRecord.stage === "publish_pack" ||
+    item.latestPublishPackSummary.state === "ready" ||
+    item.latestPublishPackSummary.state === "exported" ||
+    item.approvalSummary.state === "approved" ||
+    item.allowedActions.includes("create_publish_pack")
+  )
+}
+
 export function createReleaseWorkflowDetailCache(
   selectedId: string,
   selectedWorkflow: ReleaseWorkflowDetail,
@@ -672,6 +711,7 @@ export async function getServerReleaseWorkflowData(
   workspaceId: string,
   apiClient: ReleaseWorkflowApiClient = createApiClient(),
   preferredSelectedId?: string | null,
+  preferredFocusSection?: ReleaseWorkflowWorkspaceFocus | null,
 ): Promise<ReleaseWorkflowData> {
   const init = {
     headers: getForwardedAuthHeaders(requestHeaders),
@@ -700,11 +740,14 @@ export async function getServerReleaseWorkflowData(
     members = []
     membersUnavailable = true
   }
+  const selectedFromFocus = preferredFocusSection
+    ? workflow.find((item) => matchesReleaseWorkflowFocus(item, preferredFocusSection))?.releaseRecord.id
+    : null
   const selectedId =
     (preferredSelectedId &&
     workflow.some((item) => item.releaseRecord.id === preferredSelectedId)
       ? preferredSelectedId
-      : workflow[0]?.releaseRecord.id) ?? null
+      : selectedFromFocus ?? workflow[0]?.releaseRecord.id) ?? null
 
   if (!selectedId) {
     return {

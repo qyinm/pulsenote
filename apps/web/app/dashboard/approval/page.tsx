@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation"
+import { permanentRedirect } from "next/navigation"
 
 export default function ApprovalPage() {
-  redirect("/dashboard/releases?focus=approval")
+  permanentRedirect("/dashboard/releases?focus=approval")
 }

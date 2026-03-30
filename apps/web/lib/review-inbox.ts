@@ -223,7 +223,7 @@ function buildReopenedDraftItems(
         routeHref: "/dashboard/review-log",
         routeLabel: "Open review log",
         secondaryHref: buildReleaseWorkspaceHref({
-          focus: "approval",
+          focus: "draft",
           selectedId: entry.releaseRecordId,
         }),
         secondaryLabel: "Open release",
