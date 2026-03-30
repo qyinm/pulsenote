@@ -100,7 +100,6 @@ export async function ReleaseWorkflowPage({
       ) : null}
       <ReleaseWorkflowLiveWorkspace
         currentUserId={accessState.session.user.id}
-        initialFocusedSection={preferredFocusSection}
         initialMembers={workflowData.members}
         initialMembersUnavailable={workflowData.membersUnavailable}
         initialPolicy={workflowData.policy}
