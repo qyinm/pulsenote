@@ -205,7 +205,10 @@ function buildEvidenceSearchResults(
     id: `evidence:${entry.id}`,
     meta: `${entry.sourceTypeLabel} · ${entry.providerLabel} · ${entry.linkedReleaseCount} linked releases`,
     orderTimestamp: entry.updatedAt,
-    route: "/dashboard/evidence-library",
+    route: buildReleaseWorkspaceHref({
+      focus: "claim_check",
+      selectedId: entry.latestLinkedReleaseId,
+    }),
     searchText: [
       entry.title,
       entry.note,
