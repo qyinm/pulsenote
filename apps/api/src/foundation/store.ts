@@ -50,7 +50,7 @@ type CreateSyncRunInput = Pick<SyncRun, "connectionId" | "scope" | "workspaceId"
 type CreateSourceCursorInput = Pick<SourceCursor, "connectionId" | "key" | "value">
 type CreateReleaseRecordInput = Pick<
   ReleaseRecord,
-  "compareRange" | "connectionId" | "stage" | "summary" | "title" | "workspaceId"
+  "compareRange" | "connectionId" | "preferredDraftTemplateId" | "stage" | "summary" | "title" | "workspaceId"
 >
 type CreateEvidenceBlockInput = Pick<
   EvidenceBlock,
@@ -502,6 +502,7 @@ export function createInMemoryFoundationStore(): FoundationStore {
         connectionId: input.connectionId,
         createdAt: nowIso(),
         id: createId(),
+        preferredDraftTemplateId: input.preferredDraftTemplateId,
         stage: input.stage,
         summary: input.summary,
         title: input.title,

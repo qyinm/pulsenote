@@ -325,6 +325,7 @@ export function createPostgresFoundationStore(
           connectionId: input.connectionId,
           createdAt: nowIso(),
           id: createId(),
+          preferredDraftTemplateId: input.preferredDraftTemplateId,
           stage: input.stage,
           summary: input.summary,
           title: input.title,

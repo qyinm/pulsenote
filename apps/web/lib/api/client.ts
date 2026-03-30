@@ -83,6 +83,7 @@ const releaseRecordSnapshotSchema = z.object({
     connectionId: z.string(),
     createdAt: z.string(),
     id: z.string(),
+    preferredDraftTemplateId: z.string().optional(),
     stage: releaseStageSchema,
     summary: z.string().nullable(),
     title: z.string(),
@@ -243,6 +244,7 @@ const releaseWorkflowListItemSchema = z.object({
     compareRange: z.string().nullable(),
     createdAt: z.string(),
     id: z.string(),
+    preferredDraftTemplateId: z.string().optional(),
     stage: releaseStageSchema,
     summary: z.string().nullable(),
     title: z.string(),
@@ -939,6 +941,7 @@ export function createApiClient(options: CreateApiClientOptions = {}) {
           head: string
         }
         connectionId: string
+        draftTemplateId?: string
       },
       init?: RequestInit,
     ) {
@@ -1016,6 +1019,7 @@ export function createApiClient(options: CreateApiClientOptions = {}) {
       workspaceId: string,
       payload: {
         connectionId: string
+        draftTemplateId?: string
         release: {
           releaseId?: number
           tag?: string

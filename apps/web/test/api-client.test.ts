@@ -59,6 +59,7 @@ function createReleaseRecordSnapshotPayload() {
       connectionId: "connection_1",
       createdAt: "2026-03-20T00:00:00.000Z",
       id: "release_1",
+      preferredDraftTemplateId: "release_note_packet",
       stage: "intake",
       summary: "Release summary",
       title: "SDK rollout v2.4",

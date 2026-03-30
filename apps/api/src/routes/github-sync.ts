@@ -214,6 +214,7 @@ export function createGitHubSyncRoute(
     const compare = asRecord(payload?.compare)
     const repository = asRecord(payload?.repository)
     const connectionId = asString(payload?.connectionId)
+    const draftTemplateId = asString(payload?.draftTemplateId)
     const base = asString(compare?.base)
     const head = asString(compare?.head)
 
@@ -244,6 +245,7 @@ export function createGitHubSyncRoute(
           head,
         },
         connectionId,
+        draftTemplateId: draftTemplateId ?? undefined,
         repository: resolved.repository,
         workspaceId,
       })
@@ -344,6 +346,7 @@ export function createGitHubSyncRoute(
     const repository = asRecord(payload?.repository)
     const release = asRecord(payload?.release)
     const connectionId = asString(payload?.connectionId)
+    const draftTemplateId = asString(payload?.draftTemplateId)
     const tag = asString(release?.tag)
     const releaseId = asPositiveInteger(release?.releaseId)
     const hasTag = Boolean(tag)
@@ -372,6 +375,7 @@ export function createGitHubSyncRoute(
       const result = await githubSyncService.syncRelease({
         auth: resolved.auth,
         connectionId,
+        draftTemplateId: draftTemplateId ?? undefined,
         release:
           releaseId !== null
             ? {

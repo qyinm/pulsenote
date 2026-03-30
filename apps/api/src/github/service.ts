@@ -2,6 +2,7 @@ import type { AppRuntimeEnv } from "../types.js"
 import type { FoundationStore } from "../foundation/store.js"
 import type { SyncRun } from "../domain/models.js"
 import type { GitHubClient } from "./client.js"
+import { defaultReleaseDraftTemplateId, isReleaseDraftTemplateId } from "../release-workflow/draft-templates.js"
 import type {
   GitHubCompareSummary,
   GitHubResolvedCompareRange,
@@ -48,6 +49,20 @@ function requireNonEmpty(value: string, fieldName: string) {
 
 function nowIso() {
   return new Date().toISOString()
+}
+
+function resolvePreferredDraftTemplateId(draftTemplateId: string | undefined) {
+  const normalizedTemplateId = draftTemplateId?.trim() ?? ""
+
+  if (!normalizedTemplateId) {
+    return defaultReleaseDraftTemplateId
+  }
+
+  if (!isReleaseDraftTemplateId(normalizedTemplateId)) {
+    throw new Error(`Draft template ${normalizedTemplateId} is not supported`)
+  }
+
+  return normalizedTemplateId
 }
 
 function buildCompareScope(input: GitHubCompareSyncRequest) {
@@ -301,6 +316,7 @@ async function persistCompareReleaseRecord(
   const releaseRecord = await store.createReleaseRecord({
     compareRange,
     connectionId: input.connectionId,
+    preferredDraftTemplateId: resolvePreferredDraftTemplateId(input.draftTemplateId),
     stage: "intake",
     summary: buildCompareReleaseSummary(comparison),
     title: buildCompareReleaseTitle(input.repository, compareRange),
@@ -402,6 +418,7 @@ async function persistMergedPullReleaseRecord(
   const releaseRecord = await store.createReleaseRecord({
     compareRange: null,
     connectionId: input.connectionId,
+    preferredDraftTemplateId: resolvePreferredDraftTemplateId(input.draftTemplateId),
     stage: "intake",
     summary: buildMergedPullReleaseSummary(pullRequests),
     title: buildMergedPullReleaseTitle(input.repository, pullRequests),
@@ -476,6 +493,7 @@ async function persistReleaseRecord(
   const releaseRecord = await store.createReleaseRecord({
     compareRange: null,
     connectionId: input.connectionId,
+    preferredDraftTemplateId: resolvePreferredDraftTemplateId(input.draftTemplateId),
     stage: "intake",
     summary: buildReleaseRecordSummary(release),
     title: buildReleaseRecordTitle(input.repository, release),

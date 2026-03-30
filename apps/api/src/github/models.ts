@@ -89,6 +89,7 @@ export type GitHubCompareSyncRequest = {
   auth: GitHubSyncAuth
   compare: GitHubCompareRange
   connectionId: string
+  draftTemplateId?: string
   repository: GitHubRepositoryScope
   workspaceId: string
 }
@@ -96,6 +97,7 @@ export type GitHubCompareSyncRequest = {
 export type GitHubMergedPullSyncRequest = {
   auth: GitHubSyncAuth
   connectionId: string
+  draftTemplateId?: string
   pullNumbers: number[]
   repository: GitHubRepositoryScope
   workspaceId: string
@@ -109,6 +111,7 @@ export type GitHubReleaseSelector = {
 export type GitHubReleaseSyncRequest = {
   auth: GitHubSyncAuth
   connectionId: string
+  draftTemplateId?: string
   release: GitHubReleaseSelector
   repository: GitHubRepositoryScope
   workspaceId: string

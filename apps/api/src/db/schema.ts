@@ -264,6 +264,7 @@ export const releaseRecords = pgTable(
       .references(() => integrationConnections.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
     id: uuid("id").defaultRandom().primaryKey(),
+    preferredDraftTemplateId: text("preferred_draft_template_id").notNull().default("release_note_packet"),
     stage: reviewStageEnum("stage").notNull(),
     summary: text("summary"),
     title: text("title").notNull(),

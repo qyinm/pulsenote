@@ -131,6 +131,7 @@ test("github compare sync route returns comparison data for workspace members", 
         head: "feat/api-foundation",
       },
       connectionId: connection.id,
+      draftTemplateId: "customer_update",
       repository: {
         owner: "qyinm",
         repo: "pulsenote",
@@ -265,6 +266,7 @@ test("createApp reuses the injected foundation service store for default github 
         head: "feat/api-foundation",
       },
       connectionId: connection.id,
+      draftTemplateId: "customer_update",
       repository: {
         owner: "qyinm",
         repo: "pulsenote",
@@ -286,6 +288,7 @@ test("createApp reuses the injected foundation service store for default github 
   const body = await releaseRecordsResponse.json()
   assert.equal(body.length, 1)
   assert.equal(body[0]?.releaseRecord.compareRange, "main...feat/api-foundation")
+  assert.equal(body[0]?.releaseRecord.preferredDraftTemplateId, "customer_update")
 })
 
 test("github compare sync route rejects development-only ingest in production", async () => {
@@ -421,6 +424,7 @@ test("github release sync route uses the stored GitHub App connection in product
   const response = await app.request(`/v1/workspaces/${bootstrap.workspace.id}/github/sync/release`, {
     body: JSON.stringify({
       connectionId: githubConnection.connection.id,
+      draftTemplateId: "help_center_update",
       release: {
         tag: "v2.4.0",
       },
@@ -436,6 +440,12 @@ test("github release sync route uses the stored GitHub App connection in product
   assert.equal(body.release.tagName, "v2.4.0")
   assert.equal(body.scope, "github:repo:qyinm/pulsenote release:v2.4.0#42")
   assert.ok(body.releaseRecordId)
+
+  const releaseRecordsResponse = await app.request(
+    `/v1/workspaces/${bootstrap.workspace.id}/release-records`,
+  )
+  const releaseRecords = await releaseRecordsResponse.json()
+  assert.equal(releaseRecords[0]?.releaseRecord.preferredDraftTemplateId, "help_center_update")
 })
 
 test("github release sync route returns 502 when stored installation auth is unavailable", async () => {

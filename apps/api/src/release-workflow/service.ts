@@ -750,6 +750,7 @@ function detailToListItem(detail: ReleaseWorkflowDetail): ReleaseWorkflowListIte
       compareRange: detail.releaseRecord.compareRange,
       createdAt: detail.releaseRecord.createdAt,
       id: detail.releaseRecord.id,
+      preferredDraftTemplateId: detail.releaseRecord.preferredDraftTemplateId,
       stage: detail.releaseRecord.stage,
       summary: detail.releaseRecord.summary,
       title: detail.releaseRecord.title,
@@ -1237,7 +1238,10 @@ export function createReleaseWorkflowService(
 
       assertExpectedDraftRevision(resources.currentDraft, input.expectedLatestDraftRevisionId)
 
-      const requestedTemplateId = input.templateId?.trim() ?? ""
+      const requestedTemplateId =
+        input.templateId?.trim() ??
+        resources.releaseSnapshot.releaseRecord.preferredDraftTemplateId ??
+        ""
 
       if (requestedTemplateId.length > 0 && !isReleaseDraftTemplateId(requestedTemplateId)) {
         throw new InvalidDraftTemplateError(requestedTemplateId)
