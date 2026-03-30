@@ -20,6 +20,7 @@ export type EvidenceLibraryEntry = {
   id: string
   linkedReleaseCount: number
   linkedReleases: EvidenceLibraryLinkedRelease[]
+  latestLinkedReleaseId: string
   nextChecks: string[]
   note: string
   providerLabel: string
@@ -231,6 +232,7 @@ export function buildEvidenceLibraryData(
         id,
         linkedReleaseCount: linkedReleases.length,
         linkedReleases,
+        latestLinkedReleaseId: accumulator.latestBlock.releaseRecordId,
         nextChecks: buildEvidenceLibraryNextChecks(freshness, linkedReleases.length),
         note:
           accumulator.latestBlock.body?.trim() ||

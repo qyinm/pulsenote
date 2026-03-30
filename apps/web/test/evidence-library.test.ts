@@ -113,6 +113,7 @@ test("buildEvidenceLibraryData aggregates live evidence across linked release re
   assert.ok(entry)
   assert.equal(entry?.freshness, "Watch")
   assert.equal(entry?.linkedReleaseCount, 2)
+  assert.equal(entry?.latestLinkedReleaseId, "release_2")
   assert.equal(entry?.providerLabel, "GitHub")
   assert.equal(entry?.sourceTypeLabel, "Pull request")
   assert.equal(entry?.sourceRef, "pull/42")

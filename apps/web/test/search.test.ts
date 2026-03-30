@@ -257,6 +257,10 @@ test("buildLiveSearchData indexes workflow, evidence, history, and review signal
   assert.ok(data.results.some((result) => result.type === "Evidence source"))
   assert.ok(data.results.some((result) => result.type === "Review event"))
   assert.ok(data.results.some((result) => result.type === "Review signal"))
+  assert.equal(
+    data.results.find((result) => result.type === "Evidence source")?.route,
+    "/dashboard/releases?selected=release_1&focus=claim_check",
+  )
   assert.equal(data.metrics.evidenceSources, 1)
   assert.ok(data.metrics.blockedResults >= 2)
   assert.ok(data.metrics.reviewSignals >= 2)
