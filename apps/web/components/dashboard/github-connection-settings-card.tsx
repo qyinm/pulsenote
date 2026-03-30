@@ -86,10 +86,10 @@ export function GitHubConnectionSettingsCard({
 
             <div className="flex flex-wrap items-center gap-3">
               <a
-                href="/dashboard/release-context"
+                href="/dashboard/new-release"
                 className={buttonVariants({ size: "sm" })}
               >
-                Open release intake
+                Open new release
               </a>
               {initialGitHubInstallUrl ? (
                 <a

@@ -629,6 +629,7 @@ export async function getServerReleaseWorkflowData(
   requestHeaders: Headers,
   workspaceId: string,
   apiClient: ReleaseWorkflowApiClient = createApiClient(),
+  preferredSelectedId?: string | null,
 ): Promise<ReleaseWorkflowData> {
   const init = {
     headers: getForwardedAuthHeaders(requestHeaders),
@@ -657,7 +658,11 @@ export async function getServerReleaseWorkflowData(
     members = []
     membersUnavailable = true
   }
-  const selectedId = workflow[0]?.releaseRecord.id ?? null
+  const selectedId =
+    (preferredSelectedId &&
+    workflow.some((item) => item.releaseRecord.id === preferredSelectedId)
+      ? preferredSelectedId
+      : workflow[0]?.releaseRecord.id) ?? null
 
   if (!selectedId) {
     return {

@@ -97,7 +97,7 @@ test("submitEmailAuthForm uses Better Auth sign-in email flow", async () => {
   await submitEmailAuthForm(
     "sign-in",
     {
-      callbackURL: "/dashboard/release-context",
+      callbackURL: "/dashboard/new-release",
       email: "owner@pulsenote.dev",
       password: "secret-passphrase",
     },
@@ -106,7 +106,7 @@ test("submitEmailAuthForm uses Better Auth sign-in email flow", async () => {
 
   assert.deepEqual(calls, [
     {
-      callbackURL: "/dashboard/release-context",
+      callbackURL: "/dashboard/new-release",
       email: "owner@pulsenote.dev",
       password: "secret-passphrase",
     },
@@ -133,7 +133,7 @@ test("submitEmailAuthForm uses Better Auth sign-up email flow", async () => {
   await submitEmailAuthForm(
     "sign-up",
     {
-      callbackURL: "/dashboard/release-context",
+      callbackURL: "/dashboard/new-release",
       email: "owner@pulsenote.dev",
       name: "Owner User",
       password: "secret-passphrase",
@@ -143,7 +143,7 @@ test("submitEmailAuthForm uses Better Auth sign-up email flow", async () => {
 
   assert.deepEqual(calls, [
     {
-      callbackURL: "/dashboard/release-context",
+      callbackURL: "/dashboard/new-release",
       email: "owner@pulsenote.dev",
       name: "Owner User",
       password: "secret-passphrase",
@@ -175,7 +175,7 @@ test("submitEmailAuthForm throws the Better Auth sign-in error message", async (
       submitEmailAuthForm(
         "sign-in",
         {
-          callbackURL: "/dashboard/release-context",
+          callbackURL: "/dashboard/new-release",
           email: "owner@pulsenote.dev",
           password: "secret-passphrase",
         },
@@ -209,7 +209,7 @@ test("submitEmailAuthForm throws the Better Auth sign-up error message", async (
       submitEmailAuthForm(
         "sign-up",
         {
-          callbackURL: "/dashboard/release-context",
+          callbackURL: "/dashboard/new-release",
           email: "owner@pulsenote.dev",
           name: "Owner User",
           password: "secret-passphrase",
