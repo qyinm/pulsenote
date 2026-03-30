@@ -1194,7 +1194,6 @@ export function ReleaseWorkflowLiveWorkspace({
                 title="Scope"
                 description="Release scope, compare range, and attached source evidence."
                 action={
-                  selectedDraftRevisionId === null &&
                   (selectedWorkflow.allowedActions ?? []).includes("create_draft") ? (
                     <Button
                       size="sm"
