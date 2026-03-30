@@ -414,7 +414,7 @@ test("buildReleaseWorkspaceHref keeps selected release and focus in one releases
       focus: "claim_check",
       selectedId: "release_1",
     }),
-    "/dashboard/releases?selected=release_1&focus=claim_check",
+    "/dashboard/releases/release_1?focus=claim_check",
   )
   assert.equal(buildReleaseWorkspaceHref({ focus: "approval" }), "/dashboard/releases?focus=approval")
   assert.equal(isReleaseWorkflowWorkspaceFocus("publish_pack"), true)

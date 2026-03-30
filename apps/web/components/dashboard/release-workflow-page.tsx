@@ -19,6 +19,7 @@ type ReleaseWorkflowPageProps = {
   emptyTitle: string
   invalidFocusValue?: string | null
   mode: ReleaseWorkflowMode
+  overviewVariant?: "detail" | "workspace"
   preferredFocusSection?: ReleaseWorkflowWorkspaceFocus | null
   preferredReleaseRecordId?: string | null
   unavailableDescription: string
@@ -34,6 +35,7 @@ export async function ReleaseWorkflowPage({
   emptyTitle,
   invalidFocusValue,
   mode,
+  overviewVariant = "workspace",
   preferredFocusSection,
   preferredReleaseRecordId,
   unavailableDescription,
@@ -102,7 +104,6 @@ export async function ReleaseWorkflowPage({
         currentUserId={accessState.session.user.id}
         initialMembers={workflowData.members}
         initialMembersUnavailable={workflowData.membersUnavailable}
-        initialOverviewDetailOpen={Boolean(preferredReleaseRecordId || preferredFocusSection)}
         initialPolicy={workflowData.policy}
         initialSelectedHistory={workflowData.selectedHistory}
         initialSelectedHistoryUnavailable={workflowData.selectedHistoryUnavailable}
@@ -110,6 +111,7 @@ export async function ReleaseWorkflowPage({
         initialSelectedId={workflowData.selectedId}
         initialSelectedWorkflow={workflowData.selectedWorkflow}
         mode={mode}
+        overviewVariant={overviewVariant}
         workspaceId={accessState.workspace.workspace.id}
       />
     </DashboardPage>

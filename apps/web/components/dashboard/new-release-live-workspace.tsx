@@ -14,6 +14,7 @@ import {
 import type { GitHubConnection, ReleaseRecordSnapshot } from "@/lib/api/client"
 import { createApiClient } from "@/lib/api/client"
 import { buildReleaseContextQueueItem } from "@/lib/dashboard/release-context"
+import { buildReleaseWorkspaceHref } from "@/lib/release-workflow"
 import {
   BulletList,
   DashboardSplit,
@@ -157,7 +158,11 @@ export function NewReleaseLiveWorkspace({
         },
       })
 
-      router.push(`/dashboard/releases?selected=${encodeURIComponent(result.releaseRecordId)}`)
+      router.push(
+        buildReleaseWorkspaceHref({
+          selectedId: result.releaseRecordId,
+        }),
+      )
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "GitHub release intake failed.")
     } finally {
@@ -190,7 +195,11 @@ export function NewReleaseLiveWorkspace({
         connectionId: githubConnection.connectionId,
       })
 
-      router.push(`/dashboard/releases?selected=${encodeURIComponent(result.releaseRecordId)}`)
+      router.push(
+        buildReleaseWorkspaceHref({
+          selectedId: result.releaseRecordId,
+        }),
+      )
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "GitHub compare intake failed.")
     } finally {

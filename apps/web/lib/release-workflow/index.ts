@@ -182,19 +182,19 @@ export function buildReleaseWorkspaceHref({
   focus?: ReleaseWorkflowWorkspaceFocus | null
   selectedId?: string | null
 }) {
+  const encodedSelectedId = selectedId ? encodeURIComponent(selectedId) : null
   const searchParams = new URLSearchParams()
-
-  if (selectedId) {
-    searchParams.set("selected", selectedId)
-  }
 
   if (focus) {
     searchParams.set("focus", focus)
   }
 
   const query = searchParams.toString()
+  const basePath = encodedSelectedId
+    ? `/dashboard/releases/${encodedSelectedId}`
+    : "/dashboard/releases"
 
-  return query ? `/dashboard/releases?${query}` : "/dashboard/releases"
+  return query ? `${basePath}?${query}` : basePath
 }
 
 function matchesReleaseWorkflowFocus(
