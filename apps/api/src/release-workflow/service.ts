@@ -14,6 +14,7 @@ import {
   createDraftEvidenceRefs,
   getReleaseDraftTemplate,
   isReleaseDraftTemplateId,
+  projectDraftBodiesFromFields,
 } from "./draft-templates.js"
 import type {
   ApprovalSummary,
@@ -1215,15 +1216,16 @@ export function createReleaseWorkflowService(
         releaseSnapshot: resources.releaseSnapshot,
         template: draftTemplate,
       })
+      const projectedDraftBodies = projectDraftBodiesFromFields(draftTemplate, fieldSnapshots)
       const evidenceRefs = createDraftEvidenceRefs(resources.releaseSnapshot, fieldSnapshots)
 
       await store.transaction(async (transactionStore) => {
         const draftRevision = await transactionStore.createDraftRevision({
-          changelogBody: draftContent.changelogBody,
+          changelogBody: projectedDraftBodies.changelogBody,
           createdByUserId: input.actorUserId,
           evidenceRefs,
           fieldSnapshots,
-          releaseNotesBody: draftContent.releaseNotesBody,
+          releaseNotesBody: projectedDraftBodies.releaseNotesBody,
           releaseRecordId: input.releaseRecordId,
           templateId: draftTemplate.id,
           templateLabel: draftTemplate.label,

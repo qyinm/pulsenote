@@ -20,7 +20,7 @@ SET "field_snapshots" = jsonb_build_array(
     'contentFormat', 'markdown',
     'fieldKey', 'release_notes',
     'label', 'Release notes',
-    'plainText', regexp_replace(regexp_replace(regexp_replace("release_notes_body", E'(?m)^#+\\s*', '', 'g'), E'(?m)^\\s*[-*+]\\s+', '', 'g'), E'[`*_>#]', '', 'g'),
+    'plainText', trim(regexp_replace(regexp_replace(regexp_replace("release_notes_body", E'(?m)^#+\\s*', '', 'g'), E'(?m)^\\s*[-*+]\\s+', '', 'g'), E'[`*_>#]', '', 'g')),
     'sortOrder', 0
   ),
   jsonb_build_object(
@@ -28,7 +28,7 @@ SET "field_snapshots" = jsonb_build_array(
     'contentFormat', 'markdown',
     'fieldKey', 'changelog',
     'label', 'Changelog',
-    'plainText', regexp_replace(regexp_replace(regexp_replace("changelog_body", E'(?m)^#+\\s*', '', 'g'), E'(?m)^\\s*[-*+]\\s+', '', 'g'), E'[`*_>#]', '', 'g'),
+    'plainText', trim(regexp_replace(regexp_replace(regexp_replace("changelog_body", E'(?m)^#+\\s*', '', 'g'), E'(?m)^\\s*[-*+]\\s+', '', 'g'), E'[`*_>#]', '', 'g')),
     'sortOrder', 1
   )
 )

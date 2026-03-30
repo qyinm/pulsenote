@@ -121,6 +121,9 @@ export const defaultReleaseDraftTemplateId = "release_note_packet"
 
 function stripMarkdown(value: string) {
   return value
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/!\[.*?\]\(.*?\)/g, "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
     .replace(/^#+\s*/gm, "")
     .replace(/^\s*[-*+]\s+/gm, "")
     .replace(/[`*_>#]/g, "")
@@ -184,26 +187,27 @@ export function buildDraftTemplateFields(input: {
   const { changelogBody, releaseNotesBody, releaseSnapshot, template } = input
   const summary = extractPrimarySummaryText(releaseSnapshot.releaseRecord.summary, stripMarkdown(releaseNotesBody))
 
-  if (template.id === "release_note_packet") {
-    return [
-      createFieldSnapshot(template, "release_notes", releaseNotesBody, 0),
-      createFieldSnapshot(template, "changelog", changelogBody, 1),
-    ]
+  switch (template.id) {
+    case "release_note_packet":
+      return [
+        createFieldSnapshot(template, "release_notes", releaseNotesBody, 0),
+        createFieldSnapshot(template, "changelog", changelogBody, 1),
+      ]
+    case "customer_update":
+      return [
+        createFieldSnapshot(template, "subject", releaseSnapshot.releaseRecord.title, 0),
+        createFieldSnapshot(template, "summary", summary, 1),
+        createFieldSnapshot(template, "customer_update", releaseNotesBody, 2),
+      ]
+    case "help_center_update":
+      return [
+        createFieldSnapshot(template, "title", releaseSnapshot.releaseRecord.title, 0),
+        createFieldSnapshot(template, "summary", summary, 1),
+        createFieldSnapshot(template, "article_update", changelogBody, 2),
+      ]
+    default:
+      throw new Error(`Unknown draft template id: ${template.id}`)
   }
-
-  if (template.id === "customer_update") {
-    return [
-      createFieldSnapshot(template, "subject", releaseSnapshot.releaseRecord.title, 0),
-      createFieldSnapshot(template, "summary", summary, 1),
-      createFieldSnapshot(template, "customer_update", releaseNotesBody, 2),
-    ]
-  }
-
-  return [
-    createFieldSnapshot(template, "title", releaseSnapshot.releaseRecord.title, 0),
-    createFieldSnapshot(template, "summary", summary, 1),
-    createFieldSnapshot(template, "article_update", changelogBody, 2),
-  ]
 }
 
 export function projectDraftBodiesFromFields(
@@ -236,24 +240,33 @@ export function createDraftEvidenceRefs(
   releaseSnapshot: ReleaseRecordSnapshot,
   fieldSnapshots: DraftFieldSnapshot[],
 ): DraftEvidenceRef[] {
-  const firstFieldKey = fieldSnapshots[0]?.fieldKey ?? null
+  const preferredFieldKeys = fieldSnapshots
+    .filter((fieldSnapshot) => !["subject", "title"].includes(fieldSnapshot.fieldKey))
+    .map((fieldSnapshot) => fieldSnapshot.fieldKey)
+  const targetFieldKeys =
+    preferredFieldKeys.length > 0
+      ? preferredFieldKeys
+      : fieldSnapshots.map((fieldSnapshot) => fieldSnapshot.fieldKey)
 
-  if (!firstFieldKey) {
+  if (targetFieldKeys.length === 0) {
     return []
   }
 
   const createdAt = new Date().toISOString()
 
-  return releaseSnapshot.evidenceBlocks.map((evidenceBlock) => {
+  return releaseSnapshot.evidenceBlocks.map((evidenceBlock, index) => {
+    const normalizedSourceRef = evidenceBlock.sourceRef.trim()
     const linkedSource = releaseSnapshot.sourceLinks.find(
-      (sourceLink) => sourceLink.label === evidenceBlock.title || sourceLink.label.includes(evidenceBlock.sourceRef),
+      (sourceLink) =>
+        sourceLink.label === evidenceBlock.title ||
+        (normalizedSourceRef.length > 0 && sourceLink.label.includes(normalizedSourceRef)),
     )
 
     return {
       anchorText: null,
       createdAt,
       evidenceBlockId: evidenceBlock.id,
-      fieldKey: firstFieldKey,
+      fieldKey: targetFieldKeys[index % targetFieldKeys.length]!,
       id: crypto.randomUUID(),
       note: null,
       sourceLinkId: linkedSource?.id ?? null,
