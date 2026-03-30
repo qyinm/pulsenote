@@ -12,6 +12,7 @@ import { ApiError } from "../lib/api/client.js"
 import {
   buildReleaseWorkflowApprovalFilterCounts,
   buildReleaseWorkflowApprovalNotes,
+  buildReleaseWorkflowBoardColumns,
   buildReleaseWorkflowMetrics,
   buildReleaseWorkflowPublishPackArtifactNotes,
   buildReleaseWorkflowPublishPackNotes,
@@ -20,6 +21,7 @@ import {
   filterReleaseWorkflowQueueByMode,
   filterReleaseWorkflowApprovalQueue,
   getReleaseWorkflowActionLabel,
+  getReleaseWorkflowBoardStage,
   getReleaseWorkflowOwnershipCue,
   getSelectedReleaseWorkflowDetail,
   getServerReleaseWorkflowData,
@@ -592,6 +594,102 @@ test("filterReleaseWorkflowQueueByMode keeps publish-pack records scoped to appr
     "release_ready",
     "release_approved",
   ])
+})
+
+test("getReleaseWorkflowBoardStage collapses workflow status into kanban columns", () => {
+  assert.equal(
+    getReleaseWorkflowBoardStage(
+      createReleaseWorkflowListItem({
+        releaseRecord: { stage: "intake" },
+      }),
+    ),
+    "intake",
+  )
+  assert.equal(
+    getReleaseWorkflowBoardStage(
+      createReleaseWorkflowListItem({
+        releaseRecord: { stage: "draft" },
+      }),
+    ),
+    "claim_check",
+  )
+  assert.equal(
+    getReleaseWorkflowBoardStage(
+      createReleaseWorkflowListItem({
+        releaseRecord: { stage: "approval" },
+      }),
+    ),
+    "approval",
+  )
+  assert.equal(
+    getReleaseWorkflowBoardStage(
+      createReleaseWorkflowListItem({
+        approvalSummary: { state: "approved" },
+        releaseRecord: { stage: "publish_pack" },
+      }),
+    ),
+    "publish_pack",
+  )
+  assert.equal(
+    getReleaseWorkflowBoardStage(
+      createReleaseWorkflowListItem({
+        latestPublishPackSummary: { state: "exported" },
+        releaseRecord: { stage: "publish_pack" },
+      }),
+    ),
+    "exported",
+  )
+})
+
+test("buildReleaseWorkflowBoardColumns groups release records into workflow board columns", () => {
+  const columns = buildReleaseWorkflowBoardColumns([
+    createReleaseWorkflowListItem({
+      releaseRecord: { id: "release_intake", stage: "intake", title: "Intake scope" },
+    }),
+    createReleaseWorkflowListItem({
+      releaseRecord: { id: "release_draft", stage: "draft", title: "Draft scope" },
+    }),
+    createReleaseWorkflowListItem({
+      approvalSummary: { state: "pending" },
+      releaseRecord: { id: "release_approval", stage: "approval", title: "Approval scope" },
+    }),
+    createReleaseWorkflowListItem({
+      approvalSummary: { state: "approved" },
+      latestPublishPackSummary: { state: "ready" },
+      releaseRecord: { id: "release_publish", stage: "publish_pack", title: "Publish scope" },
+    }),
+    createReleaseWorkflowListItem({
+      latestPublishPackSummary: { state: "exported" },
+      releaseRecord: { id: "release_exported", stage: "publish_pack", title: "Exported scope" },
+    }),
+  ])
+
+  assert.deepEqual(
+    columns.map((column) => ({
+      ids: column.items.map((item) => item.id),
+      stage: column.stage,
+    })),
+    [
+      { ids: ["release_intake"], stage: "intake" },
+      { ids: ["release_draft"], stage: "claim_check" },
+      { ids: ["release_approval"], stage: "approval" },
+      { ids: ["release_publish"], stage: "publish_pack" },
+      { ids: ["release_exported"], stage: "exported" },
+    ],
+  )
+  assert.deepEqual(
+    columns.map((column) => ({
+      stage: column.stage,
+      stageLabels: column.items.map((item) => item.stageLabel),
+    })),
+    [
+      { stage: "intake", stageLabels: ["Intake"] },
+      { stage: "claim_check", stageLabels: ["Claim check"] },
+      { stage: "approval", stageLabels: ["Approval"] },
+      { stage: "publish_pack", stageLabels: ["Publish pack"] },
+      { stage: "exported", stageLabels: ["Exported"] },
+    ],
+  )
 })
 
 test("buildReleaseWorkflowPublishPackNotes and artifact notes keep frozen handoff context visible", () => {

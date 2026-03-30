@@ -7,6 +7,8 @@ import {
   FileOutputIcon,
   FileSearchIcon,
   FolderKanbanIcon,
+  LayoutGridIcon,
+  Rows3Icon,
   ShieldAlertIcon,
   TimerResetIcon,
 } from "lucide-react"
@@ -22,7 +24,10 @@ import type {
 import { createApiClient } from "@/lib/api/client"
 import {
   type ReleaseWorkflowApprovalOwnershipFilter,
+  type ReleaseWorkflowBoardColumn,
+  buildReleaseWorkflowBoardColumns,
   type ReleaseWorkflowMode,
+  type ReleaseWorkflowQueueItem,
   buildReleaseWorkflowApprovalFilterCounts,
   buildReleaseWorkflowApprovalNotes,
   buildReleaseWorkflowClaimCheckNotes,
@@ -70,6 +75,8 @@ const approvalOwnershipFilters: Array<{
   { label: "Requested by me", value: "requested_by_me" },
   { label: "Unassigned", value: "unassigned" },
 ]
+
+type ReleaseWorkflowWorkspaceView = "board" | "list"
 
 type ReleaseWorkflowLiveWorkspaceProps = {
   currentUserId: string
@@ -520,6 +527,114 @@ function buildModeFocus(detail: ReleaseWorkflowDetail | null, mode: ReleaseWorkf
   }
 }
 
+function OverviewBoardCard({
+  currentUserId,
+  isSelected,
+  item,
+  onSelect,
+  queuedWorkflowItem,
+}: {
+  currentUserId: string
+  isSelected: boolean
+  item: ReleaseWorkflowQueueItem
+  onSelect: (releaseRecordId: string) => void
+  queuedWorkflowItem: ReleaseWorkflowListItem | null
+}) {
+  const ownershipCue = queuedWorkflowItem
+    ? getReleaseWorkflowOwnershipCue(queuedWorkflowItem, currentUserId)
+    : null
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(item.id)}
+      className={cn(
+        "grid gap-3 rounded-xl border border-border/70 bg-background p-4 text-left shadow-xs transition-colors hover:border-foreground/30 hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+        isSelected && "border-foreground/40 bg-muted/30",
+      )}
+    >
+      <div className="grid gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium text-foreground">{item.title}</span>
+          {statusBadge(item.readinessTone, item.readinessLabel)}
+          {ownershipCue ? ownershipCueBadge(ownershipCue) : null}
+        </div>
+        <p className="text-xs text-muted-foreground">{item.summary}</p>
+      </div>
+      <div className="grid gap-2 text-xs text-muted-foreground">
+        <div className="flex items-center justify-between gap-3">
+          <span>Draft</span>
+          <span className="font-medium text-foreground">{item.versionLabel}</span>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <span>Reviewer</span>
+          <span className="font-medium text-foreground">
+            {item.ownerName ?? "Not assigned"}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <span>Proof</span>
+          <span className="font-medium text-foreground">
+            {item.evidenceCount} evidence · {item.sourceLinkCount} sources
+          </span>
+        </div>
+      </div>
+      <p className="text-sm text-muted-foreground">{item.nextAction}</p>
+    </button>
+  )
+}
+
+function renderOverviewBoard({
+  activeSelectedId,
+  boardColumns,
+  currentUserId,
+  onSelect,
+  queueSourceById,
+}: {
+  activeSelectedId: string
+  boardColumns: ReleaseWorkflowBoardColumn[]
+  currentUserId: string
+  onSelect: (releaseRecordId: string) => void
+  queueSourceById: Map<string, ReleaseWorkflowListItem>
+}) {
+  return (
+    <div className="grid gap-4 xl:grid-cols-5">
+      {boardColumns.map((column) => (
+        <div
+          key={column.stage}
+          className="grid min-h-72 content-start gap-3 rounded-2xl border border-border/70 bg-muted/15 p-3"
+        >
+          <div className="grid gap-1">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-medium text-foreground">{column.title}</p>
+              <Badge variant="secondary">{column.items.length}</Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">{column.description}</p>
+          </div>
+          <div className="grid gap-3">
+            {column.items.length > 0 ? (
+              column.items.map((item) => (
+                <OverviewBoardCard
+                  key={item.id}
+                  currentUserId={currentUserId}
+                  isSelected={item.id === activeSelectedId}
+                  item={item}
+                  onSelect={onSelect}
+                  queuedWorkflowItem={getQueuedWorkflowItem(queueSourceById, item.id)}
+                />
+              ))
+            ) : (
+              <div className="rounded-xl border border-dashed border-border/70 bg-background/70 px-4 py-6 text-center text-sm text-muted-foreground">
+                No releases in this stage.
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function ReleaseWorkflowLiveWorkspace({
   currentUserId,
   initialMembers,
@@ -535,6 +650,7 @@ export function ReleaseWorkflowLiveWorkspace({
 }: ReleaseWorkflowLiveWorkspaceProps) {
   const [selectedId, setSelectedId] = useState(initialSelectedId)
   const [workflow, setWorkflow] = useState(initialWorkflow)
+  const [workspaceView, setWorkspaceView] = useState<ReleaseWorkflowWorkspaceView>("board")
   const [approvalOwnershipFilter, setApprovalOwnershipFilter] =
     useState<ReleaseWorkflowApprovalOwnershipFilter>("all")
   const [actionError, setActionError] = useState<string | null>(null)
@@ -550,6 +666,7 @@ export function ReleaseWorkflowLiveWorkspace({
   )
   const queueSourceById = new Map(queueSource.map((item) => [item.releaseRecord.id, item]))
   const queueItems = queueSource.map(buildReleaseWorkflowQueueItem)
+  const boardColumns = buildReleaseWorkflowBoardColumns(queueSource)
   const activeSelectedId =
     queueItems.some((item) => item.id === selectedId) ? selectedId : (queueItems[0]?.id ?? "")
   const loadSelectedWorkflowDetail = useCallback(
@@ -721,6 +838,71 @@ export function ReleaseWorkflowLiveWorkspace({
   }
 
   const metricCards = buildModeMetricCards(mode, workflow, selectedWorkflow, currentUserId)
+  const handleSelectQueueItem = useCallback(
+    (rowKey: string) => {
+      setSelectedId(rowKey)
+      setDetailError(null)
+      setHistoryError(null)
+      setActionError(null)
+      setIsLoadingDetail(!detailById[rowKey])
+      setIsLoadingHistory(!historyById[rowKey])
+    },
+    [detailById, historyById, setDetailError, setHistoryError, setIsLoadingDetail, setIsLoadingHistory],
+  )
+
+  function renderQueueTable() {
+    return (
+      <SimpleTable
+        columns={[
+          { key: "release", label: "Release" },
+          { key: "stage", label: "Stage" },
+          { key: "readiness", label: "Readiness" },
+          { key: "draft", label: "Draft" },
+          { key: "nextAction", label: "Next action" },
+        ]}
+        rows={queueItems.map((item) => {
+          const queuedWorkflowItem = getQueuedWorkflowItem(queueSourceById, item.id)
+          const ownershipCue = queuedWorkflowItem
+            ? getReleaseWorkflowOwnershipCue(queuedWorkflowItem, currentUserId)
+            : null
+
+          return {
+            key: item.id,
+            cells: {
+              draft: item.versionLabel,
+              nextAction: (
+                <div className="grid gap-1">
+                  <span className="font-medium text-foreground">{item.nextAction}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {item.evidenceCount} evidence blocks · {item.sourceLinkCount} source links
+                  </span>
+                </div>
+              ),
+              readiness: statusBadge(item.readinessTone, item.readinessLabel),
+              release: (
+                <div className="grid gap-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium text-foreground">{item.title}</span>
+                    {ownershipCue ? ownershipCueBadge(ownershipCue) : null}
+                  </div>
+                  <span className="text-xs text-muted-foreground">{item.summary}</span>
+                </div>
+              ),
+              stage: item.stageLabel,
+            },
+          }
+        })}
+        selectedRowKey={activeSelectedId}
+        onRowSelect={handleSelectQueueItem}
+        emptyTitle={mode === "approval" ? "No approvals in this view" : "No workflow records yet"}
+        emptyDescription={
+          mode === "approval"
+            ? "Pending approvals will appear here once a release is routed into explicit reviewer handoff."
+            : "Once release context is ingested, workflow records will appear here."
+        }
+      />
+    )
+  }
 
   return (
     <>
@@ -742,8 +924,12 @@ export function ReleaseWorkflowLiveWorkspace({
         main={
           <>
             <SurfaceCard
-              title="Founder release queue"
-              description="The queue stays grounded in one workflow state machine instead of separate mock dashboards."
+              title="Release workspace"
+              description={
+                mode === "overview"
+                  ? "Run each release through one board or list instead of splitting the workflow into separate operational tabs."
+                  : "Each release stays grounded in one workflow state machine instead of separate operational tabs."
+              }
             >
               {mode === "approval" ? (
                 <div className="mb-4 grid gap-3">
@@ -770,67 +956,40 @@ export function ReleaseWorkflowLiveWorkspace({
                   </Tabs>
                 </div>
               ) : null}
-              <SimpleTable
-                columns={[
-                  { key: "release", label: "Release" },
-                  { key: "stage", label: "Stage" },
-                  { key: "readiness", label: "Readiness" },
-                  { key: "draft", label: "Draft" },
-                  { key: "nextAction", label: "Next action" },
-                ]}
-                rows={queueItems.map((item) => ({
-                  key: item.id,
-                  cells: {
-                    draft: item.versionLabel,
-                    nextAction: (
-                      <div className="grid gap-1">
-                        <span className="font-medium text-foreground">{item.nextAction}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {item.evidenceCount} evidence blocks · {item.sourceLinkCount} source links
-                        </span>
-                      </div>
-                    ),
-                    readiness: statusBadge(item.readinessTone, item.readinessLabel),
-                    release: (
-                      <div className="grid gap-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-medium text-foreground">{item.title}</span>
-                          {mode === "approval" ? (
-                            (() => {
-                              const queuedWorkflowItem = getQueuedWorkflowItem(queueSourceById, item.id)
+              {mode === "overview" ? (
+                <div className="grid gap-4">
+                  <Tabs
+                    value={workspaceView}
+                    onValueChange={(value) => setWorkspaceView(value as ReleaseWorkflowWorkspaceView)}
+                    className="gap-3"
+                  >
+                    <TabsList variant="line" className="w-full justify-start">
+                      <TabsTrigger value="board">
+                        <LayoutGridIcon data-icon="inline-start" />
+                        Board
+                      </TabsTrigger>
+                      <TabsTrigger value="list">
+                        <Rows3Icon data-icon="inline-start" />
+                        List
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
 
-                              if (!queuedWorkflowItem) {
-                                return null
-                              }
-
-                              return ownershipCueBadge(
-                                getReleaseWorkflowOwnershipCue(queuedWorkflowItem, currentUserId),
-                              )
-                            })()
-                          ) : null}
-                        </div>
-                        <span className="text-xs text-muted-foreground">{item.summary}</span>
-                      </div>
-                    ),
-                    stage: item.stageLabel,
-                  },
-                }))}
-                selectedRowKey={activeSelectedId}
-                onRowSelect={(rowKey) => {
-                  setSelectedId(rowKey)
-                  setDetailError(null)
-                  setHistoryError(null)
-                  setActionError(null)
-                  setIsLoadingDetail(!detailById[rowKey])
-                  setIsLoadingHistory(!historyById[rowKey])
-                }}
-                emptyTitle={mode === "approval" ? "No approvals in this view" : "No workflow records yet"}
-                emptyDescription={
-                  mode === "approval"
-                    ? "Pending approvals will appear here once a release is routed into explicit reviewer handoff."
-                    : "Once release context is ingested, workflow records will appear here."
-                }
-              />
+                  {workspaceView === "board" ? (
+                    renderOverviewBoard({
+                      activeSelectedId,
+                      boardColumns,
+                      currentUserId,
+                      onSelect: handleSelectQueueItem,
+                      queueSourceById,
+                    })
+                  ) : (
+                    renderQueueTable()
+                  )}
+                </div>
+              ) : (
+                renderQueueTable()
+              )}
             </SurfaceCard>
 
             <SurfaceCard

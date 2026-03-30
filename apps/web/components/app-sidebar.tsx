@@ -55,7 +55,7 @@ export function AppSidebar({ inboxBadge, user, ...props }: AppSidebarProps) {
               size="lg"
               tooltip="PulseNote"
               aria-label="PulseNote"
-              render={<Link href="/dashboard" />}
+              render={<Link href="/dashboard/releases" />}
               className="data-[slot=sidebar-menu-button]:p-2 group-data-[collapsible=icon]:justify-center"
             >
               <PulseNoteMark className="size-4 shrink-0" />
@@ -77,15 +77,17 @@ export function AppSidebar({ inboxBadge, user, ...props }: AppSidebarProps) {
             icon: <route.icon />,
           }))}
         />
-        <NavDocuments
-          items={assetRoutes.map((route) => ({
-            title: route.title,
-            href: route.href,
-            badge: route.badge,
-            isActive: pathname === route.href,
-            icon: <route.icon />,
-          }))}
-        />
+        {assetRoutes.length > 0 ? (
+          <NavDocuments
+            items={assetRoutes.map((route) => ({
+              title: route.title,
+              href: route.href,
+              badge: route.badge,
+              isActive: pathname === route.href,
+              icon: <route.icon />,
+            }))}
+          />
+        ) : null}
         <NavSecondary
           items={utilityRoutes.map((route) => ({
             title: route.sidebarTitle ?? route.title,

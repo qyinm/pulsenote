@@ -34,7 +34,7 @@ export function NavMain({
             <SidebarMenuButton
               tooltip="New release"
               variant="outline"
-              render={<Link href="/dashboard/release-context" />}
+              render={<Link href="/dashboard/new-release" />}
             >
               <PlusCircleIcon data-icon="inline-start" />
               <span>New release</span>

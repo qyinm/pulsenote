@@ -66,7 +66,7 @@ export function WorkspaceSelectionCard({
                 workspaceId: selectedWorkspaceId,
               })
 
-              router.push("/dashboard/release-context")
+              router.push("/dashboard/new-release")
               router.refresh()
             } catch (error) {
               setErrorMessage(getErrorMessage(error))
