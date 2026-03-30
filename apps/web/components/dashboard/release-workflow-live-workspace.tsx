@@ -814,16 +814,22 @@ export function ReleaseWorkflowLiveWorkspace({
     ? getReleaseWorkflowOwnershipCue(selectedQueueSourceItem, currentUserId)
     : null
   const focusContent = buildModeFocus(selectedWorkflow, mode)
-  const otherActions = (selectedWorkflow?.allowedActions ?? []).filter((action) => {
+  const allowedActions = selectedWorkflow?.allowedActions ?? []
+  const hasDraftRevision = selectedDraftRevisionId !== null
+  const canCreateDraft = allowedActions.includes("create_draft")
+  const canRunClaimCheck = hasDraftRevision && allowedActions.includes("run_claim_check")
+  const canRequestApproval =
+    hasDraftRevision && allowedActions.includes("request_approval")
+  const canApproveDraft = hasDraftRevision && allowedActions.includes("approve_draft")
+  const canCreatePublishPack = hasDraftRevision && allowedActions.includes("create_publish_pack")
+  const canReopenDraft = hasDraftRevision && allowedActions.includes("reopen_draft")
+  const otherActions = allowedActions.filter((action) => {
     if (action === "request_approval") {
       return false
     }
 
-    return action === "create_draft" || selectedDraftRevisionId !== null
+    return action === "create_draft" || hasDraftRevision
   })
-  const canRequestApproval =
-    selectedDraftRevisionId !== null &&
-    (selectedWorkflow?.allowedActions ?? []).includes("request_approval")
 
   async function applyNextWorkflowDetail(
     nextDetail: ReleaseWorkflowDetail,
@@ -1213,7 +1219,7 @@ export function ReleaseWorkflowLiveWorkspace({
                 workflow state, but they do not take over the main writing surface.
               </p>
               <div className="flex flex-wrap gap-2">
-                {(selectedWorkflow?.allowedActions ?? []).includes("create_draft") ? (
+                {canCreateDraft ? (
                   <Button
                     size="sm"
                     disabled={isRunningAction}
@@ -1222,6 +1228,18 @@ export function ReleaseWorkflowLiveWorkspace({
                     }}
                   >
                     {actionButtonLabels.create_draft}
+                  </Button>
+                ) : null}
+                {canRunClaimCheck ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={isRunningAction}
+                    onClick={() => {
+                      void runWorkflowAction("run_claim_check")
+                    }}
+                  >
+                    {actionButtonLabels.run_claim_check}
                   </Button>
                 ) : null}
                 {canRequestApproval ? (
@@ -1240,8 +1258,7 @@ export function ReleaseWorkflowLiveWorkspace({
                     {actionButtonLabels.request_approval}
                   </Button>
                 ) : null}
-                {selectedDraftRevisionId !== null &&
-                (selectedWorkflow?.allowedActions ?? []).includes("approve_draft") ? (
+                {canApproveDraft ? (
                   <Button
                     size="sm"
                     variant="outline"
@@ -1253,8 +1270,7 @@ export function ReleaseWorkflowLiveWorkspace({
                     {actionButtonLabels.approve_draft}
                   </Button>
                 ) : null}
-                {selectedDraftRevisionId !== null &&
-                (selectedWorkflow?.allowedActions ?? []).includes("create_publish_pack") ? (
+                {canCreatePublishPack ? (
                   <Button
                     size="sm"
                     variant="outline"
@@ -1404,7 +1420,7 @@ export function ReleaseWorkflowLiveWorkspace({
                     <p className="text-sm text-muted-foreground">
                       Create the first draft and PulseNote will open the release output directly here.
                     </p>
-                    {(selectedWorkflow.allowedActions ?? []).includes("create_draft") ? (
+                    {canCreateDraft ? (
                       <div>
                         <Button
                           size="sm"
@@ -1500,8 +1516,7 @@ export function ReleaseWorkflowLiveWorkspace({
                         >
                           {actionButtonLabels.request_approval}
                         </Button>
-                        {selectedDraftRevisionId !== null &&
-                        (selectedWorkflow.allowedActions ?? []).includes("approve_draft") ? (
+                        {canApproveDraft ? (
                           <Button
                             size="sm"
                             variant="outline"
@@ -1513,8 +1528,7 @@ export function ReleaseWorkflowLiveWorkspace({
                             {actionButtonLabels.approve_draft}
                           </Button>
                         ) : null}
-                        {selectedDraftRevisionId !== null &&
-                        (selectedWorkflow.allowedActions ?? []).includes("reopen_draft") ? (
+                        {canReopenDraft ? (
                           <Button
                             size="sm"
                             variant="outline"
@@ -1530,8 +1544,7 @@ export function ReleaseWorkflowLiveWorkspace({
                     </div>
                   ) : (
                     <div className="flex flex-wrap gap-2">
-                      {selectedDraftRevisionId !== null &&
-                      (selectedWorkflow.allowedActions ?? []).includes("approve_draft") ? (
+                      {canApproveDraft ? (
                         <Button
                           size="sm"
                           disabled={isRunningAction}
@@ -1542,8 +1555,7 @@ export function ReleaseWorkflowLiveWorkspace({
                           {actionButtonLabels.approve_draft}
                         </Button>
                       ) : null}
-                      {selectedDraftRevisionId !== null &&
-                      (selectedWorkflow.allowedActions ?? []).includes("reopen_draft") ? (
+                      {canReopenDraft ? (
                         <Button
                           size="sm"
                           variant="outline"
@@ -1567,8 +1579,7 @@ export function ReleaseWorkflowLiveWorkspace({
                   title="Publish pack"
                   description="Freeze the approved draft into a publish-ready artifact."
                   action={
-                    selectedDraftRevisionId !== null &&
-                    (selectedWorkflow.allowedActions ?? []).includes("create_publish_pack") ? (
+                    canCreatePublishPack ? (
                       <Button
                         size="sm"
                         disabled={isRunningAction}
