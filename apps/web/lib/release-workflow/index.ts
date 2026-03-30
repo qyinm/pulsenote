@@ -634,6 +634,7 @@ export function detailToReleaseWorkflowListItem(
       compareRange: detail.releaseRecord.compareRange,
       createdAt: detail.releaseRecord.createdAt,
       id: detail.releaseRecord.id,
+      preferredDraftTemplateId: detail.releaseRecord.preferredDraftTemplateId,
       stage: detail.releaseRecord.stage,
       summary: detail.releaseRecord.summary,
       title: detail.releaseRecord.title,

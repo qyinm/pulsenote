@@ -189,6 +189,7 @@ export type ReleaseRecord = {
   summary: string | null
   stage: ReviewStage
   compareRange: string | null
+  preferredDraftTemplateId: string
   createdAt: string
   updatedAt: string
 }

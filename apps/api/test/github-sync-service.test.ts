@@ -98,6 +98,7 @@ test("syncCompareRange marks the sync run as succeeded and returns compare data"
       head: "feat/api-foundation",
     },
     connectionId: connection.id,
+    draftTemplateId: "customer_update",
     repository: {
       owner: "qyinm",
       provider: "github",
@@ -125,6 +126,7 @@ test("syncCompareRange marks the sync run as succeeded and returns compare data"
   assert.equal(releaseSnapshots[0]?.releaseRecord.id, result.releaseRecordId)
   assert.equal(releaseSnapshots[0]?.releaseRecord.stage, "intake")
   assert.equal(releaseSnapshots[0]?.releaseRecord.compareRange, "main...feat/api-foundation")
+  assert.equal(releaseSnapshots[0]?.releaseRecord.preferredDraftTemplateId, "customer_update")
   assert.equal(releaseSnapshots[0]?.claimCandidates.length, 1)
   assert.equal(releaseSnapshots[0]?.claimCandidates[0]?.sentence, "Add release workflow")
   assert.deepEqual(releaseSnapshots[0]?.claimCandidates[0]?.evidenceBlockIds.length, 1)
@@ -449,6 +451,7 @@ test("syncRelease marks the sync run as succeeded and persists release intake da
       token: "ghp_test_token",
     },
     connectionId: connection.id,
+    draftTemplateId: "help_center_update",
     release: {
       releaseId: 9001,
     },
@@ -475,6 +478,7 @@ test("syncRelease marks the sync run as succeeded and persists release intake da
   assert.equal(releaseSnapshots[0]?.releaseRecord.id, result.releaseRecordId)
   assert.equal(releaseSnapshots[0]?.releaseRecord.title, "API Foundation")
   assert.equal(releaseSnapshots[0]?.releaseRecord.compareRange, null)
+  assert.equal(releaseSnapshots[0]?.releaseRecord.preferredDraftTemplateId, "help_center_update")
   assert.equal(releaseSnapshots[0]?.evidenceBlocks.length, 1)
   assert.equal(releaseSnapshots[0]?.evidenceBlocks[0]?.sourceType, "release")
   assert.equal(releaseSnapshots[0]?.evidenceBlocks[0]?.sourceRef, "9001")

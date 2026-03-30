@@ -73,7 +73,6 @@ import { formatUtcTimestamp } from "@/lib/format"
 import {
   buildReleaseDraftEditorFields,
   getReleaseDraftTemplateOption,
-  releaseDraftTemplateOptions,
 } from "@/lib/draft-templates"
 import { cn } from "@/lib/utils"
 
@@ -737,9 +736,6 @@ export function ReleaseWorkflowLiveWorkspace({
     useState<ReleaseWorkflowApprovalOwnershipFilter>("all")
   const [actionError, setActionError] = useState<string | null>(null)
   const [approvalReviewerUserId, setApprovalReviewerUserId] = useState("")
-  const [draftTemplateId, setDraftTemplateId] = useState<string>(
-    releaseDraftTemplateOptions[0]?.id ?? "",
-  )
   const [draftFieldValues, setDraftFieldValues] = useState<Record<string, string>>(
     buildDraftFieldValues(buildDraftEditorFieldSnapshots(initialSelectedWorkflow.currentDraft)),
   )
@@ -915,15 +911,6 @@ export function ReleaseWorkflowLiveWorkspace({
   }, [members, selectedWorkflow])
 
   useEffect(() => {
-    if (selectedWorkflow?.currentDraft?.templateId) {
-      setDraftTemplateId(selectedWorkflow.currentDraft.templateId)
-      return
-    }
-
-    setDraftTemplateId(releaseDraftTemplateOptions[0]?.id ?? "")
-  }, [selectedWorkflow?.currentDraft?.templateId])
-
-  useEffect(() => {
     setDraftFieldValues(buildDraftFieldValues(buildDraftEditorFieldSnapshots(currentDraft)))
     setDraftSaveError(null)
   }, [currentDraft])
@@ -943,7 +930,6 @@ export function ReleaseWorkflowLiveWorkspace({
       if (action === "create_draft") {
         nextDetail = await apiClient.createReleaseWorkflowDraft(workspaceId, activeSelectedId, {
           expectedLatestDraftRevisionId: selectedWorkflow.currentDraft?.id ?? null,
-          templateId: draftTemplateId,
         })
       } else {
         if (!selectedDraftRevisionId) {
@@ -1037,7 +1023,9 @@ export function ReleaseWorkflowLiveWorkspace({
   }
 
   const metricCards = buildModeMetricCards(mode, workflow, selectedWorkflow, currentUserId)
-  const selectedDraftTemplate = getReleaseDraftTemplateOption(draftTemplateId)
+  const selectedDraftTemplate = getReleaseDraftTemplateOption(
+    selectedWorkflow?.releaseRecord.preferredDraftTemplateId,
+  )
   const handleSelectQueueItem = useCallback(
     (rowKey: string) => {
       if (mode === "overview" && !isOverviewDetailPage) {
@@ -1361,60 +1349,41 @@ export function ReleaseWorkflowLiveWorkspace({
                       ...buildReleaseWorkflowEvidenceNotes(selectedWorkflow).slice(0, 3),
                     ]}
                   />
-                  {(selectedWorkflow.allowedActions ?? []).includes("create_draft") ? (
-                    <div className="grid gap-3 rounded-2xl border border-border/70 bg-muted/20 p-4">
+                  <div className="grid gap-3 rounded-2xl border border-border/70 bg-muted/20 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="grid gap-1">
                         <p className="text-sm font-medium text-foreground">Draft template</p>
                         <p className="text-sm text-muted-foreground">
-                          Pick the release output you want to compose before PulseNote creates the
-                          next draft revision.
+                          This release keeps the output template chosen during release creation.
                         </p>
                       </div>
-                      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-                        <div className="grid gap-2">
-                          <Label htmlFor="detail-draft-template">Output template</Label>
-                          <Select
-                            value={draftTemplateId}
-                            onValueChange={(value) => setDraftTemplateId(value ?? "")}
-                          >
-                            <SelectTrigger id="detail-draft-template">
-                              <SelectValue placeholder="Choose a draft template" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {releaseDraftTemplateOptions.map((template) => (
-                                <SelectItem key={template.id} value={template.id}>
-                                  {template.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
+                      {(selectedWorkflow.allowedActions ?? []).includes("create_draft") ? (
                         <Button
                           size="sm"
-                          disabled={isRunningAction || !draftTemplateId}
+                          disabled={isRunningAction}
                           onClick={() => {
                             void runWorkflowAction("create_draft")
                           }}
                         >
                           {actionButtonLabels.create_draft}
                         </Button>
-                      </div>
-                      <div className="grid gap-2 rounded-xl border border-border/60 bg-background/80 p-3">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Badge variant="outline">{selectedDraftTemplate.label}</Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {selectedDraftTemplate.fields.length} fields
-                          </span>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          {selectedDraftTemplate.description}
-                        </p>
-                        <BulletList
-                          items={selectedDraftTemplate.fields.map((field) => field.label)}
-                        />
-                      </div>
+                      ) : null}
                     </div>
-                  ) : null}
+                    <div className="grid gap-2 rounded-xl border border-border/60 bg-background/80 p-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="outline">{selectedDraftTemplate.label}</Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {selectedDraftTemplate.fields.length} field
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {selectedDraftTemplate.description}
+                      </p>
+                      <BulletList
+                        items={selectedDraftTemplate.fields.map((field) => field.label)}
+                      />
+                    </div>
+                  </div>
                 </div>
               </SurfaceCard>
             </div>

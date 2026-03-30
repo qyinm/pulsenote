@@ -114,7 +114,15 @@ export type ReleaseWorkflowListItem = {
   readiness: WorkflowReadiness
   releaseRecord: Pick<
     ReleaseRecord,
-    "compareRange" | "createdAt" | "id" | "stage" | "summary" | "title" | "updatedAt" | "workspaceId"
+    | "compareRange"
+    | "createdAt"
+    | "id"
+    | "preferredDraftTemplateId"
+    | "stage"
+    | "summary"
+    | "title"
+    | "updatedAt"
+    | "workspaceId"
   >
   sourceLinkCount: number
 }

@@ -86,6 +86,7 @@ export async function seedReleaseWorkflowFixture(
   const releaseRecord = await foundationStore.createReleaseRecord({
     compareRange: "main...HEAD",
     connectionId: connection.id,
+    preferredDraftTemplateId: "release_note_packet",
     stage: "intake",
     summary: "Adds release workflow commands and review checkpoints.",
     title: "Release founder workflow",

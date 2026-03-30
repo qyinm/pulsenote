@@ -18,6 +18,10 @@ import type {
 } from "@/lib/api/client"
 import { createApiClient } from "@/lib/api/client"
 import { buildReleaseContextQueueItem } from "@/lib/dashboard/release-context"
+import {
+  getReleaseDraftTemplateOption,
+  releaseDraftTemplateOptions,
+} from "@/lib/draft-templates"
 import { buildReleaseWorkspaceHref } from "@/lib/release-workflow"
 import {
   BulletList,
@@ -30,6 +34,13 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { buttonVariants } from "@/components/ui/button-variants"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 
@@ -189,6 +200,9 @@ export function NewReleaseLiveWorkspace({
   const [compareBase, setCompareBase] = useState("main")
   const [compareHead, setCompareHead] = useState("")
   const [sinceDate, setSinceDate] = useState("")
+  const [draftTemplateId, setDraftTemplateId] = useState<string>(
+    releaseDraftTemplateOptions[0]?.id ?? "release_note_packet",
+  )
   const [preview, setPreview] = useState<GitHubScopePreview | null>(null)
   const [isPreviewing, setIsPreviewing] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -255,6 +269,7 @@ export function NewReleaseLiveWorkspace({
         preview.mode === "release" && preview.release
           ? await apiClient.syncGitHubRelease(workspaceId, {
               connectionId: githubConnection.connectionId,
+              draftTemplateId,
               release: {
                 tag: preview.release.tagName,
               },
@@ -265,6 +280,7 @@ export function NewReleaseLiveWorkspace({
                 head: preview.resolvedCompare!.head,
               },
               connectionId: githubConnection.connectionId,
+              draftTemplateId,
             })
 
       router.push(
@@ -281,6 +297,7 @@ export function NewReleaseLiveWorkspace({
 
   const previewCommitRows = preview ? buildPreviewCommitRows(preview) : []
   const previewFileRows = preview ? buildPreviewFileRows(preview) : []
+  const selectedDraftTemplate = getReleaseDraftTemplateOption(draftTemplateId)
 
   return (
     <DashboardSplit
@@ -497,9 +514,54 @@ export function NewReleaseLiveWorkspace({
                 </Tabs>
               </div>
 
+              <div className="grid gap-4 rounded-2xl border border-border/70 bg-background p-4">
+                <div className="grid gap-1">
+                  <p className="text-sm font-medium text-foreground">3. Draft template</p>
+                  <p className="text-sm text-muted-foreground">
+                    Choose the release output once during release creation. The release detail page only shows this setting afterward.
+                  </p>
+                </div>
+                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                  <div className="grid gap-2">
+                    <label htmlFor="new-release-template" className="text-sm font-medium text-foreground">
+                      Output template
+                    </label>
+                    <Select
+                      value={draftTemplateId}
+                      onValueChange={(value) => {
+                        if (value) {
+                          setDraftTemplateId(value)
+                        }
+                      }}
+                    >
+                      <SelectTrigger id="new-release-template">
+                        <SelectValue placeholder="Choose a draft template" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {releaseDraftTemplateOptions.map((template) => (
+                          <SelectItem key={template.id} value={template.id}>
+                            {template.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2 rounded-xl border border-border/60 bg-muted/20 p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline">{selectedDraftTemplate.label}</Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {selectedDraftTemplate.fields.length} field
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{selectedDraftTemplate.description}</p>
+                    <BulletList items={selectedDraftTemplate.fields.map((field) => field.label)} />
+                  </div>
+                </div>
+              </div>
+
               <div className="grid gap-4 rounded-2xl border border-border/70 bg-muted/20 p-4">
                 <div className="grid gap-1">
-                  <p className="text-sm font-medium text-foreground">3. Preview</p>
+                  <p className="text-sm font-medium text-foreground">4. Preview</p>
                   <p className="text-sm text-muted-foreground">
                     Confirm the exact release evidence before PulseNote creates one release record.
                   </p>
