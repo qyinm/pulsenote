@@ -4,6 +4,7 @@ import type {
   GitHubCompareRange,
   GitHubCompareSummary,
   GitHubPullRequestSummary,
+  GitHubRepositoryCommit,
   GitHubReleaseSelector,
   GitHubReleaseSummary,
   GitHubRepositoryScope,
@@ -16,6 +17,10 @@ export type GitHubClient = {
     compare: GitHubCompareRange
     repository: GitHubRepositoryScope
   }): Promise<GitHubCompareSummary>
+  getDefaultBranch(input: {
+    auth: GitHubSyncAuth
+    repository: GitHubRepositoryScope
+  }): Promise<string>
   getPullRequests(input: {
     auth: GitHubSyncAuth
     pullNumbers: number[]
@@ -26,6 +31,12 @@ export type GitHubClient = {
     release: GitHubReleaseSelector
     repository: GitHubRepositoryScope
   }): Promise<GitHubReleaseSummary>
+  listCommitsSince(input: {
+    auth: GitHubSyncAuth
+    branch: string
+    repository: GitHubRepositoryScope
+    since: string
+  }): Promise<GitHubRepositoryCommit[]>
 }
 
 export function createGitHubClient(): GitHubClient {
@@ -70,6 +81,16 @@ export function createGitHubClient(): GitHubClient {
         mergeBaseSha: response.data.merge_base_commit?.sha ?? null,
         totalCommits: response.data.total_commits,
       }
+    },
+
+    async getDefaultBranch({ auth, repository }) {
+      const octokit = createOctokit(auth)
+      const response = await octokit.rest.repos.get({
+        owner: repository.owner,
+        repo: repository.repo,
+      })
+
+      return response.data.default_branch
     },
 
     async getPullRequests({ auth, pullNumbers, repository }) {
@@ -134,6 +155,24 @@ export function createGitHubClient(): GitHubClient {
         tagName: response.data.tag_name,
         targetCommitish: response.data.target_commitish,
       }
+    },
+
+    async listCommitsSince({ auth, branch, repository, since }) {
+      const octokit = createOctokit(auth)
+      const response = await octokit.rest.repos.listCommits({
+        owner: repository.owner,
+        per_page: 100,
+        repo: repository.repo,
+        sha: branch,
+        since,
+      })
+
+      return response.data.map((commit) => ({
+        committedAt: commit.commit.committer?.date ?? null,
+        message: commit.commit.message,
+        parentShas: commit.parents.map((parent) => parent.sha),
+        sha: commit.sha,
+      }))
     },
   }
 }

@@ -424,6 +424,52 @@ const githubSyncCompareResultSchema = z.object({
   syncRunId: z.string(),
 })
 
+const githubScopePreviewSchema = z.object({
+  changedFileCount: z.number().int(),
+  commits: githubSyncCompareResultSchema.shape.comparison.shape.commits,
+  compareRange: z.string().nullable(),
+  defaultBranch: z.string().nullable(),
+  expectedClaimCandidateCount: z.number().int(),
+  expectedEvidenceBlockCount: z.number().int(),
+  expectedSourceLinkCount: z.number().int(),
+  files: githubSyncCompareResultSchema.shape.comparison.shape.files,
+  mode: z.enum(["compare", "release", "since_date"]),
+  previewNotes: z.array(z.string()),
+  release: z
+    .object({
+      assets: z.array(
+        z.object({
+          contentType: z.string().nullable(),
+          downloadUrl: z.string().url(),
+          name: z.string(),
+          size: z.number().int(),
+        }),
+      ),
+      body: z.string().nullable(),
+      createdAt: z.string(),
+      draft: z.boolean(),
+      htmlUrl: z.string().url(),
+      id: z.number().int(),
+      name: z.string().nullable(),
+      prerelease: z.boolean(),
+      publishedAt: z.string().nullable(),
+      tagName: z.string(),
+      targetCommitish: z.string(),
+    })
+    .nullable(),
+  resolvedCompare: z
+    .object({
+      base: z.string(),
+      head: z.string(),
+    })
+    .nullable(),
+  scopeLabel: z.string(),
+  sinceDate: z.string().nullable(),
+  summary: z.string(),
+  title: z.string(),
+  totalCommits: z.number().int(),
+})
+
 const githubSyncReleaseResultSchema = z.object({
   claimCandidateCount: z.number().int(),
   evidenceBlockCount: z.number().int(),
@@ -455,6 +501,7 @@ const githubSyncReleaseResultSchema = z.object({
 export type ApiSession = z.infer<typeof apiSessionSchema>
 export type GitHubConnection = z.infer<typeof githubConnectionSchema>
 export type GitHubInstallationRepository = z.infer<typeof githubInstallationRepositorySchema>
+export type GitHubScopePreview = z.infer<typeof githubScopePreviewSchema>
 export type ReleaseRecordSnapshot = z.infer<typeof releaseRecordSnapshotSchema>
 export type ReleaseWorkflowDetail = z.infer<typeof releaseWorkflowDetailSchema>
 export type ReleaseWorkflowHistoryEntry = z.infer<typeof releaseWorkflowHistoryEntrySchema>
@@ -846,6 +893,66 @@ export function createApiClient(options: CreateApiClientOptions = {}) {
       return request(
         `/v1/workspaces/${encodeURIComponent(workspaceId)}/github/sync/compare`,
         githubSyncCompareResultSchema,
+        {
+          ...init,
+          body: JSON.stringify(payload),
+          method: "POST",
+        },
+      )
+    },
+    previewGitHubCompare(
+      workspaceId: string,
+      payload: {
+        compare: {
+          base: string
+          head: string
+        }
+        connectionId: string
+      },
+      init?: RequestInit,
+    ) {
+      return request(
+        `/v1/workspaces/${encodeURIComponent(workspaceId)}/github/sync/compare/preview`,
+        githubScopePreviewSchema,
+        {
+          ...init,
+          body: JSON.stringify(payload),
+          method: "POST",
+        },
+      )
+    },
+    previewGitHubRelease(
+      workspaceId: string,
+      payload: {
+        connectionId: string
+        release: {
+          releaseId?: number
+          tag?: string
+        }
+      },
+      init?: RequestInit,
+    ) {
+      return request(
+        `/v1/workspaces/${encodeURIComponent(workspaceId)}/github/sync/release/preview`,
+        githubScopePreviewSchema,
+        {
+          ...init,
+          body: JSON.stringify(payload),
+          method: "POST",
+        },
+      )
+    },
+    previewGitHubSinceDate(
+      workspaceId: string,
+      payload: {
+        connectionId: string
+        sinceDate: string
+      },
+      init?: RequestInit,
+    ) {
+      return request(
+        `/v1/workspaces/${encodeURIComponent(workspaceId)}/github/sync/since-date/preview`,
+        githubScopePreviewSchema,
         {
           ...init,
           body: JSON.stringify(payload),

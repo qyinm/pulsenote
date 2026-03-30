@@ -4,11 +4,14 @@ import type { SyncRun } from "../domain/models.js"
 import type { GitHubClient } from "./client.js"
 import type {
   GitHubCompareSummary,
+  GitHubResolvedCompareRange,
   GitHubCompareSyncRequest,
+  GitHubScopePreviewResult,
   GitHubCompareSyncResult,
   GitHubMergedPullSyncRequest,
   GitHubMergedPullSyncResult,
   GitHubPullRequestSummary,
+  GitHubSinceDatePreviewRequest,
   GitHubReleaseSelector,
   GitHubReleaseSummary,
   GitHubSyncAuth,
@@ -49,6 +52,223 @@ function nowIso() {
 
 function buildCompareScope(input: GitHubCompareSyncRequest) {
   return `github:repo:${input.repository.owner}/${input.repository.repo} compare:${input.compare.base}...${input.compare.head}`
+}
+
+function countCompareClaimCandidates(comparison: GitHubCompareSummary) {
+  return comparison.commits.reduce((count, commit) => {
+    return getCommitHeadline(commit.message) ? count + 1 : count
+  }, 0)
+}
+
+function buildComparePreview(input: GitHubCompareSyncRequest, comparison: GitHubCompareSummary): GitHubScopePreviewResult {
+  const compareRange = buildCompareRange(input.compare.base, input.compare.head)
+
+  return {
+    changedFileCount: comparison.files.length,
+    commits: comparison.commits,
+    compareRange,
+    defaultBranch: null,
+    expectedClaimCandidateCount: countCompareClaimCandidates(comparison),
+    expectedEvidenceBlockCount: comparison.commits.length + comparison.files.length,
+    expectedSourceLinkCount: 1 + comparison.commits.length,
+    files: comparison.files,
+    mode: "compare",
+    previewNotes: [
+      `PulseNote will freeze ${comparison.totalCommits} commits and ${comparison.files.length} changed files into one release scope.`,
+      "The compare scope becomes one reviewable release record before drafting starts.",
+    ],
+    release: null,
+    repository: input.repository,
+    resolvedCompare: {
+      base: input.compare.base,
+      head: input.compare.head,
+    },
+    scopeLabel: compareRange,
+    sinceDate: null,
+    summary: buildCompareReleaseSummary(comparison),
+    title: buildCompareReleaseTitle(input.repository, compareRange),
+    totalCommits: comparison.totalCommits,
+  }
+}
+
+function buildReleasePreview(
+  input: GitHubReleaseSyncRequest,
+  release: GitHubReleaseSummary,
+): GitHubScopePreviewResult {
+  return {
+    changedFileCount: 0,
+    commits: [],
+    compareRange: null,
+    defaultBranch: null,
+    expectedClaimCandidateCount: 0,
+    expectedEvidenceBlockCount: 1,
+    expectedSourceLinkCount: 2 + release.assets.length,
+    files: [],
+    mode: "release",
+    previewNotes: [
+      `PulseNote will anchor the release record to ${release.tagName} and its published GitHub release evidence.`,
+      "Release assets and the tagged target stay attached as source links from the start.",
+    ],
+    release,
+    repository: input.repository,
+    resolvedCompare: null,
+    scopeLabel: release.tagName,
+    sinceDate: null,
+    summary: buildReleaseRecordSummary(release),
+    title: buildReleaseRecordTitle(input.repository, release),
+    totalCommits: 0,
+  }
+}
+
+function parseSinceDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
+    throw new Error("sinceDate must use YYYY-MM-DD format")
+  }
+
+  const parsed = new Date(`${value.trim()}T00:00:00.000Z`)
+
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error("sinceDate is invalid")
+  }
+
+  return parsed.toISOString()
+}
+
+async function resolveConnection(
+  store: FoundationStore,
+  input: {
+    connectionId: string
+    workspaceId: string
+  },
+) {
+  const connection = await store.getIntegrationConnection(input.connectionId)
+
+  if (!connection) {
+    throw new Error(`Integration connection ${input.connectionId} was not found`)
+  }
+
+  if (connection.provider !== "github") {
+    throw new Error(`Integration connection ${input.connectionId} is not a GitHub connection`)
+  }
+
+  if (connection.workspaceId !== input.workspaceId) {
+    throw new Error(
+      `Integration connection ${input.connectionId} does not belong to workspace ${input.workspaceId}`,
+    )
+  }
+
+  return connection
+}
+
+async function resolveSinceDateCompareRange(input: {
+  auth: GitHubSyncAuth
+  githubClient: Pick<GitHubClient, "compareCommits"> &
+    Partial<Pick<GitHubClient, "getDefaultBranch" | "listCommitsSince">>
+  repository: GitHubCompareSyncRequest["repository"]
+  sinceDate: string
+}): Promise<{
+  commits: GitHubCompareSummary["commits"]
+  defaultBranch: string
+  comparison: GitHubCompareSummary
+  resolvedCompare: GitHubResolvedCompareRange
+}> {
+  if (!input.githubClient.getDefaultBranch || !input.githubClient.listCommitsSince) {
+    throw new Error("GitHub since-date preview is unavailable")
+  }
+
+  const sinceIso = parseSinceDate(input.sinceDate)
+  const defaultBranch = await input.githubClient.getDefaultBranch({
+    auth: input.auth,
+    repository: input.repository,
+  })
+  const commits = await input.githubClient.listCommitsSince({
+    auth: input.auth,
+    branch: defaultBranch,
+    repository: input.repository,
+    since: sinceIso,
+  })
+
+  if (commits.length === 0) {
+    return {
+      commits: [],
+      defaultBranch,
+      comparison: {
+        aheadBy: 0,
+        behindBy: 0,
+        commits: [],
+        files: [],
+        mergeBaseSha: null,
+        totalCommits: 0,
+      },
+      resolvedCompare: {
+        base: defaultBranch,
+        head: defaultBranch,
+      },
+    }
+  }
+
+  const oldestCommit = commits[commits.length - 1]
+  const base = oldestCommit?.parentShas[0] ?? oldestCommit?.sha ?? defaultBranch
+  const comparison = await input.githubClient.compareCommits({
+    auth: input.auth,
+    compare: {
+      base,
+      head: defaultBranch,
+    },
+    repository: input.repository,
+  })
+
+  return {
+    commits: comparison.commits,
+    comparison,
+    defaultBranch,
+    resolvedCompare: {
+      base,
+      head: defaultBranch,
+    },
+  }
+}
+
+function buildSinceDatePreview(input: {
+  repository: GitHubCompareSyncRequest["repository"]
+  sinceDate: string
+  defaultBranch: string
+  comparison: GitHubCompareSummary
+  resolvedCompare: GitHubResolvedCompareRange
+}): GitHubScopePreviewResult {
+  const scopeLabel = `${input.defaultBranch} since ${input.sinceDate}`
+
+  return {
+    changedFileCount: input.comparison.files.length,
+    commits: input.comparison.commits,
+    compareRange: buildCompareRange(input.resolvedCompare.base, input.resolvedCompare.head),
+    defaultBranch: input.defaultBranch,
+    expectedClaimCandidateCount: countCompareClaimCandidates(input.comparison),
+    expectedEvidenceBlockCount: input.comparison.commits.length + input.comparison.files.length,
+    expectedSourceLinkCount: 1 + input.comparison.commits.length,
+    files: input.comparison.files,
+    mode: "since_date",
+    previewNotes: input.comparison.totalCommits > 0
+      ? [
+          `PulseNote resolved ${input.comparison.totalCommits} commits on ${input.defaultBranch} after ${input.sinceDate}.`,
+          "The since-date scope is confirmed as one explicit compare range before the release record is created.",
+        ]
+      : [
+          `No commits were found on ${input.defaultBranch} after ${input.sinceDate}.`,
+          "Pick an earlier date or another scope before creating a release record.",
+        ],
+    release: null,
+    repository: input.repository,
+    resolvedCompare: input.resolvedCompare,
+    scopeLabel,
+    sinceDate: input.sinceDate,
+    summary:
+      input.comparison.totalCommits > 0
+        ? buildCompareReleaseSummary(input.comparison)
+        : `No GitHub commits were found on ${input.defaultBranch} after ${input.sinceDate}.`,
+    title: `${input.repository.owner}/${input.repository.repo} activity since ${input.sinceDate}`,
+    totalCommits: input.comparison.totalCommits,
+  }
 }
 
 function validateReleaseSelector(release: {
@@ -328,7 +548,8 @@ async function markSyncRunStatus(
 }
 
 export function createGitHubSyncService(options: {
-  githubClient: GitHubClient
+  githubClient: Pick<GitHubClient, "compareCommits" | "getPullRequests" | "getRelease"> &
+    Partial<Pick<GitHubClient, "getDefaultBranch" | "listCommitsSince">>
   runtimeEnv: AppRuntimeEnv
   store: FoundationStore
 }) {
@@ -356,21 +577,7 @@ export function createGitHubSyncService(options: {
       requireNonEmpty(input.compare.head, "compare.head")
       requireNonEmpty(input.auth.token, "auth.token")
 
-      const connection = await store.getIntegrationConnection(input.connectionId)
-
-      if (!connection) {
-        throw new Error(`Integration connection ${input.connectionId} was not found`)
-      }
-
-      if (connection.provider !== "github") {
-        throw new Error(`Integration connection ${input.connectionId} is not a GitHub connection`)
-      }
-
-      if (connection.workspaceId !== input.workspaceId) {
-        throw new Error(
-          `Integration connection ${input.connectionId} does not belong to workspace ${input.workspaceId}`,
-        )
-      }
+      await resolveConnection(store, input)
 
       const scope = buildCompareScope(input)
       const queuedSyncRun = await store.createSyncRun({
@@ -436,21 +643,7 @@ export function createGitHubSyncService(options: {
         throw new Error("pullNumbers must only contain positive integers")
       }
 
-      const connection = await store.getIntegrationConnection(input.connectionId)
-
-      if (!connection) {
-        throw new Error(`Integration connection ${input.connectionId} was not found`)
-      }
-
-      if (connection.provider !== "github") {
-        throw new Error(`Integration connection ${input.connectionId} is not a GitHub connection`)
-      }
-
-      if (connection.workspaceId !== input.workspaceId) {
-        throw new Error(
-          `Integration connection ${input.connectionId} does not belong to workspace ${input.workspaceId}`,
-        )
-      }
+      await resolveConnection(store, input)
 
       const scope = buildMergedPullScope(input.repository, input.pullNumbers)
       const queuedSyncRun = await store.createSyncRun({
@@ -502,21 +695,7 @@ export function createGitHubSyncService(options: {
       requireNonEmpty(input.auth.token, "auth.token")
 
       const releaseSelector = validateReleaseSelector(input.release)
-      const connection = await store.getIntegrationConnection(input.connectionId)
-
-      if (!connection) {
-        throw new Error(`Integration connection ${input.connectionId} was not found`)
-      }
-
-      if (connection.provider !== "github") {
-        throw new Error(`Integration connection ${input.connectionId} is not a GitHub connection`)
-      }
-
-      if (connection.workspaceId !== input.workspaceId) {
-        throw new Error(
-          `Integration connection ${input.connectionId} does not belong to workspace ${input.workspaceId}`,
-        )
-      }
+      await resolveConnection(store, input)
 
       const scopeSeed =
         "tag" in releaseSelector
@@ -560,6 +739,78 @@ export function createGitHubSyncService(options: {
         await markSyncRunStatus(store, queuedSyncRun, "failed", message)
         throw new Error(message)
       }
+    },
+
+    async previewCompareRange(input: GitHubCompareSyncRequest): Promise<GitHubScopePreviewResult> {
+      assertProductionAuth(input)
+
+      requireNonEmpty(input.workspaceId, "workspaceId")
+      requireNonEmpty(input.connectionId, "connectionId")
+      requireNonEmpty(input.repository.owner, "repository.owner")
+      requireNonEmpty(input.repository.repo, "repository.repo")
+      requireNonEmpty(input.compare.base, "compare.base")
+      requireNonEmpty(input.compare.head, "compare.head")
+      requireNonEmpty(input.auth.token, "auth.token")
+
+      await resolveConnection(store, input)
+
+      const comparison = await githubClient.compareCommits({
+        auth: input.auth,
+        compare: input.compare,
+        repository: input.repository,
+      })
+
+      return buildComparePreview(input, comparison)
+    },
+
+    async previewRelease(input: GitHubReleaseSyncRequest): Promise<GitHubScopePreviewResult> {
+      assertProductionAuth(input)
+
+      requireNonEmpty(input.workspaceId, "workspaceId")
+      requireNonEmpty(input.connectionId, "connectionId")
+      requireNonEmpty(input.repository.owner, "repository.owner")
+      requireNonEmpty(input.repository.repo, "repository.repo")
+      requireNonEmpty(input.auth.token, "auth.token")
+
+      const releaseSelector = validateReleaseSelector(input.release)
+
+      await resolveConnection(store, input)
+
+      const release = await githubClient.getRelease({
+        auth: input.auth,
+        release: releaseSelector,
+        repository: input.repository,
+      })
+
+      return buildReleasePreview(input, release)
+    },
+
+    async previewSinceDate(input: GitHubSinceDatePreviewRequest): Promise<GitHubScopePreviewResult> {
+      assertProductionAuth(input)
+
+      requireNonEmpty(input.workspaceId, "workspaceId")
+      requireNonEmpty(input.connectionId, "connectionId")
+      requireNonEmpty(input.repository.owner, "repository.owner")
+      requireNonEmpty(input.repository.repo, "repository.repo")
+      requireNonEmpty(input.auth.token, "auth.token")
+      requireNonEmpty(input.sinceDate, "sinceDate")
+
+      await resolveConnection(store, input)
+
+      const resolved = await resolveSinceDateCompareRange({
+        auth: input.auth,
+        githubClient,
+        repository: input.repository,
+        sinceDate: input.sinceDate,
+      })
+
+      return buildSinceDatePreview({
+        comparison: resolved.comparison,
+        defaultBranch: resolved.defaultBranch,
+        repository: input.repository,
+        resolvedCompare: resolved.resolvedCompare,
+        sinceDate: input.sinceDate,
+      })
     },
   }
 }

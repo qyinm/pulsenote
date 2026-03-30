@@ -42,6 +42,10 @@ export type GitHubCompareCommit = {
   sha: string
 }
 
+export type GitHubRepositoryCommit = GitHubCompareCommit & {
+  parentShas: string[]
+}
+
 export type GitHubPullRequestSummary = {
   baseRefName: string
   body: string | null
@@ -108,6 +112,40 @@ export type GitHubReleaseSyncRequest = {
   release: GitHubReleaseSelector
   repository: GitHubRepositoryScope
   workspaceId: string
+}
+
+export type GitHubSinceDatePreviewRequest = {
+  auth: GitHubSyncAuth
+  connectionId: string
+  repository: GitHubRepositoryScope
+  sinceDate: string
+  workspaceId: string
+}
+
+export type GitHubResolvedCompareRange = {
+  base: string
+  head: string
+}
+
+export type GitHubScopePreviewResult = {
+  changedFileCount: number
+  commits: GitHubCompareCommit[]
+  compareRange: string | null
+  defaultBranch: string | null
+  expectedClaimCandidateCount: number
+  expectedEvidenceBlockCount: number
+  expectedSourceLinkCount: number
+  files: GitHubCompareFile[]
+  mode: "compare" | "release" | "since_date"
+  previewNotes: string[]
+  release: GitHubReleaseSummary | null
+  repository: GitHubRepositoryScope
+  resolvedCompare: GitHubResolvedCompareRange | null
+  scopeLabel: string
+  sinceDate: string | null
+  summary: string
+  title: string
+  totalCommits: number
 }
 
 export type GitHubCompareSyncResult = {

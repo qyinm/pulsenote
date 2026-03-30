@@ -11,7 +11,11 @@ import {
   TagIcon,
 } from "lucide-react"
 
-import type { GitHubConnection, ReleaseRecordSnapshot } from "@/lib/api/client"
+import type {
+  GitHubConnection,
+  GitHubScopePreview,
+  ReleaseRecordSnapshot,
+} from "@/lib/api/client"
 import { createApiClient } from "@/lib/api/client"
 import { buildReleaseContextQueueItem } from "@/lib/dashboard/release-context"
 import { buildReleaseWorkspaceHref } from "@/lib/release-workflow"
@@ -50,6 +54,17 @@ function formatLastSyncedAt(value: string | null) {
   })
 }
 
+function formatPreviewTimestamp(value: string | null) {
+  if (!value) {
+    return "Unknown time"
+  }
+
+  return new Date(value).toLocaleString("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  })
+}
+
 function getRecentReleaseRows(releaseRecords: ReleaseRecordSnapshot[]) {
   return releaseRecords.slice(0, 5).map((snapshot) => {
     const queueItem = buildReleaseContextQueueItem(snapshot)
@@ -71,50 +86,93 @@ function getRecentReleaseRows(releaseRecords: ReleaseRecordSnapshot[]) {
   })
 }
 
-function buildScopePreviewNotes({
-  compareBase,
-  compareHead,
-  githubConnection,
-  releaseTag,
-  scopeMode,
-  sinceDate,
-}: {
-  compareBase: string
-  compareHead: string
-  githubConnection: GitHubConnection
-  releaseTag: string
-  scopeMode: NewReleaseScopeMode
-  sinceDate: string
-}) {
-  const repositoryLabel = `${githubConnection.repositoryOwner}/${githubConnection.repositoryName}`
+function buildPreviewCommitRows(preview: GitHubScopePreview) {
+  return preview.commits.slice(0, 5).map((commit) => ({
+    key: commit.sha,
+    cells: {
+      committedAt: formatPreviewTimestamp(commit.committedAt),
+      message: (
+        <div className="grid gap-1">
+          <span className="font-medium text-foreground">{commit.message.split("\n")[0]}</span>
+          <span className="text-xs text-muted-foreground">{commit.sha.slice(0, 7)}</span>
+        </div>
+      ),
+    },
+  }))
+}
 
-  if (scopeMode === "release") {
-    return [
-      `Repository: ${repositoryLabel}`,
-      releaseTag.trim()
-        ? `PulseNote will sync the GitHub release tagged ${releaseTag.trim()} into one release record.`
-        : "Choose the exact GitHub release tag that already exists before creating the record.",
-      "The created release stays attached to its GitHub release evidence and source links from the start.",
-    ]
-  }
+function buildPreviewFileRows(preview: GitHubScopePreview) {
+  return preview.files.slice(0, 5).map((file) => ({
+    key: file.filename,
+    cells: {
+      file: file.filename,
+      status: file.status,
+      changes: `${file.changes} lines`,
+    },
+  }))
+}
 
-  if (scopeMode === "compare") {
-    return [
-      `Repository: ${repositoryLabel}`,
-      compareBase.trim() && compareHead.trim()
-        ? `PulseNote will compare ${compareBase.trim()}...${compareHead.trim()} and store one release scope from that diff.`
-        : "Choose the base and head refs that define one reviewable release window.",
-      "The compare scope will carry commit evidence and changed-file context into the release workflow.",
-    ]
-  }
-
-  return [
-    `Repository: ${repositoryLabel}`,
-    sinceDate
-      ? `Since date preview is planned for changes after ${sinceDate}, but it does not create a release record yet.`
-      : "Since date preview is planned, but it does not create a release record yet.",
-    "This mode will ship only once PulseNote can preview concrete commits and PRs before confirmation.",
+function buildPreviewDetails(preview: GitHubScopePreview) {
+  const items = [
+    {
+      label: "Scope",
+      value: preview.scopeLabel,
+    },
+    {
+      label: "Expected evidence",
+      value: String(preview.expectedEvidenceBlockCount),
+    },
+    {
+      label: "Expected source links",
+      value: String(preview.expectedSourceLinkCount),
+    },
   ]
+
+  if (preview.compareRange) {
+    items.splice(1, 0, {
+      label: "Resolved range",
+      value: preview.compareRange,
+    })
+  }
+
+  if (preview.mode === "since_date" && preview.defaultBranch) {
+    items.splice(1, 0, {
+      label: "Default branch",
+      value: preview.defaultBranch,
+    })
+  }
+
+  if (preview.release) {
+    items.push(
+      {
+        label: "Release tag",
+        value: preview.release.tagName,
+      },
+      {
+        label: "Assets",
+        value: String(preview.release.assets.length),
+      },
+    )
+  } else {
+    items.push({
+      label: "Commits",
+      value: String(preview.totalCommits),
+    })
+  }
+
+  return items
+}
+
+function canConfirmPreview(preview: GitHubScopePreview | null) {
+  if (!preview) {
+    return false
+  }
+
+  if (preview.mode === "release") {
+    return preview.release !== null
+  }
+
+  return preview.resolvedCompare !== null && preview.totalCommits > 0
 }
 
 export function NewReleaseLiveWorkspace({
@@ -131,19 +189,70 @@ export function NewReleaseLiveWorkspace({
   const [compareBase, setCompareBase] = useState("main")
   const [compareHead, setCompareHead] = useState("")
   const [sinceDate, setSinceDate] = useState("")
+  const [preview, setPreview] = useState<GitHubScopePreview | null>(null)
+  const [isPreviewing, setIsPreviewing] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-  async function handleReleaseSync(event: FormEvent<HTMLFormElement>) {
+  function resetPreview(nextMode?: NewReleaseScopeMode) {
+    setPreview((currentPreview) => {
+      if (!currentPreview) {
+        return null
+      }
+
+      if (!nextMode || currentPreview.mode === nextMode) {
+        return null
+      }
+
+      return null
+    })
+  }
+
+  async function handlePreview(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
     if (!githubConnection) {
-      setErrorMessage("Connect GitHub before creating a release scope.")
+      setErrorMessage("Connect GitHub before previewing a release scope.")
       return
     }
 
-    if (!releaseTag.trim()) {
-      setErrorMessage("Enter the GitHub release tag that should become this release record.")
+    setErrorMessage(null)
+    setIsPreviewing(true)
+
+    try {
+      const apiClient = createApiClient()
+      const nextPreview =
+        scopeMode === "release"
+          ? await apiClient.previewGitHubRelease(workspaceId, {
+              connectionId: githubConnection.connectionId,
+              release: {
+                tag: releaseTag.trim(),
+              },
+            })
+          : scopeMode === "since_date"
+            ? await apiClient.previewGitHubSinceDate(workspaceId, {
+                connectionId: githubConnection.connectionId,
+                sinceDate: sinceDate.trim(),
+              })
+            : await apiClient.previewGitHubCompare(workspaceId, {
+                compare: {
+                  base: compareBase.trim(),
+                  head: compareHead.trim(),
+                },
+                connectionId: githubConnection.connectionId,
+              })
+
+      setPreview(nextPreview)
+    } catch (error) {
+      setPreview(null)
+      setErrorMessage(error instanceof Error ? error.message : "Release scope preview failed.")
+    } finally {
+      setIsPreviewing(false)
+    }
+  }
+
+  async function handleConfirmPreview() {
+    if (!githubConnection || !preview) {
       return
     }
 
@@ -151,12 +260,22 @@ export function NewReleaseLiveWorkspace({
     setIsSubmitting(true)
 
     try {
-      const result = await createApiClient().syncGitHubRelease(workspaceId, {
-        connectionId: githubConnection.connectionId,
-        release: {
-          tag: releaseTag.trim(),
-        },
-      })
+      const apiClient = createApiClient()
+      const result =
+        preview.mode === "release" && preview.release
+          ? await apiClient.syncGitHubRelease(workspaceId, {
+              connectionId: githubConnection.connectionId,
+              release: {
+                tag: preview.release.tagName,
+              },
+            })
+          : await apiClient.syncGitHubCompare(workspaceId, {
+              compare: {
+                base: preview.resolvedCompare!.base,
+                head: preview.resolvedCompare!.head,
+              },
+              connectionId: githubConnection.connectionId,
+            })
 
       router.push(
         buildReleaseWorkspaceHref({
@@ -164,62 +283,28 @@ export function NewReleaseLiveWorkspace({
         }),
       )
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "GitHub release intake failed.")
+      setErrorMessage(error instanceof Error ? error.message : "Release creation failed.")
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  async function handleCompareSync(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-
-    if (!githubConnection) {
-      setErrorMessage("Connect GitHub before creating a release scope.")
-      return
-    }
-
-    if (!compareBase.trim() || !compareHead.trim()) {
-      setErrorMessage("Both compare refs are required before creating the release record.")
-      return
-    }
-
-    setErrorMessage(null)
-    setIsSubmitting(true)
-
-    try {
-      const result = await createApiClient().syncGitHubCompare(workspaceId, {
-        compare: {
-          base: compareBase.trim(),
-          head: compareHead.trim(),
-        },
-        connectionId: githubConnection.connectionId,
-      })
-
-      router.push(
-        buildReleaseWorkspaceHref({
-          selectedId: result.releaseRecordId,
-        }),
-      )
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "GitHub compare intake failed.")
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
+  const previewCommitRows = preview ? buildPreviewCommitRows(preview) : []
+  const previewFileRows = preview ? buildPreviewFileRows(preview) : []
 
   return (
     <DashboardSplit
       main={
         <SurfaceCard
           title="New release"
-          description="Choose one repository scope, confirm the release window, and let PulseNote create one record that carries draft, review, and publish-pack state all the way through."
+          description="Choose one repository scope, preview the exact evidence PulseNote will ingest, and confirm one release record before draft, review, and publish-pack work begins."
         >
           {!githubConnection ? (
             <div className="grid gap-4">
               <div className="grid gap-2">
                 <p className="text-sm font-medium text-foreground">1. Connect the repository</p>
                 <p className="text-sm text-muted-foreground">
-                  PulseNote only creates release records from a connected GitHub repository so the full workflow stays attached to source evidence.
+                  PulseNote only creates release records from a connected GitHub repository so the workflow stays attached to source evidence from the start.
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-3">
@@ -283,13 +368,18 @@ export function NewReleaseLiveWorkspace({
                 <div className="grid gap-1">
                   <p className="text-sm font-medium text-foreground">2. Scope</p>
                   <p className="text-sm text-muted-foreground">
-                    Pick one concrete release scope. PulseNote will turn that scope into a single release record.
+                    Pick one concrete release scope, preview the exact release evidence, then confirm the release record.
                   </p>
                 </div>
 
                 <Tabs
                   value={scopeMode}
-                  onValueChange={(value) => setScopeMode(value as NewReleaseScopeMode)}
+                  onValueChange={(value) => {
+                    const nextMode = value as NewReleaseScopeMode
+                    setScopeMode(nextMode)
+                    resetPreview(nextMode)
+                    setErrorMessage(null)
+                  }}
                   className="gap-4"
                 >
                   <TabsList variant="line" className="w-full justify-start">
@@ -308,7 +398,7 @@ export function NewReleaseLiveWorkspace({
                   </TabsList>
 
                   <TabsContent value="compare">
-                    <form className="grid gap-4" onSubmit={handleCompareSync}>
+                    <form className="grid gap-4" onSubmit={handlePreview}>
                       <div className="grid gap-3 md:grid-cols-2">
                         <div className="grid gap-2">
                           <label
@@ -320,7 +410,10 @@ export function NewReleaseLiveWorkspace({
                           <Input
                             id="new-release-compare-base"
                             value={compareBase}
-                            onChange={(event) => setCompareBase(event.target.value)}
+                            onChange={(event) => {
+                              setCompareBase(event.target.value)
+                              resetPreview()
+                            }}
                             placeholder="main"
                           />
                         </div>
@@ -334,14 +427,17 @@ export function NewReleaseLiveWorkspace({
                           <Input
                             id="new-release-compare-head"
                             value={compareHead}
-                            onChange={(event) => setCompareHead(event.target.value)}
+                            onChange={(event) => {
+                              setCompareHead(event.target.value)
+                              resetPreview()
+                            }}
                             placeholder="release/2026-03-30"
                           />
                         </div>
                       </div>
                       <div className="flex flex-wrap items-center gap-3">
-                        <Button type="submit" size="sm" disabled={isSubmitting}>
-                          {isSubmitting ? "Creating release..." : "Create compare release"}
+                        <Button type="submit" size="sm" disabled={isPreviewing || isSubmitting}>
+                          {isPreviewing ? "Previewing scope..." : "Preview compare scope"}
                         </Button>
                         <p className="text-sm text-muted-foreground">
                           Use this when the team shipped work from one explicit range without publishing a formal GitHub release first.
@@ -351,7 +447,7 @@ export function NewReleaseLiveWorkspace({
                   </TabsContent>
 
                   <TabsContent value="release">
-                    <form className="grid gap-4" onSubmit={handleReleaseSync}>
+                    <form className="grid gap-4" onSubmit={handlePreview}>
                       <div className="grid gap-2">
                         <label
                           htmlFor="new-release-tag"
@@ -362,13 +458,16 @@ export function NewReleaseLiveWorkspace({
                         <Input
                           id="new-release-tag"
                           value={releaseTag}
-                          onChange={(event) => setReleaseTag(event.target.value)}
+                          onChange={(event) => {
+                            setReleaseTag(event.target.value)
+                            resetPreview()
+                          }}
                           placeholder="v2.4.0"
                         />
                       </div>
                       <div className="flex flex-wrap items-center gap-3">
-                        <Button type="submit" size="sm" disabled={isSubmitting}>
-                          {isSubmitting ? "Creating release..." : "Create tagged release"}
+                        <Button type="submit" size="sm" disabled={isPreviewing || isSubmitting}>
+                          {isPreviewing ? "Previewing scope..." : "Preview release tag"}
                         </Button>
                         <p className="text-sm text-muted-foreground">
                           Use this only when the GitHub release or tag already exists and should anchor the release record.
@@ -378,7 +477,7 @@ export function NewReleaseLiveWorkspace({
                   </TabsContent>
 
                   <TabsContent value="since_date">
-                    <div className="grid gap-4 rounded-2xl border border-dashed border-border bg-muted/20 p-4">
+                    <form className="grid gap-4" onSubmit={handlePreview}>
                       <div className="grid gap-2">
                         <label
                           htmlFor="new-release-since-date"
@@ -390,39 +489,139 @@ export function NewReleaseLiveWorkspace({
                           id="new-release-since-date"
                           type="date"
                           value={sinceDate}
-                          onChange={(event) => setSinceDate(event.target.value)}
+                          onChange={(event) => {
+                            setSinceDate(event.target.value)
+                            resetPreview()
+                          }}
                         />
                       </div>
                       <div className="flex flex-wrap items-center gap-3">
-                        <Button type="button" size="sm" disabled>
-                          Preview coming next
+                        <Button type="submit" size="sm" disabled={isPreviewing || isSubmitting}>
+                          {isPreviewing ? "Previewing scope..." : "Preview since date"}
                         </Button>
                         <p className="text-sm text-muted-foreground">
-                          This mode will ship once PulseNote can preview concrete commits and PRs before confirming the release scope.
+                          PulseNote will resolve the date into one explicit compare range before it creates the release record.
                         </p>
                       </div>
-                    </div>
+                    </form>
                   </TabsContent>
                 </Tabs>
               </div>
 
-              <div className="grid gap-3 rounded-2xl border border-border/70 bg-muted/20 p-4">
+              <div className="grid gap-4 rounded-2xl border border-border/70 bg-muted/20 p-4">
                 <div className="grid gap-1">
-                  <p className="text-sm font-medium text-foreground">3. What happens next</p>
+                  <p className="text-sm font-medium text-foreground">3. Preview</p>
                   <p className="text-sm text-muted-foreground">
-                    PulseNote will create one release record and carry it into draft, claim check, approval, and publish-pack export.
+                    Confirm the exact release evidence before PulseNote creates one release record.
                   </p>
                 </div>
-                <BulletList
-                  items={buildScopePreviewNotes({
-                    compareBase,
-                    compareHead,
-                    githubConnection,
-                    releaseTag,
-                    scopeMode,
-                    sinceDate,
-                  })}
-                />
+
+                {preview ? (
+                  <div className="grid gap-4">
+                    <InlineList items={buildPreviewDetails(preview)} />
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <SurfaceCard title={preview.title} description={preview.summary}>
+                        <BulletList items={preview.previewNotes} />
+                      </SurfaceCard>
+                      {preview.release ? (
+                        <SurfaceCard
+                          title="Release evidence"
+                          description="Tagged release metadata and assets that will anchor this record."
+                        >
+                          <InlineList
+                            items={[
+                              {
+                                label: "Published",
+                                value: formatPreviewTimestamp(preview.release.publishedAt),
+                              },
+                              {
+                                label: "Target",
+                                value: preview.release.targetCommitish,
+                              },
+                              {
+                                label: "Assets",
+                                value: String(preview.release.assets.length),
+                              },
+                            ]}
+                          />
+                        </SurfaceCard>
+                      ) : (
+                        <SurfaceCard
+                          title="Scope coverage"
+                          description="These commits and changed files become the intake evidence for this release."
+                        >
+                          <InlineList
+                            items={[
+                              {
+                                label: "Commits",
+                                value: String(preview.totalCommits),
+                              },
+                              {
+                                label: "Changed files",
+                                value: String(preview.changedFileCount),
+                              },
+                              {
+                                label: "Claim candidates",
+                                value: String(preview.expectedClaimCandidateCount),
+                              },
+                            ]}
+                          />
+                        </SurfaceCard>
+                      )}
+                    </div>
+
+                    {preview.commits.length > 0 ? (
+                      <SimpleTable
+                        columns={[
+                          { key: "message", label: "Commit" },
+                          { key: "committedAt", label: "Committed" },
+                        ]}
+                        rows={previewCommitRows}
+                        emptyTitle="No commits in preview"
+                        emptyDescription="Choose another scope before creating the release record."
+                      />
+                    ) : null}
+
+                    {preview.files.length > 0 ? (
+                      <SimpleTable
+                        columns={[
+                          { key: "file", label: "Changed file" },
+                          { key: "status", label: "Status" },
+                          { key: "changes", label: "Changes" },
+                        ]}
+                        rows={previewFileRows}
+                        emptyTitle="No files in preview"
+                        emptyDescription="Choose another scope before creating the release record."
+                      />
+                    ) : null}
+
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={isSubmitting || !canConfirmPreview(preview)}
+                        onClick={() => {
+                          void handleConfirmPreview()
+                        }}
+                      >
+                        {isSubmitting ? "Creating release..." : "Create release record"}
+                      </Button>
+                      <p className="text-sm text-muted-foreground">
+                        {canConfirmPreview(preview)
+                          ? "PulseNote will create one release record from this confirmed scope."
+                          : "This scope does not have enough confirmed evidence to create a release record yet."}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <BulletList
+                    items={[
+                      "1. Pick a concrete GitHub scope.",
+                      "2. Preview the exact commits, release metadata, and source coverage.",
+                      "3. Confirm the scope only after the evidence looks right.",
+                    ]}
+                  />
+                )}
               </div>
 
               {errorMessage ? (
@@ -442,7 +641,7 @@ export function NewReleaseLiveWorkspace({
           >
             <BulletList
               items={[
-                "1. Create one release scope from GitHub evidence.",
+                "1. Confirm one release scope from GitHub evidence.",
                 "2. Turn that scope into one reviewable draft.",
                 "3. Run claim check before public wording moves on.",
                 "4. Route approval to one explicit reviewer handoff.",
