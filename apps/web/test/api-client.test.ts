@@ -215,6 +215,49 @@ function createReleaseWorkflowHistoryEntryPayload() {
   }
 }
 
+function createGitHubScopePreviewPayload() {
+  return {
+    changedFileCount: 2,
+    commits: [
+      {
+        committedAt: "2026-03-20T00:00:00.000Z",
+        message: "Add release scope preview",
+        sha: "abc123",
+      },
+    ],
+    compareRange: "main...test/release-context-flow",
+    defaultBranch: "main",
+    expectedClaimCandidateCount: 1,
+    expectedEvidenceBlockCount: 3,
+    expectedSourceLinkCount: 2,
+    files: [
+      {
+        additions: 10,
+        changes: 12,
+        deletions: 2,
+        filename: "apps/web/components/dashboard/new-release-live-workspace.tsx",
+        patch: "@@ -1 +1 @@",
+        status: "modified",
+      },
+    ],
+    mode: "since_date",
+    previewNotes: [
+      "PulseNote resolved 1 commits on main after 2026-03-01.",
+      "The since-date scope is confirmed as one explicit compare range before the release record is created.",
+    ],
+    release: null,
+    resolvedCompare: {
+      base: "def456",
+      head: "main",
+    },
+    scopeLabel: "main since 2026-03-01",
+    sinceDate: "2026-03-01",
+    summary: "1 commits changed in this release window.",
+    title: "qyinm/pulsenote activity since 2026-03-01",
+    totalCommits: 1,
+  }
+}
+
 test("getApiBaseUrl prefers NEXT_PUBLIC_API_BASE_URL when configured", () => {
   assert.equal(
     getApiBaseUrl({
@@ -560,4 +603,29 @@ test("api client forwards custom headers for server-side session reads", async (
     "better-auth.session=abc123",
   )
   assert.equal(requests[0]?.init?.credentials, "include")
+})
+
+test("api client previews GitHub release scopes through the preview endpoints", async () => {
+  const requests: Array<{ init?: RequestInit; input: RequestInfo | URL }> = []
+  const client = createApiClient({
+    baseUrl: "https://api.pulsenotes.xyz",
+    fetch: async (input, init) => {
+      requests.push({ init, input })
+      return Response.json(createGitHubScopePreviewPayload())
+    },
+  })
+
+  const preview = await client.previewGitHubSinceDate("workspace_1", {
+    connectionId: "connection_1",
+    sinceDate: "2026-03-01",
+  })
+
+  assert.equal(preview.mode, "since_date")
+  assert.equal(preview.resolvedCompare?.head, "main")
+  assert.equal(String(requests[0]?.input), "https://api.pulsenotes.xyz/v1/workspaces/workspace_1/github/sync/since-date/preview")
+  assert.equal(requests[0]?.init?.method, "POST")
+  assert.equal(requests[0]?.init?.body, JSON.stringify({
+    connectionId: "connection_1",
+    sinceDate: "2026-03-01",
+  }))
 })

@@ -107,12 +107,104 @@ function getErrorStatus(message: string, fallbackStatus: number) {
   return fallbackStatus
 }
 
+async function resolveGitHubSyncContextFromPayload(input: {
+  auth: Record<string, unknown> | null
+  connectionId: string
+  foundationService: FoundationService | undefined
+  githubInstallationService: GitHubInstallationService | undefined
+  repository: Record<string, unknown> | null
+  workspaceId: string
+}) {
+  const token = asString(input.auth?.token)
+  const strategy = asGitHubTokenStrategy(input.auth?.strategy)
+  const owner = asString(input.repository?.owner)
+  const repo = asString(input.repository?.repo)
+  const installationId = asString(input.repository?.installationId)
+
+  if (input.auth !== null || input.repository !== null) {
+    if (!token || !strategy || !owner || !repo) {
+      throw new Error(
+        "connectionId, auth.token, auth.strategy, repository.owner, and repository.repo are required",
+      )
+    }
+
+    return {
+      auth: {
+        ...createClientSuppliedGitHubSyncAuth(token, strategy),
+      },
+      repository: {
+        installationId,
+        owner,
+        provider: "github" as const,
+        repo,
+      } satisfies GitHubRepositoryScope,
+    }
+  }
+
+  return resolveStoredGitHubSyncContext(
+    input.foundationService,
+    input.githubInstallationService,
+    input.workspaceId,
+    input.connectionId,
+  )
+}
+
 export function createGitHubSyncRoute(
   githubSyncService: GitHubSyncService,
   foundationService?: FoundationService,
   githubInstallationService?: GitHubInstallationService,
 ) {
   const route = new Hono<AppBindings>()
+
+  route.post("/sync/compare/preview", async (context) => {
+    const workspaceId = context.req.param("workspaceId")
+    const body = await context.req.json().catch(() => null)
+    const payload = asRecord(body)
+    const auth = asRecord(payload?.auth)
+    const compare = asRecord(payload?.compare)
+    const repository = asRecord(payload?.repository)
+    const connectionId = asString(payload?.connectionId)
+    const base = asString(compare?.base)
+    const head = asString(compare?.head)
+
+    if (!workspaceId || !connectionId || !base || !head) {
+      return context.json(
+        {
+          message: "connectionId, compare.base, compare.head, and workspaceId are required",
+          status: 400,
+        },
+        400,
+      )
+    }
+
+    try {
+      const resolved = await resolveGitHubSyncContextFromPayload({
+        auth,
+        connectionId,
+        foundationService,
+        githubInstallationService,
+        repository,
+        workspaceId,
+      })
+
+      const result = await githubSyncService.previewCompareRange({
+        auth: resolved.auth,
+        compare: {
+          base,
+          head,
+        },
+        connectionId,
+        repository: resolved.repository,
+        workspaceId,
+      })
+
+      return context.json(result, 200)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "GitHub compare preview failed"
+      const status = getErrorStatus(message, 502)
+      return context.json({ message, status }, status as 400 | 403 | 404 | 502)
+    }
+  })
 
   route.post("/sync/compare", async (context) => {
     const workspaceId = context.req.param("workspaceId")
@@ -135,45 +227,15 @@ export function createGitHubSyncRoute(
       )
     }
 
-    const token = asString(auth?.token)
-    const strategy = asGitHubTokenStrategy(auth?.strategy)
-    const owner = asString(repository?.owner)
-    const repo = asString(repository?.repo)
-    const installationId = asString(repository?.installationId)
-
-    if (auth !== null || repository !== null) {
-      if (!token || !strategy || !owner || !repo) {
-        return context.json(
-          {
-            message:
-              "connectionId, auth.token, auth.strategy, compare.base, compare.head, repository.owner, and repository.repo are required",
-            status: 400,
-          },
-          400,
-        )
-      }
-    }
-
     try {
-      const resolved =
-        token && strategy && owner && repo
-          ? {
-              auth: {
-                ...createClientSuppliedGitHubSyncAuth(token, strategy),
-              },
-              repository: {
-                installationId,
-                owner,
-                provider: "github",
-                repo,
-              } satisfies GitHubRepositoryScope,
-            }
-          : await resolveStoredGitHubSyncContext(
-              foundationService,
-              githubInstallationService,
-              workspaceId,
-              connectionId,
-            )
+      const resolved = await resolveGitHubSyncContextFromPayload({
+        auth,
+        connectionId,
+        foundationService,
+        githubInstallationService,
+        repository,
+        workspaceId,
+      })
 
       const result = await githubSyncService.syncCompareRange({
         auth: resolved.auth,
@@ -287,32 +349,7 @@ export function createGitHubSyncRoute(
     const hasTag = Boolean(tag)
     const hasReleaseId = releaseId !== null
 
-    const token = asString(auth?.token)
-    const strategy = asGitHubTokenStrategy(auth?.strategy)
-    const owner = asString(repository?.owner)
-    const repo = asString(repository?.repo)
-    const installationId = asString(repository?.installationId)
-
-    if (auth !== null || repository !== null) {
-      if (
-        !workspaceId ||
-        !connectionId ||
-        hasTag === hasReleaseId ||
-        !token ||
-        !strategy ||
-        !owner ||
-        !repo
-      ) {
-        return context.json(
-          {
-            message:
-              "connectionId, auth.token, auth.strategy, repository.owner, repository.repo, and exactly one of release.tag or release.releaseId are required",
-            status: 400,
-          },
-          400,
-        )
-      }
-    } else if (!workspaceId || !connectionId || hasTag === hasReleaseId) {
+    if (!workspaceId || !connectionId || hasTag === hasReleaseId) {
       return context.json(
         {
           message: "connectionId, workspaceId, and exactly one of release.tag or release.releaseId are required",
@@ -323,25 +360,14 @@ export function createGitHubSyncRoute(
     }
 
     try {
-      const resolved =
-        token && strategy && owner && repo
-          ? {
-              auth: {
-                ...createClientSuppliedGitHubSyncAuth(token, strategy),
-              },
-              repository: {
-                installationId,
-                owner,
-                provider: "github",
-                repo,
-              } satisfies GitHubRepositoryScope,
-            }
-          : await resolveStoredGitHubSyncContext(
-              foundationService,
-              githubInstallationService,
-              workspaceId,
-              connectionId,
-            )
+      const resolved = await resolveGitHubSyncContextFromPayload({
+        auth,
+        connectionId,
+        foundationService,
+        githubInstallationService,
+        repository,
+        workspaceId,
+      })
 
       const result = await githubSyncService.syncRelease({
         auth: resolved.auth,
@@ -361,6 +387,107 @@ export function createGitHubSyncRoute(
       return context.json(result, 200)
     } catch (error) {
       const message = error instanceof Error ? error.message : "GitHub release sync failed"
+      const status = getErrorStatus(message, 502)
+      return context.json({ message, status }, status as 400 | 403 | 404 | 502)
+    }
+  })
+
+  route.post("/sync/release/preview", async (context) => {
+    const workspaceId = context.req.param("workspaceId")
+    const body = await context.req.json().catch(() => null)
+    const payload = asRecord(body)
+    const auth = asRecord(payload?.auth)
+    const repository = asRecord(payload?.repository)
+    const release = asRecord(payload?.release)
+    const connectionId = asString(payload?.connectionId)
+    const tag = asString(release?.tag)
+    const releaseId = asPositiveInteger(release?.releaseId)
+    const hasTag = Boolean(tag)
+    const hasReleaseId = releaseId !== null
+
+    if (!workspaceId || !connectionId || hasTag === hasReleaseId) {
+      return context.json(
+        {
+          message: "connectionId, workspaceId, and exactly one of release.tag or release.releaseId are required",
+          status: 400,
+        },
+        400,
+      )
+    }
+
+    try {
+      const resolved = await resolveGitHubSyncContextFromPayload({
+        auth,
+        connectionId,
+        foundationService,
+        githubInstallationService,
+        repository,
+        workspaceId,
+      })
+
+      const result = await githubSyncService.previewRelease({
+        auth: resolved.auth,
+        connectionId,
+        release:
+          releaseId !== null
+            ? {
+                releaseId,
+              }
+            : {
+                tag: tag!,
+              },
+        repository: resolved.repository,
+        workspaceId,
+      })
+
+      return context.json(result, 200)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "GitHub release preview failed"
+      const status = getErrorStatus(message, 502)
+      return context.json({ message, status }, status as 400 | 403 | 404 | 502)
+    }
+  })
+
+  route.post("/sync/since-date/preview", async (context) => {
+    const workspaceId = context.req.param("workspaceId")
+    const body = await context.req.json().catch(() => null)
+    const payload = asRecord(body)
+    const auth = asRecord(payload?.auth)
+    const repository = asRecord(payload?.repository)
+    const connectionId = asString(payload?.connectionId)
+    const sinceDate = asString(payload?.sinceDate)
+
+    if (!workspaceId || !connectionId || !sinceDate) {
+      return context.json(
+        {
+          message: "connectionId, sinceDate, and workspaceId are required",
+          status: 400,
+        },
+        400,
+      )
+    }
+
+    try {
+      const resolved = await resolveGitHubSyncContextFromPayload({
+        auth,
+        connectionId,
+        foundationService,
+        githubInstallationService,
+        repository,
+        workspaceId,
+      })
+
+      const result = await githubSyncService.previewSinceDate({
+        auth: resolved.auth,
+        connectionId,
+        repository: resolved.repository,
+        sinceDate,
+        workspaceId,
+      })
+
+      return context.json(result, 200)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "GitHub since-date preview failed"
       const status = getErrorStatus(message, 502)
       return context.json({ message, status }, status as 400 | 403 | 404 | 502)
     }

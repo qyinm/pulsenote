@@ -574,3 +574,157 @@ test("syncRelease rejects selectors that are not exactly one of tag or releaseId
   const snapshot = await store.getWorkspaceSnapshot(workspace.id)
   assert.equal(snapshot?.syncRuns.length, 0)
 })
+
+test("previewCompareRange returns release-scope evidence counts without persisting a record", async () => {
+  const { connection, store, workspace } = await createWorkspaceContext()
+  const service = createGitHubSyncService({
+    githubClient: {
+      async compareCommits() {
+        return {
+          aheadBy: 1,
+          behindBy: 0,
+          commits: [
+            {
+              committedAt: "2026-03-20T00:00:00.000Z",
+              message: "Add scope preview",
+              sha: "abc123",
+            },
+          ],
+          files: [
+            {
+              additions: 4,
+              changes: 4,
+              deletions: 0,
+              filename: "apps/web/components/dashboard/new-release-live-workspace.tsx",
+              patch: "@@ -1 +1 @@",
+              status: "modified",
+            },
+          ],
+          mergeBaseSha: "base123",
+          totalCommits: 1,
+        }
+      },
+      async getPullRequests() {
+        throw new Error("pull sync should not be called")
+      },
+      async getRelease() {
+        throw new Error("release sync should not be called")
+      },
+    },
+    runtimeEnv,
+    store,
+  })
+
+  const preview = await service.previewCompareRange({
+    auth: {
+      strategy: "personal_access_token",
+      token: "ghp_test_token",
+    },
+    compare: {
+      base: "main",
+      head: "feat/scope-preview",
+    },
+    connectionId: connection.id,
+    repository: {
+      owner: "qyinm",
+      provider: "github",
+      repo: "pulsenote",
+    },
+    workspaceId: workspace.id,
+  })
+
+  assert.equal(preview.mode, "compare")
+  assert.equal(preview.expectedEvidenceBlockCount, 2)
+  assert.equal(preview.expectedSourceLinkCount, 2)
+
+  const releaseSnapshots = await store.listReleaseRecordSnapshots(workspace.id)
+  assert.equal(releaseSnapshots.length, 0)
+})
+
+test("previewSinceDate resolves an explicit compare range from the default branch", async () => {
+  const { connection, store, workspace } = await createWorkspaceContext()
+  const service = createGitHubSyncService({
+    githubClient: {
+      async compareCommits() {
+        return {
+          aheadBy: 2,
+          behindBy: 0,
+          commits: [
+            {
+              committedAt: "2026-03-20T00:00:00.000Z",
+              message: "Add evidence guardrails",
+              sha: "ghi789",
+            },
+            {
+              committedAt: "2026-03-19T00:00:00.000Z",
+              message: "Ship claim check fixes",
+              sha: "def456",
+            },
+          ],
+          files: [
+            {
+              additions: 9,
+              changes: 9,
+              deletions: 0,
+              filename: "apps/api/src/routes/github-sync.ts",
+              patch: "@@ -1 +1 @@",
+              status: "modified",
+            },
+          ],
+          mergeBaseSha: "base123",
+          totalCommits: 2,
+        }
+      },
+      async getDefaultBranch() {
+        return "main"
+      },
+      async getPullRequests() {
+        throw new Error("pull sync should not be called")
+      },
+      async getRelease() {
+        throw new Error("release sync should not be called")
+      },
+      async listCommitsSince() {
+        return [
+          {
+            committedAt: "2026-03-20T00:00:00.000Z",
+            message: "Add evidence guardrails",
+            parentShas: ["def456"],
+            sha: "ghi789",
+          },
+          {
+            committedAt: "2026-03-19T00:00:00.000Z",
+            message: "Ship claim check fixes",
+            parentShas: ["base123"],
+            sha: "def456",
+          },
+        ]
+      },
+    },
+    runtimeEnv,
+    store,
+  })
+
+  const preview = await service.previewSinceDate({
+    auth: {
+      strategy: "personal_access_token",
+      token: "ghp_test_token",
+    },
+    connectionId: connection.id,
+    repository: {
+      owner: "qyinm",
+      provider: "github",
+      repo: "pulsenote",
+    },
+    sinceDate: "2026-03-19",
+    workspaceId: workspace.id,
+  })
+
+  assert.equal(preview.mode, "since_date")
+  assert.equal(preview.defaultBranch, "main")
+  assert.deepEqual(preview.resolvedCompare, {
+    base: "base123",
+    head: "ghi789",
+  })
+  assert.equal(preview.totalCommits, 2)
+})

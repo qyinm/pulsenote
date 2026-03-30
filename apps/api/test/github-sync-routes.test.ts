@@ -152,6 +152,77 @@ test("github compare sync route returns comparison data for workspace members", 
   assert.equal(body.sourceLinkCount, 2)
 })
 
+test("github compare preview route returns evidence counts without persisting a release record", async () => {
+  const { bootstrap, connection, foundationService, store } = await bootstrapWorkspace()
+  const githubSyncService = createGitHubSyncService({
+    githubClient: {
+      async compareCommits() {
+        return {
+          aheadBy: 1,
+          behindBy: 0,
+          commits: [
+            {
+              committedAt: "2026-03-20T00:00:00.000Z",
+              message: "Preview compare scope",
+              sha: "abc123",
+            },
+          ],
+          files: [],
+          mergeBaseSha: "base123",
+          totalCommits: 1,
+        }
+      },
+      async getPullRequests() {
+        throw new Error("pull sync should not be called")
+      },
+      async getRelease() {
+        throw new Error("release sync should not be called")
+      },
+    },
+    runtimeEnv,
+    store,
+  })
+
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(bootstrap.user.id)),
+    foundationService,
+    githubSyncService,
+  })
+
+  const response = await app.request(`/v1/workspaces/${bootstrap.workspace.id}/github/sync/compare/preview`, {
+    body: JSON.stringify({
+      auth: {
+        strategy: "personal_access_token",
+        token: "ghp_dev_token",
+      },
+      compare: {
+        base: "main",
+        head: "feat/scope-preview",
+      },
+      connectionId: connection.id,
+      repository: {
+        owner: "qyinm",
+        repo: "pulsenote",
+      },
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "POST",
+  })
+
+  assert.equal(response.status, 200)
+  const body = await response.json()
+  assert.equal(body.mode, "compare")
+  assert.equal(body.expectedEvidenceBlockCount, 1)
+
+  const releaseRecordsResponse = await app.request(
+    `/v1/workspaces/${bootstrap.workspace.id}/release-records`,
+  )
+  assert.equal(releaseRecordsResponse.status, 200)
+  assert.deepEqual(await releaseRecordsResponse.json(), [])
+})
+
 test("createApp reuses the injected foundation service store for default github sync routes", async () => {
   const { bootstrap, connection, foundationService } = await bootstrapWorkspace()
   const app = createApp(runtimeEnv, {
@@ -485,8 +556,7 @@ test("github compare sync route rejects unsupported auth strategies", async () =
 
   assert.equal(response.status, 400)
   assert.deepEqual(await response.json(), {
-    message:
-      "connectionId, auth.token, auth.strategy, compare.base, compare.head, repository.owner, and repository.repo are required",
+    message: "connectionId, auth.token, auth.strategy, repository.owner, and repository.repo are required",
     status: 400,
   })
 })
@@ -848,8 +918,107 @@ test("github release sync route rejects selectors that are not exactly one of ta
   assert.equal(response.status, 400)
   assert.deepEqual(await response.json(), {
     message:
-      "connectionId, auth.token, auth.strategy, repository.owner, repository.repo, and exactly one of release.tag or release.releaseId are required",
+      "connectionId, workspaceId, and exactly one of release.tag or release.releaseId are required",
     status: 400,
+  })
+})
+
+test("github since-date preview route resolves a reviewable compare range", async () => {
+  const { bootstrap, connection, foundationService, store } = await bootstrapWorkspace()
+  const githubSyncService = createGitHubSyncService({
+    githubClient: {
+      async compareCommits() {
+        return {
+          aheadBy: 2,
+          behindBy: 0,
+          commits: [
+            {
+              committedAt: "2026-03-20T00:00:00.000Z",
+              message: "Add release scope preview",
+              sha: "ghi789",
+            },
+            {
+              committedAt: "2026-03-19T00:00:00.000Z",
+              message: "Ship claim check fixes",
+              sha: "def456",
+            },
+          ],
+          files: [
+            {
+              additions: 9,
+              changes: 9,
+              deletions: 0,
+              filename: "apps/api/src/routes/github-sync.ts",
+              patch: "@@ -1 +1 @@",
+              status: "modified",
+            },
+          ],
+          mergeBaseSha: "base123",
+          totalCommits: 2,
+        }
+      },
+      async getDefaultBranch() {
+        return "main"
+      },
+      async getPullRequests() {
+        throw new Error("pull sync should not be called")
+      },
+      async getRelease() {
+        throw new Error("release sync should not be called")
+      },
+      async listCommitsSince() {
+        return [
+          {
+            committedAt: "2026-03-20T00:00:00.000Z",
+            message: "Add release scope preview",
+            parentShas: ["def456"],
+            sha: "ghi789",
+          },
+          {
+            committedAt: "2026-03-19T00:00:00.000Z",
+            message: "Ship claim check fixes",
+            parentShas: ["base123"],
+            sha: "def456",
+          },
+        ]
+      },
+    },
+    runtimeEnv,
+    store,
+  })
+
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(bootstrap.user.id)),
+    foundationService,
+    githubSyncService,
+  })
+
+  const response = await app.request(`/v1/workspaces/${bootstrap.workspace.id}/github/sync/since-date/preview`, {
+    body: JSON.stringify({
+      auth: {
+        strategy: "personal_access_token",
+        token: "ghp_dev_token",
+      },
+      connectionId: connection.id,
+      repository: {
+        owner: "qyinm",
+        repo: "pulsenote",
+      },
+      sinceDate: "2026-03-19",
+    }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "POST",
+  })
+
+  assert.equal(response.status, 200)
+  const body = await response.json()
+  assert.equal(body.mode, "since_date")
+  assert.equal(body.defaultBranch, "main")
+  assert.deepEqual(body.resolvedCompare, {
+    base: "base123",
+    head: "ghi789",
   })
 })
 
