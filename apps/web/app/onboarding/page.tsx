@@ -13,7 +13,7 @@ export default async function OnboardingPage() {
   }
 
   if (accessState.kind === "ready") {
-    redirect("/dashboard/release-context")
+    redirect("/dashboard/new-release")
   }
 
   if (accessState.kind === "workspace-selection-required") {

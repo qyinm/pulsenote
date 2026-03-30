@@ -127,6 +127,7 @@ export const dashboardRoutes: DashboardRoute[] = [
       "Choose a repository and confirm one release scope before PulseNote drafts, reviews, and exports it in one workflow.",
     group: "core",
     icon: FileStackIcon,
+    showInSidebar: false,
     primaryAction: {
       label: "Open releases",
       href: "/dashboard/releases",

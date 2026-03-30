@@ -1,13 +1,5 @@
-import { ReleaseWorkflowPage } from "@/components/dashboard/release-workflow-page"
+import { redirect } from "next/navigation"
 
 export default function DashboardPage() {
-  return (
-    <ReleaseWorkflowPage
-      mode="overview"
-      unavailableTitle="Releases are unavailable"
-      unavailableDescription="The authenticated API request failed before the releases board could be rendered."
-      emptyTitle="No releases yet"
-      emptyDescription="Release records will appear here once a repository scope is ingested from the connected workspace."
-    />
-  )
+  redirect("/dashboard/releases")
 }

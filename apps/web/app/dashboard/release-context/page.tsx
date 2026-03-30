@@ -9,7 +9,15 @@ import {
   getServerReleaseContextGitHubState,
 } from "@/lib/dashboard/release-context"
 
-export default async function ReleaseContextPage() {
+type ReleaseContextPageCopy = {
+  unavailableDescription: string
+  unavailableTitle: string
+}
+
+export async function ReleaseContextPageContent({
+  unavailableDescription,
+  unavailableTitle,
+}: ReleaseContextPageCopy) {
   const requestHeaders = await headers()
   const accessState = await resolveDashboardAccessState(requestHeaders)
 
@@ -43,10 +51,7 @@ export default async function ReleaseContextPage() {
   if (errorMessage) {
     return (
       <DashboardPage>
-        <SurfaceCard
-          title="Release context is unavailable"
-          description="The authenticated API request failed before the release intake queue could be rendered."
-        >
+        <SurfaceCard title={unavailableTitle} description={unavailableDescription}>
           <p className="text-sm text-muted-foreground">{errorMessage}</p>
         </SurfaceCard>
       </DashboardPage>
@@ -64,5 +69,14 @@ export default async function ReleaseContextPage() {
         workspaceId={accessState.workspace.workspace.id}
       />
     </DashboardPage>
+  )
+}
+
+export default async function ReleaseContextPage() {
+  return (
+    <ReleaseContextPageContent
+      unavailableTitle="Release context is unavailable"
+      unavailableDescription="The authenticated API request failed before the release intake queue could be rendered."
+    />
   )
 }

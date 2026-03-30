@@ -444,26 +444,27 @@ export function getReleaseWorkflowBoardStage(
 export function buildReleaseWorkflowBoardColumns(
   workflow: ReleaseWorkflowListItem[],
 ): ReleaseWorkflowBoardColumn[] {
+  const boardStagesInOrder = Object.keys(
+    releaseWorkflowBoardColumnMeta,
+  ) as ReleaseWorkflowBoardStage[]
   const itemsByStage = new Map<ReleaseWorkflowBoardStage, ReleaseWorkflowQueueItem[]>(
-    (Object.keys(releaseWorkflowBoardColumnMeta) as ReleaseWorkflowBoardStage[]).map((stage) => [
-      stage,
-      [],
-    ]),
+    boardStagesInOrder.map((stage) => [stage, []]),
   )
 
   for (const item of workflow) {
     const stage = getReleaseWorkflowBoardStage(item)
-    itemsByStage.get(stage)?.push(buildReleaseWorkflowQueueItem(item))
+    itemsByStage.get(stage)?.push({
+      ...buildReleaseWorkflowQueueItem(item),
+      stageLabel: releaseWorkflowBoardColumnMeta[stage].title,
+    })
   }
 
-  return (Object.keys(releaseWorkflowBoardColumnMeta) as ReleaseWorkflowBoardStage[]).map(
-    (stage) => ({
+  return boardStagesInOrder.map((stage) => ({
       description: releaseWorkflowBoardColumnMeta[stage].description,
       items: itemsByStage.get(stage) ?? [],
       stage,
       title: releaseWorkflowBoardColumnMeta[stage].title,
-    }),
-  )
+    }))
 }
 
 export function detailToReleaseWorkflowListItem(

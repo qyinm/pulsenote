@@ -24,7 +24,7 @@ export default async function SelectWorkspacePage() {
   })
 
   if (choices.length === 1) {
-    redirect("/dashboard/release-context")
+    redirect("/dashboard/new-release")
   }
 
   return (

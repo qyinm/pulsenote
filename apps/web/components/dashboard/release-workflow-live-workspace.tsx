@@ -527,7 +527,7 @@ function buildModeFocus(detail: ReleaseWorkflowDetail | null, mode: ReleaseWorkf
   }
 }
 
-function renderOverviewBoardCard({
+function OverviewBoardCard({
   currentUserId,
   isSelected,
   item,
@@ -613,15 +613,16 @@ function renderOverviewBoard({
           </div>
           <div className="grid gap-3">
             {column.items.length > 0 ? (
-              column.items.map((item) =>
-                renderOverviewBoardCard({
-                  currentUserId,
-                  isSelected: item.id === activeSelectedId,
-                  item,
-                  onSelect,
-                  queuedWorkflowItem: getQueuedWorkflowItem(queueSourceById, item.id),
-                }),
-              )
+              column.items.map((item) => (
+                <OverviewBoardCard
+                  key={item.id}
+                  currentUserId={currentUserId}
+                  isSelected={item.id === activeSelectedId}
+                  item={item}
+                  onSelect={onSelect}
+                  queuedWorkflowItem={getQueuedWorkflowItem(queueSourceById, item.id)}
+                />
+              ))
             ) : (
               <div className="rounded-xl border border-dashed border-border/70 bg-background/70 px-4 py-6 text-center text-sm text-muted-foreground">
                 No releases in this stage.
@@ -837,6 +838,71 @@ export function ReleaseWorkflowLiveWorkspace({
   }
 
   const metricCards = buildModeMetricCards(mode, workflow, selectedWorkflow, currentUserId)
+  const handleSelectQueueItem = useCallback(
+    (rowKey: string) => {
+      setSelectedId(rowKey)
+      setDetailError(null)
+      setHistoryError(null)
+      setActionError(null)
+      setIsLoadingDetail(!detailById[rowKey])
+      setIsLoadingHistory(!historyById[rowKey])
+    },
+    [detailById, historyById, setDetailError, setHistoryError, setIsLoadingDetail, setIsLoadingHistory],
+  )
+
+  function renderQueueTable() {
+    return (
+      <SimpleTable
+        columns={[
+          { key: "release", label: "Release" },
+          { key: "stage", label: "Stage" },
+          { key: "readiness", label: "Readiness" },
+          { key: "draft", label: "Draft" },
+          { key: "nextAction", label: "Next action" },
+        ]}
+        rows={queueItems.map((item) => {
+          const queuedWorkflowItem = getQueuedWorkflowItem(queueSourceById, item.id)
+          const ownershipCue = queuedWorkflowItem
+            ? getReleaseWorkflowOwnershipCue(queuedWorkflowItem, currentUserId)
+            : null
+
+          return {
+            key: item.id,
+            cells: {
+              draft: item.versionLabel,
+              nextAction: (
+                <div className="grid gap-1">
+                  <span className="font-medium text-foreground">{item.nextAction}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {item.evidenceCount} evidence blocks · {item.sourceLinkCount} source links
+                  </span>
+                </div>
+              ),
+              readiness: statusBadge(item.readinessTone, item.readinessLabel),
+              release: (
+                <div className="grid gap-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium text-foreground">{item.title}</span>
+                    {ownershipCue ? ownershipCueBadge(ownershipCue) : null}
+                  </div>
+                  <span className="text-xs text-muted-foreground">{item.summary}</span>
+                </div>
+              ),
+              stage: item.stageLabel,
+            },
+          }
+        })}
+        selectedRowKey={activeSelectedId}
+        onRowSelect={handleSelectQueueItem}
+        emptyTitle={mode === "approval" ? "No approvals in this view" : "No workflow records yet"}
+        emptyDescription={
+          mode === "approval"
+            ? "Pending approvals will appear here once a release is routed into explicit reviewer handoff."
+            : "Once release context is ingested, workflow records will appear here."
+        }
+      />
+    )
+  }
 
   return (
     <>
@@ -858,11 +924,11 @@ export function ReleaseWorkflowLiveWorkspace({
         main={
           <>
             <SurfaceCard
-              title={mode === "overview" ? "Release workspace" : "Founder release queue"}
+              title="Release workspace"
               description={
                 mode === "overview"
                   ? "Run each release through one board or list instead of splitting the workflow into separate operational tabs."
-                  : "The queue stays grounded in one workflow state machine instead of separate mock dashboards."
+                  : "Each release stays grounded in one workflow state machine instead of separate operational tabs."
               }
             >
               {mode === "approval" ? (
@@ -914,125 +980,15 @@ export function ReleaseWorkflowLiveWorkspace({
                       activeSelectedId,
                       boardColumns,
                       currentUserId,
-                      onSelect: (rowKey) => {
-                        setSelectedId(rowKey)
-                        setDetailError(null)
-                        setHistoryError(null)
-                        setActionError(null)
-                        setIsLoadingDetail(!detailById[rowKey])
-                        setIsLoadingHistory(!historyById[rowKey])
-                      },
+                      onSelect: handleSelectQueueItem,
                       queueSourceById,
                     })
                   ) : (
-                    <SimpleTable
-                      columns={[
-                        { key: "release", label: "Release" },
-                        { key: "stage", label: "Stage" },
-                        { key: "readiness", label: "Readiness" },
-                        { key: "draft", label: "Draft" },
-                        { key: "nextAction", label: "Next action" },
-                      ]}
-                      rows={queueItems.map((item) => ({
-                        key: item.id,
-                        cells: {
-                          draft: item.versionLabel,
-                          nextAction: (
-                            <div className="grid gap-1">
-                              <span className="font-medium text-foreground">{item.nextAction}</span>
-                              <span className="text-xs text-muted-foreground">
-                                {item.evidenceCount} evidence blocks · {item.sourceLinkCount} source links
-                              </span>
-                            </div>
-                          ),
-                          readiness: statusBadge(item.readinessTone, item.readinessLabel),
-                          release: (
-                            <div className="grid gap-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="font-medium text-foreground">{item.title}</span>
-                              </div>
-                              <span className="text-xs text-muted-foreground">{item.summary}</span>
-                            </div>
-                          ),
-                          stage: item.stageLabel,
-                        },
-                      }))}
-                      selectedRowKey={activeSelectedId}
-                      onRowSelect={(rowKey) => {
-                        setSelectedId(rowKey)
-                        setDetailError(null)
-                        setHistoryError(null)
-                        setActionError(null)
-                        setIsLoadingDetail(!detailById[rowKey])
-                        setIsLoadingHistory(!historyById[rowKey])
-                      }}
-                      emptyTitle="No releases yet"
-                      emptyDescription="Once release context is ingested, release records will appear here."
-                    />
+                    renderQueueTable()
                   )}
                 </div>
               ) : (
-                <SimpleTable
-                  columns={[
-                    { key: "release", label: "Release" },
-                    { key: "stage", label: "Stage" },
-                    { key: "readiness", label: "Readiness" },
-                    { key: "draft", label: "Draft" },
-                    { key: "nextAction", label: "Next action" },
-                  ]}
-                  rows={queueItems.map((item) => ({
-                    key: item.id,
-                    cells: {
-                      draft: item.versionLabel,
-                      nextAction: (
-                        <div className="grid gap-1">
-                          <span className="font-medium text-foreground">{item.nextAction}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {item.evidenceCount} evidence blocks · {item.sourceLinkCount} source links
-                          </span>
-                        </div>
-                      ),
-                      readiness: statusBadge(item.readinessTone, item.readinessLabel),
-                      release: (
-                        <div className="grid gap-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-medium text-foreground">{item.title}</span>
-                            {mode === "approval" ? (
-                              (() => {
-                                const queuedWorkflowItem = getQueuedWorkflowItem(queueSourceById, item.id)
-
-                                if (!queuedWorkflowItem) {
-                                  return null
-                                }
-
-                                return ownershipCueBadge(
-                                  getReleaseWorkflowOwnershipCue(queuedWorkflowItem, currentUserId),
-                                )
-                              })()
-                            ) : null}
-                          </div>
-                          <span className="text-xs text-muted-foreground">{item.summary}</span>
-                        </div>
-                      ),
-                      stage: item.stageLabel,
-                    },
-                  }))}
-                  selectedRowKey={activeSelectedId}
-                  onRowSelect={(rowKey) => {
-                    setSelectedId(rowKey)
-                    setDetailError(null)
-                    setHistoryError(null)
-                    setActionError(null)
-                    setIsLoadingDetail(!detailById[rowKey])
-                    setIsLoadingHistory(!historyById[rowKey])
-                  }}
-                  emptyTitle={mode === "approval" ? "No approvals in this view" : "No workflow records yet"}
-                  emptyDescription={
-                    mode === "approval"
-                      ? "Pending approvals will appear here once a release is routed into explicit reviewer handoff."
-                      : "Once release context is ingested, workflow records will appear here."
-                  }
-                />
+                renderQueueTable()
               )}
             </SurfaceCard>
 

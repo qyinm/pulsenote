@@ -677,6 +677,19 @@ test("buildReleaseWorkflowBoardColumns groups release records into workflow boar
       { ids: ["release_exported"], stage: "exported" },
     ],
   )
+  assert.deepEqual(
+    columns.map((column) => ({
+      stage: column.stage,
+      stageLabels: column.items.map((item) => item.stageLabel),
+    })),
+    [
+      { stage: "intake", stageLabels: ["Intake"] },
+      { stage: "claim_check", stageLabels: ["Claim check"] },
+      { stage: "approval", stageLabels: ["Approval"] },
+      { stage: "publish_pack", stageLabels: ["Publish pack"] },
+      { stage: "exported", stageLabels: ["Exported"] },
+    ],
+  )
 })
 
 test("buildReleaseWorkflowPublishPackNotes and artifact notes keep frozen handoff context visible", () => {
