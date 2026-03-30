@@ -58,7 +58,7 @@ test("release workflow draft route returns template-backed draft payloads", asyn
   assert.equal(response.status, 201)
   const body = await response.json()
   assert.equal(body.currentDraft.templateId, "customer_update")
-  assert.equal(body.currentDraft.fieldSnapshots.length, 3)
+  assert.equal(body.currentDraft.fieldSnapshots.length, 1)
   assert.equal(body.currentDraft.evidenceRefs.length, 1)
 })
 

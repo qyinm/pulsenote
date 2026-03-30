@@ -25,22 +25,14 @@ export type DraftTemplateDefinition = {
 
 export const releaseDraftTemplates = [
   {
-    description: "A release-ready packet with both release notes and a changelog section.",
+    description: "A single publish-pack draft grounded in the selected release scope.",
     fields: [
       {
         defaultContentFormat: "markdown",
-        description: "Public-facing release notes for the shipped update.",
-        key: "release_notes",
-        label: "Release notes",
-        placeholder: "Summarize the shipped release in customer-facing language.",
-        required: true,
-      },
-      {
-        defaultContentFormat: "markdown",
-        description: "A concrete changelog entry grounded in shipped changes.",
-        key: "changelog",
-        label: "Changelog",
-        placeholder: "List the concrete shipped changes and evidence-backed notes.",
+        description: "The full publish-pack draft for this release.",
+        key: "publish_pack",
+        label: "Publish pack",
+        placeholder: "Write the release-ready publish pack grounded in shipped evidence.",
         required: true,
       },
     ],
@@ -50,27 +42,11 @@ export const releaseDraftTemplates = [
     version: 1,
   },
   {
-    description: "A direct customer update with a subject, summary, and detailed body.",
+    description: "A single customer-facing update draft for the shipped release.",
     fields: [
       {
-        defaultContentFormat: "plain_text",
-        description: "The subject line or short heading for the customer update.",
-        key: "subject",
-        label: "Subject",
-        placeholder: "Summarize the release in one clear line.",
-        required: true,
-      },
-      {
         defaultContentFormat: "markdown",
-        description: "A short preview of what changed for customers.",
-        key: "summary",
-        label: "Summary",
-        placeholder: "Anchor the update to the shipped scope and key outcomes.",
-        required: true,
-      },
-      {
-        defaultContentFormat: "markdown",
-        description: "The detailed customer-facing update body.",
+        description: "The full customer-facing update content.",
         key: "customer_update",
         label: "Customer update",
         placeholder: "Explain what shipped, why it matters, and any rollout notes.",
@@ -83,29 +59,13 @@ export const releaseDraftTemplates = [
     version: 1,
   },
   {
-    description: "A help-center style update with a title, summary, and article-ready body.",
+    description: "A single help-center update draft for the shipped release.",
     fields: [
       {
-        defaultContentFormat: "plain_text",
-        description: "The visible title for the help-center update.",
-        key: "title",
-        label: "Title",
-        placeholder: "Name the shipped release update clearly.",
-        required: true,
-      },
-      {
         defaultContentFormat: "markdown",
-        description: "A short summary for the knowledge-base entry.",
-        key: "summary",
-        label: "Summary",
-        placeholder: "Give a concise overview of the shipped change.",
-        required: true,
-      },
-      {
-        defaultContentFormat: "markdown",
-        description: "The help-center body that explains the update in more detail.",
-        key: "article_update",
-        label: "Article update",
+        description: "The full help-center update content.",
+        key: "help_center_update",
+        label: "Help center update",
         placeholder: "Document the shipped behavior, rollout details, and known limits.",
         required: true,
       },
@@ -178,36 +138,105 @@ function extractPrimarySummaryText(summary: string | null, fallback: string) {
   return fallback.trim()
 }
 
+function joinTemplateSections(sections: Array<string | null | undefined>) {
+  const normalizedSections = sections
+    .map((section) => section?.trim() ?? "")
+    .filter((section) => section.length > 0)
+
+  return normalizedSections.join("\n\n")
+}
+
+function buildPublishPackContent(releaseNotesBody: string, changelogBody: string) {
+  const trimmedReleaseNotesBody = releaseNotesBody.trim()
+  const trimmedChangelogBody = changelogBody.trim()
+
+  if (trimmedReleaseNotesBody.length === 0) {
+    return trimmedChangelogBody
+  }
+
+  if (trimmedChangelogBody.length === 0 || trimmedChangelogBody === trimmedReleaseNotesBody) {
+    return trimmedReleaseNotesBody
+  }
+
+  return joinTemplateSections([
+    trimmedReleaseNotesBody,
+    "## Included changes",
+    trimmedChangelogBody,
+  ])
+}
+
+function buildTemplateOutputContent(input: {
+  changelogBody: string
+  releaseNotesBody: string
+  releaseSnapshot: ReleaseRecordSnapshot
+  template: DraftTemplateDefinition
+}) {
+  const summary = extractPrimarySummaryText(
+    input.releaseSnapshot.releaseRecord.summary,
+    stripMarkdown(input.releaseNotesBody),
+  )
+
+  switch (input.template.id) {
+    case "release_note_packet":
+      return buildPublishPackContent(input.releaseNotesBody, input.changelogBody)
+    case "customer_update":
+      return joinTemplateSections([
+        input.releaseSnapshot.releaseRecord.title,
+        summary,
+        input.releaseNotesBody,
+      ])
+    case "help_center_update":
+      return joinTemplateSections([
+        input.releaseSnapshot.releaseRecord.title,
+        summary,
+        input.changelogBody,
+      ])
+    default:
+      throw new Error(`Unknown draft template id: ${input.template.id}`)
+  }
+}
+
+function buildLegacyTemplateOutputContent(
+  template: DraftTemplateDefinition,
+  existingFieldSnapshotByKey: Map<string, DraftFieldSnapshot>,
+) {
+  switch (template.id) {
+    case "release_note_packet":
+      return buildPublishPackContent(
+        existingFieldSnapshotByKey.get("release_notes")?.content ?? "",
+        existingFieldSnapshotByKey.get("changelog")?.content ?? "",
+      )
+    case "customer_update":
+      return joinTemplateSections([
+        existingFieldSnapshotByKey.get("subject")?.content ?? "",
+        existingFieldSnapshotByKey.get("summary")?.content ?? "",
+        existingFieldSnapshotByKey.get("customer_update")?.content ?? "",
+      ])
+    case "help_center_update":
+      return joinTemplateSections([
+        existingFieldSnapshotByKey.get("title")?.content ?? "",
+        existingFieldSnapshotByKey.get("summary")?.content ?? "",
+        existingFieldSnapshotByKey.get("article_update")?.content ?? "",
+      ])
+    default:
+      throw new Error(`Unknown draft template id: ${template.id}`)
+  }
+}
+
 export function buildDraftTemplateFields(input: {
   changelogBody: string
   releaseNotesBody: string
   releaseSnapshot: ReleaseRecordSnapshot
   template: DraftTemplateDefinition
 }): DraftFieldSnapshot[] {
-  const { changelogBody, releaseNotesBody, releaseSnapshot, template } = input
-  const summary = extractPrimarySummaryText(releaseSnapshot.releaseRecord.summary, stripMarkdown(releaseNotesBody))
-
-  switch (template.id) {
-    case "release_note_packet":
-      return [
-        createFieldSnapshot(template, "release_notes", releaseNotesBody, 0),
-        createFieldSnapshot(template, "changelog", changelogBody, 1),
-      ]
-    case "customer_update":
-      return [
-        createFieldSnapshot(template, "subject", releaseSnapshot.releaseRecord.title, 0),
-        createFieldSnapshot(template, "summary", summary, 1),
-        createFieldSnapshot(template, "customer_update", releaseNotesBody, 2),
-      ]
-    case "help_center_update":
-      return [
-        createFieldSnapshot(template, "title", releaseSnapshot.releaseRecord.title, 0),
-        createFieldSnapshot(template, "summary", summary, 1),
-        createFieldSnapshot(template, "article_update", changelogBody, 2),
-      ]
-    default:
-      throw new Error(`Unknown draft template id: ${template.id}`)
-  }
+  return [
+    createFieldSnapshot(
+      input.template,
+      input.template.fields[0]?.key ?? "body",
+      buildTemplateOutputContent(input),
+      0,
+    ),
+  ]
 }
 
 export function normalizeDraftTemplateFieldSnapshots(
@@ -223,7 +252,11 @@ export function normalizeDraftTemplateFieldSnapshots(
   return template.fields.map((field, index) => {
     const nextFieldSnapshot =
       nextFieldSnapshotByKey.get(field.key) ?? existingFieldSnapshotByKey.get(field.key) ?? null
-    const nextContent = nextFieldSnapshot?.content ?? ""
+    const nextContent =
+      nextFieldSnapshot?.content ??
+      (template.fields.length === 1
+        ? buildLegacyTemplateOutputContent(template, existingFieldSnapshotByKey)
+        : "")
 
     return {
       content: nextContent,
@@ -243,18 +276,18 @@ export function projectDraftBodiesFromFields(
   const byKey = new Map(fieldSnapshots.map((field) => [field.fieldKey, field.content]))
 
   if (template.id === "release_note_packet") {
+    const publishPackBody = byKey.get("publish_pack") ?? ""
+
     return {
-      changelogBody: byKey.get("changelog") ?? "",
-      releaseNotesBody: byKey.get("release_notes") ?? "",
+      changelogBody: publishPackBody,
+      releaseNotesBody: publishPackBody,
     }
   }
-
-  const orderedContent = [...fieldSnapshots]
+  const joinedContent = [...fieldSnapshots]
     .sort((left, right) => left.sortOrder - right.sortOrder)
     .map((field) => field.content.trim())
     .filter((content) => content.length > 0)
-
-  const joinedContent = orderedContent.join("\n\n")
+    .join("\n\n")
 
   return {
     changelogBody: joinedContent,

@@ -71,6 +71,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { formatUtcTimestamp } from "@/lib/format"
 import {
+  buildReleaseDraftEditorFields,
   getReleaseDraftTemplateOption,
   releaseDraftTemplateOptions,
 } from "@/lib/draft-templates"
@@ -224,16 +225,39 @@ function formatHistoryTimestamp(value: string) {
   return formatUtcTimestamp(value)
 }
 
-function buildDraftFieldValues(
+function buildDraftFieldValues(draftFieldSnapshots: Array<{ content: string; fieldKey: string }>) {
+  return Object.fromEntries(
+    draftFieldSnapshots.map((fieldSnapshot) => [fieldSnapshot.fieldKey, fieldSnapshot.content]),
+  )
+}
+
+function buildDraftLinkedEvidenceItems(detail: ReleaseWorkflowDetail, draftFieldSnapshots: Array<{ fieldKey: string }>) {
+  const fieldKeyLabel = new Map(
+    draftFieldSnapshots.map((fieldSnapshot) => [
+      fieldSnapshot.fieldKey,
+      fieldSnapshot.fieldKey.replaceAll("_", " "),
+    ]),
+  )
+
+  return detail.currentDraft?.evidenceRefs.slice(0, 5).map((evidenceRef) => {
+    const linkedEvidence = detail.evidenceBlocks.find(
+      (evidenceBlock) => evidenceBlock.id === evidenceRef.evidenceBlockId,
+    )
+
+    return linkedEvidence
+      ? `${linkedEvidence.title} -> ${fieldKeyLabel.get(evidenceRef.fieldKey) ?? evidenceRef.fieldKey.replaceAll("_", " ")}`
+      : `Evidence ref ${evidenceRef.evidenceBlockId} -> ${fieldKeyLabel.get(evidenceRef.fieldKey) ?? evidenceRef.fieldKey.replaceAll("_", " ")}`
+  }) ?? []
+}
+
+function buildDraftEditorFieldSnapshots(
   draft: ReleaseWorkflowDetail["currentDraft"],
 ) {
   if (!draft) {
-    return {}
+    return []
   }
 
-  return Object.fromEntries(
-    draft.fieldSnapshots.map((fieldSnapshot) => [fieldSnapshot.fieldKey, fieldSnapshot.content]),
-  )
+  return buildReleaseDraftEditorFields(draft)
 }
 
 function buildPublishPackArtifactEvidenceItems(detail: ReleaseWorkflowDetail) {
@@ -708,7 +732,7 @@ export function ReleaseWorkflowLiveWorkspace({
     releaseDraftTemplateOptions[0]?.id ?? "",
   )
   const [draftFieldValues, setDraftFieldValues] = useState<Record<string, string>>(
-    buildDraftFieldValues(initialSelectedWorkflow.currentDraft),
+    buildDraftFieldValues(buildDraftEditorFieldSnapshots(initialSelectedWorkflow.currentDraft)),
   )
   const [draftSaveError, setDraftSaveError] = useState<string | null>(null)
   const [isSavingDraft, setIsSavingDraft] = useState(false)
@@ -771,12 +795,13 @@ export function ReleaseWorkflowLiveWorkspace({
   const recentHistory = selectedHistory.slice(0, 5)
   const approvalRequiresReviewer = initialPolicy.requireReviewerAssignment
   const currentDraft = selectedWorkflow?.currentDraft ?? null
+  const draftEditorFieldSnapshots = buildDraftEditorFieldSnapshots(currentDraft)
   const selectedDraftRevisionId = currentDraft?.id ?? null
   const isDraftEditable = selectedWorkflow?.releaseRecord.stage === "draft" && selectedWorkflow.currentDraft !== null
   const hasDraftFieldChanges =
-    currentDraft?.fieldSnapshots.some(
+    draftEditorFieldSnapshots.some(
       (fieldSnapshot) => (draftFieldValues[fieldSnapshot.fieldKey] ?? "") !== fieldSnapshot.content,
-    ) ?? false
+    )
   const selectedQueueItem = queueItems.find((item) => item.id === activeSelectedId) ?? queueItems[0] ?? null
   const selectedQueueSourceItem = selectedQueueItem
     ? getQueuedWorkflowItem(queueSourceById, selectedQueueItem.id)
@@ -890,7 +915,7 @@ export function ReleaseWorkflowLiveWorkspace({
   }, [selectedWorkflow?.currentDraft?.templateId])
 
   useEffect(() => {
-    setDraftFieldValues(buildDraftFieldValues(currentDraft))
+    setDraftFieldValues(buildDraftFieldValues(buildDraftEditorFieldSnapshots(currentDraft)))
     setDraftSaveError(null)
   }, [currentDraft])
 
@@ -984,7 +1009,7 @@ export function ReleaseWorkflowLiveWorkspace({
         selectedWorkflow.currentDraft.id,
         {
           evidenceRefs: selectedWorkflow.currentDraft.evidenceRefs,
-          fieldSnapshots: selectedWorkflow.currentDraft.fieldSnapshots.map((fieldSnapshot) => ({
+          fieldSnapshots: draftEditorFieldSnapshots.map((fieldSnapshot) => ({
             ...fieldSnapshot,
             content: draftFieldValues[fieldSnapshot.fieldKey] ?? "",
           })),
@@ -1425,78 +1450,53 @@ export function ReleaseWorkflowLiveWorkspace({
                         },
                       ]}
                     />
-                    <div className="grid gap-3 xl:grid-cols-2">
-                      {selectedWorkflow.currentDraft.fieldSnapshots.length > 0 ? (
-                        selectedWorkflow.currentDraft.fieldSnapshots.map((fieldSnapshot) => {
-                          const fieldEvidenceRefs = selectedWorkflow.currentDraft!.evidenceRefs.filter(
-                            (evidenceRef) => evidenceRef.fieldKey === fieldSnapshot.fieldKey,
-                          )
-
-                          return (
-                            <div
-                              key={fieldSnapshot.fieldKey}
-                              className="grid gap-3 rounded-xl border border-border/70 bg-muted/20 p-4"
-                            >
-                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                <p className="text-sm font-medium text-foreground">
-                                  {fieldSnapshot.label}
-                                </p>
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <Badge variant="secondary">
-                                    {fieldSnapshot.contentFormat.replaceAll("_", " ")}
-                                  </Badge>
-                                  <Badge variant="outline">
-                                    {fieldEvidenceRefs.length} evidence refs
-                                  </Badge>
-                                </div>
-                              </div>
-                              {isDraftEditable ? (
-                                fieldSnapshot.contentFormat === "plain_text" ? (
-                                  <Input
-                                    value={draftFieldValues[fieldSnapshot.fieldKey] ?? ""}
-                                    onChange={(event) =>
-                                      setDraftFieldValues((currentValues) => ({
-                                        ...currentValues,
-                                        [fieldSnapshot.fieldKey]: event.target.value,
-                                      }))
-                                    }
-                                  />
-                                ) : (
-                                  <Textarea
-                                    className="min-h-40 resize-y"
-                                    value={draftFieldValues[fieldSnapshot.fieldKey] ?? ""}
-                                    onChange={(event) =>
-                                      setDraftFieldValues((currentValues) => ({
-                                        ...currentValues,
-                                        [fieldSnapshot.fieldKey]: event.target.value,
-                                      }))
-                                    }
-                                  />
-                                )
-                              ) : (
-                                <p className="min-w-0 whitespace-pre-wrap text-sm text-muted-foreground [overflow-wrap:anywhere]">
-                                  {fieldSnapshot.content}
-                                </p>
-                              )}
+                    <div className="grid gap-3">
+                      {draftEditorFieldSnapshots.map((fieldSnapshot) => (
+                        <div
+                          key={fieldSnapshot.fieldKey}
+                          className="grid gap-3 rounded-xl border border-border/70 bg-muted/20 p-4"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="text-sm font-medium text-foreground">Draft content</p>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant="secondary">
+                                {fieldSnapshot.contentFormat.replaceAll("_", " ")}
+                              </Badge>
+                              <Badge variant="outline">
+                                {currentDraft?.evidenceRefs.length ?? 0} evidence refs
+                              </Badge>
                             </div>
-                          )
-                        })
-                      ) : (
-                        <>
-                          <div className="grid gap-2 rounded-xl border border-border/70 bg-muted/20 p-4">
-                            <p className="text-sm font-medium text-foreground">Release notes</p>
-                            <p className="min-w-0 whitespace-pre-wrap text-sm text-muted-foreground [overflow-wrap:anywhere]">
-                              {selectedWorkflow.currentDraft.releaseNotesBody}
-                            </p>
                           </div>
-                          <div className="grid gap-2 rounded-xl border border-border/70 bg-muted/20 p-4">
-                            <p className="text-sm font-medium text-foreground">Changelog</p>
+                          {isDraftEditable ? (
+                            fieldSnapshot.contentFormat === "plain_text" ? (
+                              <Input
+                                value={draftFieldValues[fieldSnapshot.fieldKey] ?? ""}
+                                onChange={(event) =>
+                                  setDraftFieldValues((currentValues) => ({
+                                    ...currentValues,
+                                    [fieldSnapshot.fieldKey]: event.target.value,
+                                  }))
+                                }
+                              />
+                            ) : (
+                              <Textarea
+                                className="min-h-56 resize-y"
+                                value={draftFieldValues[fieldSnapshot.fieldKey] ?? ""}
+                                onChange={(event) =>
+                                  setDraftFieldValues((currentValues) => ({
+                                    ...currentValues,
+                                    [fieldSnapshot.fieldKey]: event.target.value,
+                                  }))
+                                }
+                              />
+                            )
+                          ) : (
                             <p className="min-w-0 whitespace-pre-wrap text-sm text-muted-foreground [overflow-wrap:anywhere]">
-                              {selectedWorkflow.currentDraft.changelogBody}
+                              {fieldSnapshot.content}
                             </p>
-                          </div>
-                        </>
-                      )}
+                          )}
+                        </div>
+                      ))}
                     </div>
                     {draftSaveError ? (
                       <p className="text-sm text-destructive">{draftSaveError}</p>
@@ -1509,17 +1509,7 @@ export function ReleaseWorkflowLiveWorkspace({
                     {selectedWorkflow.currentDraft.evidenceRefs.length > 0 ? (
                       <div className="grid gap-2 rounded-xl border border-border/70 bg-muted/20 p-4">
                         <p className="text-sm font-medium text-foreground">Linked evidence</p>
-                        <BulletList
-                          items={selectedWorkflow.currentDraft.evidenceRefs.slice(0, 5).map((evidenceRef) => {
-                            const linkedEvidence = selectedWorkflow.evidenceBlocks.find(
-                              (evidenceBlock) => evidenceBlock.id === evidenceRef.evidenceBlockId,
-                            )
-
-                            return linkedEvidence
-                              ? `${linkedEvidence.title} -> ${evidenceRef.fieldKey.replaceAll("_", " ")}`
-                              : `Evidence ref ${evidenceRef.evidenceBlockId} -> ${evidenceRef.fieldKey.replaceAll("_", " ")}`
-                          })}
-                        />
+                        <BulletList items={buildDraftLinkedEvidenceItems(selectedWorkflow, draftEditorFieldSnapshots)} />
                       </div>
                     ) : null}
                   </div>

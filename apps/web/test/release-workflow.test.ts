@@ -142,7 +142,7 @@ function createReleaseWorkflowDetail(
       overrides.currentDraft === null
         ? null
         : {
-            changelogBody: overrides.currentDraft?.changelogBody ?? "## SDK rollout v2.4",
+            changelogBody: overrides.currentDraft?.changelogBody ?? "SDK rollout v2.4\n\n## Included changes\n\n- Adds release workflow sections",
             createdAt: overrides.currentDraft?.createdAt ?? "2026-03-20T00:00:00.000Z",
             createdByUserId: overrides.currentDraft?.createdByUserId ?? "user_1",
             evidenceRefs: overrides.currentDraft?.evidenceRefs ?? [],
@@ -150,24 +150,18 @@ function createReleaseWorkflowDetail(
               overrides.currentDraft?.fieldSnapshots ??
               [
                 {
-                  content: "SDK rollout v2.4",
+                  content: "SDK rollout v2.4\n\n## Included changes\n\n- Adds release workflow sections",
                   contentFormat: "markdown",
-                  fieldKey: "release_notes",
-                  label: "Release notes",
-                  plainText: "SDK rollout v2.4",
+                  fieldKey: "publish_pack",
+                  label: "Publish pack",
+                  plainText: "SDK rollout v2.4 Included changes Adds release workflow sections",
                   sortOrder: 0,
-                },
-                {
-                  content: "## SDK rollout v2.4",
-                  contentFormat: "markdown",
-                  fieldKey: "changelog",
-                  label: "Changelog",
-                  plainText: "SDK rollout v2.4",
-                  sortOrder: 1,
                 },
               ],
             id: overrides.currentDraft?.id ?? "draft_1",
-            releaseNotesBody: overrides.currentDraft?.releaseNotesBody ?? "SDK rollout v2.4",
+            releaseNotesBody:
+              overrides.currentDraft?.releaseNotesBody ??
+              "SDK rollout v2.4\n\n## Included changes\n\n- Adds release workflow sections",
             templateId: overrides.currentDraft?.templateId ?? "release_note_packet",
             templateLabel: overrides.currentDraft?.templateLabel ?? "Release notes packet",
             templateVersion: overrides.currentDraft?.templateVersion ?? 1,

@@ -33,7 +33,11 @@ test("release workflow service creates a draft revision and advances the release
   assert.equal(detail.currentDraft?.version, 1)
   assert.equal(detail.currentDraft?.templateId, "release_note_packet")
   assert.equal(detail.currentDraft?.templateLabel, "Release notes packet")
-  assert.equal(detail.currentDraft?.fieldSnapshots.length, 2)
+  assert.equal(detail.currentDraft?.fieldSnapshots.length, 1)
+  assert.deepEqual(
+    detail.currentDraft?.fieldSnapshots.map((fieldSnapshot) => fieldSnapshot.fieldKey),
+    ["publish_pack"],
+  )
   assert.equal(detail.currentDraft?.evidenceRefs.length, 1)
   assert.match(detail.currentDraft?.releaseNotesBody ?? "", /founder release workflow/i)
   assert.deepEqual(detail.allowedActions, ["create_draft", "run_claim_check"])
@@ -58,10 +62,10 @@ test("release workflow service creates template-backed drafts for customer updat
   })
 
   assert.equal(detail.currentDraft?.templateId, "customer_update")
-  assert.equal(detail.currentDraft?.fieldSnapshots.length, 3)
+  assert.equal(detail.currentDraft?.fieldSnapshots.length, 1)
   assert.deepEqual(
     detail.currentDraft?.fieldSnapshots.map((fieldSnapshot) => fieldSnapshot.fieldKey),
-    ["subject", "summary", "customer_update"],
+    ["customer_update"],
   )
 })
 
