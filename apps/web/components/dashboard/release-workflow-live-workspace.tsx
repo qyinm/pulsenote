@@ -557,7 +557,9 @@ function OverviewBoardCard({
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium leading-5 text-foreground">{item.title}</span>
           {statusBadge(item.readinessTone, item.readinessLabel)}
-          {ownershipCue ? ownershipCueBadge(ownershipCue) : null}
+          {queuedWorkflowItem?.approvalSummary.state === "pending" && ownershipCue
+            ? ownershipCueBadge(ownershipCue)
+            : null}
         </div>
         <p className="text-xs text-muted-foreground">{item.summary}</p>
       </div>
@@ -886,7 +888,9 @@ export function ReleaseWorkflowLiveWorkspace({
                 <div className="grid gap-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-foreground">{item.title}</span>
-                    {ownershipCue ? ownershipCueBadge(ownershipCue) : null}
+                    {queuedWorkflowItem?.approvalSummary.state === "pending" && ownershipCue
+                      ? ownershipCueBadge(ownershipCue)
+                      : null}
                   </div>
                   <span className="text-xs text-muted-foreground">{item.summary}</span>
                 </div>
@@ -970,6 +974,22 @@ export function ReleaseWorkflowLiveWorkspace({
       )
     }
 
+    if (isLoadingDetail && !selectedWorkflow) {
+      return (
+        <div className="rounded-2xl border border-border/70 bg-muted/10 px-4 py-6 text-sm text-muted-foreground">
+          Loading the selected release workflow from the authenticated API.
+        </div>
+      )
+    }
+
+    if (detailError && !selectedWorkflow) {
+      return (
+        <div className="rounded-2xl border border-destructive/40 bg-destructive/5 px-4 py-6 text-sm text-destructive">
+          {detailError}
+        </div>
+      )
+    }
+
     return (
       <div className="grid gap-4 rounded-2xl border border-border/70 bg-muted/10 p-4">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
@@ -978,7 +998,9 @@ export function ReleaseWorkflowLiveWorkspace({
               <span className="text-sm font-medium text-foreground">{selectedQueueItem.title}</span>
               {statusBadge(selectedQueueItem.readinessTone, selectedQueueItem.readinessLabel)}
               <Badge variant="outline">{selectedQueueItem.stageLabel}</Badge>
-              {selectedOwnershipCue ? ownershipCueBadge(selectedOwnershipCue) : null}
+              {selectedQueueSourceItem?.approvalSummary.state === "pending" && selectedOwnershipCue
+                ? ownershipCueBadge(selectedOwnershipCue)
+                : null}
             </div>
             <p className="text-sm text-muted-foreground">{selectedQueueItem.summary}</p>
             <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
