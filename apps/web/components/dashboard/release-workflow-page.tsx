@@ -112,6 +112,7 @@ export async function ReleaseWorkflowPage({
         initialSelectedWorkflow={workflowData.selectedWorkflow}
         mode={mode}
         overviewVariant={overviewVariant}
+        preferredFocusSection={preferredFocusSection}
         workspaceId={accessState.workspace.workspace.id}
       />
     </DashboardPage>
