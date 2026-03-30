@@ -56,6 +56,13 @@ import { Button } from "@/components/ui/button"
 import { buttonVariants } from "@/components/ui/button-variants"
 import { Label } from "@/components/ui/label"
 import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -82,6 +89,7 @@ type ReleaseWorkflowLiveWorkspaceProps = {
   currentUserId: string
   initialMembers: WorkspaceMember[]
   initialMembersUnavailable: boolean
+  initialOverviewDetailOpen?: boolean
   initialPolicy: WorkspacePolicySettings
   initialSelectedHistory: ReleaseWorkflowHistoryEntry[]
   initialSelectedHistoryUnavailable: boolean
@@ -549,21 +557,26 @@ function OverviewBoardCard({
       type="button"
       onClick={() => onSelect(item.id)}
       className={cn(
-        "grid gap-4 rounded-2xl border border-border/70 bg-background p-4 text-left shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-        isSelected && "border-foreground/35 bg-muted/20 shadow-sm",
+        "grid gap-4 rounded-3xl border border-border/70 bg-background p-4 text-left shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+        isSelected && "border-foreground/35 bg-muted/20 shadow-sm ring-1 ring-foreground/10",
       )}
     >
-      <div className="grid gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-medium leading-5 text-foreground">{item.title}</span>
-          {statusBadge(item.readinessTone, item.readinessLabel)}
-          {queuedWorkflowItem?.approvalSummary.state === "pending" && ownershipCue
-            ? ownershipCueBadge(ownershipCue)
-            : null}
+      <div className="grid gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="grid gap-1">
+            <span className="text-sm font-medium leading-5 text-foreground">{item.title}</span>
+            <span className="text-xs text-muted-foreground">{item.stageLabel}</span>
+          </div>
+          <div className="flex flex-wrap justify-end gap-2">
+            {statusBadge(item.readinessTone, item.readinessLabel)}
+            {queuedWorkflowItem?.approvalSummary.state === "pending" && ownershipCue
+              ? ownershipCueBadge(ownershipCue)
+              : null}
+          </div>
         </div>
         <p className="text-xs text-muted-foreground">{item.summary}</p>
       </div>
-      <div className="grid gap-3 rounded-xl border border-border/60 bg-muted/15 p-3 text-xs text-muted-foreground">
+      <div className="grid gap-3 rounded-2xl border border-border/60 bg-muted/15 p-3 text-xs text-muted-foreground">
         <div className="flex items-center justify-between gap-3">
           <span>Draft</span>
           <span className="font-medium text-foreground">{item.versionLabel}</span>
@@ -579,7 +592,7 @@ function OverviewBoardCard({
           </span>
         </div>
       </div>
-      <div className="rounded-xl bg-muted/30 p-3">
+      <div className="rounded-2xl bg-muted/30 p-3">
         <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Next</p>
         <p className="mt-1 text-sm text-foreground">{item.nextAction}</p>
       </div>
@@ -601,14 +614,14 @@ function renderOverviewBoard({
   queueSourceById: Map<string, ReleaseWorkflowListItem>
 }) {
   return (
-    <div className="overflow-x-auto pb-2">
-      <div className="flex min-w-max gap-4">
+    <div className="-mx-1 overflow-x-auto px-1 pb-2">
+      <div className="flex min-w-max snap-x gap-5">
       {boardColumns.map((column) => (
         <div
           key={column.stage}
-          className="grid w-[320px] min-h-[28rem] content-start gap-3 rounded-2xl border border-border/70 bg-muted/15 p-3"
+          className="grid w-[352px] shrink-0 snap-start content-start gap-3 rounded-3xl border border-border/70 bg-muted/20 p-4"
         >
-          <div className="grid gap-1">
+          <div className="grid gap-2">
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm font-medium text-foreground">{column.title}</p>
               <Badge variant="secondary">{column.items.length}</Badge>
@@ -628,7 +641,7 @@ function renderOverviewBoard({
                 />
               ))
             ) : (
-              <div className="rounded-xl border border-dashed border-border/70 bg-background/70 px-4 py-6 text-center text-sm text-muted-foreground">
+              <div className="rounded-2xl border border-dashed border-border/70 bg-background/70 px-4 py-8 text-center text-sm text-muted-foreground">
                 No releases in this stage.
               </div>
             )}
@@ -644,6 +657,7 @@ export function ReleaseWorkflowLiveWorkspace({
   currentUserId,
   initialMembers,
   initialMembersUnavailable,
+  initialOverviewDetailOpen = false,
   initialPolicy,
   initialSelectedHistory,
   initialSelectedHistoryUnavailable,
@@ -656,6 +670,9 @@ export function ReleaseWorkflowLiveWorkspace({
   const [selectedId, setSelectedId] = useState(initialSelectedId)
   const [workflow, setWorkflow] = useState(initialWorkflow)
   const [workspaceView, setWorkspaceView] = useState<ReleaseWorkflowWorkspaceView>("board")
+  const [isOverviewDetailOpen, setIsOverviewDetailOpen] = useState(
+    initialOverviewDetailOpen && mode === "overview",
+  )
   const [approvalOwnershipFilter, setApprovalOwnershipFilter] =
     useState<ReleaseWorkflowApprovalOwnershipFilter>("all")
   const [actionError, setActionError] = useState<string | null>(null)
@@ -846,13 +863,24 @@ export function ReleaseWorkflowLiveWorkspace({
   const handleSelectQueueItem = useCallback(
     (rowKey: string) => {
       setSelectedId(rowKey)
+      if (mode === "overview") {
+        setIsOverviewDetailOpen(true)
+      }
       setDetailError(null)
       setHistoryError(null)
       setActionError(null)
       setIsLoadingDetail(!detailById[rowKey])
       setIsLoadingHistory(!historyById[rowKey])
     },
-    [detailById, historyById, setDetailError, setHistoryError, setIsLoadingDetail, setIsLoadingHistory],
+    [
+      detailById,
+      historyById,
+      mode,
+      setDetailError,
+      setHistoryError,
+      setIsLoadingDetail,
+      setIsLoadingHistory,
+    ],
   )
 
   function renderQueueTable() {
@@ -965,168 +993,409 @@ export function ReleaseWorkflowLiveWorkspace({
     )
   }
 
-  function renderOverviewActionBar() {
-    if (!selectedQueueItem) {
-      return (
-        <div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 px-4 py-6 text-sm text-muted-foreground">
-          Select a release card to run the next workflow action from the board or list.
-        </div>
-      )
-    }
-
-    if (isLoadingDetail && !selectedWorkflow) {
-      return (
-        <div className="rounded-2xl border border-border/70 bg-muted/10 px-4 py-6 text-sm text-muted-foreground">
-          Loading the selected release workflow from the authenticated API.
-        </div>
-      )
-    }
-
-    if (detailError && !selectedWorkflow) {
-      return (
-        <div className="rounded-2xl border border-destructive/40 bg-destructive/5 px-4 py-6 text-sm text-destructive">
-          {detailError}
-        </div>
-      )
-    }
-
-    return (
-      <div className="grid gap-4 rounded-2xl border border-border/70 bg-muted/10 p-4">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-          <div className="grid gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-medium text-foreground">{selectedQueueItem.title}</span>
-              {statusBadge(selectedQueueItem.readinessTone, selectedQueueItem.readinessLabel)}
-              <Badge variant="outline">{selectedQueueItem.stageLabel}</Badge>
-              {selectedQueueSourceItem?.approvalSummary.state === "pending" && selectedOwnershipCue
-                ? ownershipCueBadge(selectedOwnershipCue)
-                : null}
-            </div>
-            <p className="text-sm text-muted-foreground">{selectedQueueItem.summary}</p>
-            <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-              <span>{selectedQueueItem.versionLabel}</span>
-              <span>Reviewer · {selectedQueueItem.ownerName ?? "Not assigned"}</span>
-              <span>
-                Proof · {selectedQueueItem.evidenceCount} evidence · {selectedQueueItem.sourceLinkCount} sources
-              </span>
-            </div>
-          </div>
-
-          <div className="grid gap-3 xl:min-w-[340px]">
-            {actionError ? (
-              <p className="text-sm text-destructive">{actionError}</p>
-            ) : null}
-
-            {canRequestApproval ? (
-              <div className="grid gap-2 rounded-xl border border-border/70 bg-background p-3">
-                <Label htmlFor="overview-approval-reviewer" className="text-sm font-medium">
-                  {approvalRequiresReviewer ? "Assign reviewer" : "Assign reviewer (optional)"}
-                </Label>
-                <Select
-                  value={approvalReviewerUserId}
-                  onValueChange={(value) => {
-                    setApprovalReviewerUserId(value ?? "")
-                  }}
-                  disabled={members.length === 0 || membersUnavailable}
-                >
-                  <SelectTrigger id="overview-approval-reviewer">
-                    <SelectValue
-                      placeholder={
-                        membersUnavailable
-                          ? "Reviewer roster is unavailable"
-                          : members.length === 0
-                            ? "No workspace members available"
-                            : "Choose a reviewer"
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {members.map((member) => (
-                      <SelectItem key={member.user.id} value={member.user.id}>
-                        {getWorkspaceMemberLabel(member)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  size="sm"
-                  disabled={
-                    isRunningAction ||
-                    (approvalRequiresReviewer &&
-                      (!approvalReviewerUserId || membersUnavailable || members.length === 0))
-                  }
-                  onClick={() => {
-                    void runWorkflowAction("request_approval")
-                  }}
-                >
-                  {actionButtonLabels.request_approval}
-                </Button>
-              </div>
-            ) : null}
-
-            <div className="flex flex-wrap gap-2">
-              {otherActions.map((action, index) => (
-                <Button
-                  key={action}
-                  variant={!canRequestApproval && index === 0 ? "default" : "outline"}
-                  size="sm"
-                  disabled={isRunningAction}
-                  onClick={() => {
-                    void runWorkflowAction(action)
-                  }}
-                >
-                  {actionButtonLabels[action]}
-                </Button>
-              ))}
-              {!canRequestApproval && otherActions.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No workflow actions are available for this release right now.
-                </p>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   if (mode === "overview") {
     return (
-      <SurfaceCard
-        title="Releases"
-        description="Move each release record forward from one board or one list, without splitting the workflow into separate pages."
-      >
-        <div className="grid gap-4">
-          <Tabs
-            value={workspaceView}
-            onValueChange={(value) => setWorkspaceView(value as ReleaseWorkflowWorkspaceView)}
-            className="gap-3"
+      <>
+        <SurfaceCard
+          title="Releases"
+          description="Move each release record forward from one board or one list, without splitting the workflow into separate pages."
+        >
+          <div className="grid gap-4">
+            <Tabs
+              value={workspaceView}
+              onValueChange={(value) => setWorkspaceView(value as ReleaseWorkflowWorkspaceView)}
+              className="gap-3"
+            >
+              <TabsList variant="line" className="w-full justify-start">
+                <TabsTrigger value="board">
+                  <LayoutGridIcon data-icon="inline-start" />
+                  Board
+                </TabsTrigger>
+                <TabsTrigger value="list">
+                  <Rows3Icon data-icon="inline-start" />
+                  List
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            {workspaceView === "board"
+              ? renderOverviewBoard({
+                  activeSelectedId,
+                  boardColumns,
+                  currentUserId,
+                  onSelect: handleSelectQueueItem,
+                  queueSourceById,
+                })
+              : renderOverviewList()}
+          </div>
+        </SurfaceCard>
+
+        <Sheet open={isOverviewDetailOpen} onOpenChange={setIsOverviewDetailOpen}>
+          <SheetContent
+            side="right"
+            className="w-[min(100vw,1180px)] max-w-none gap-0 p-0 sm:max-w-none"
           >
-            <TabsList variant="line" className="w-full justify-start">
-              <TabsTrigger value="board">
-                <LayoutGridIcon data-icon="inline-start" />
-                Board
-              </TabsTrigger>
-              <TabsTrigger value="list">
-                <Rows3Icon data-icon="inline-start" />
-                List
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+            <SheetHeader className="border-b border-border/70 bg-background px-6 py-5">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="grid gap-2">
+                  <span className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
+                    Release workflow
+                  </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <SheetTitle>{selectedQueueItem?.title ?? "Release details"}</SheetTitle>
+                    {selectedQueueItem
+                      ? statusBadge(selectedQueueItem.readinessTone, selectedQueueItem.readinessLabel)
+                      : null}
+                    {selectedQueueItem ? (
+                      <Badge variant="outline">{selectedQueueItem.stageLabel}</Badge>
+                    ) : null}
+                    {selectedQueueSourceItem?.approvalSummary.state === "pending" &&
+                    selectedOwnershipCue
+                      ? ownershipCueBadge(selectedOwnershipCue)
+                      : null}
+                  </div>
+                  <SheetDescription>
+                    {selectedQueueItem?.summary ??
+                      "Select a release card to inspect its workflow state."}
+                  </SheetDescription>
+                  {selectedQueueItem ? (
+                    <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                      <span>{selectedQueueItem.versionLabel}</span>
+                      <span>Reviewer · {selectedQueueItem.ownerName ?? "Not assigned"}</span>
+                      <span>
+                        Proof · {selectedQueueItem.evidenceCount} evidence · {selectedQueueItem.sourceLinkCount} sources
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
 
-          {renderOverviewActionBar()}
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    href="/dashboard/review-log"
+                    className={cn(buttonVariants({ size: "sm", variant: "outline" }))}
+                  >
+                    Review log
+                  </Link>
+                </div>
+              </div>
+            </SheetHeader>
 
-          {workspaceView === "board"
-            ? renderOverviewBoard({
-                activeSelectedId,
-                boardColumns,
-                currentUserId,
-                onSelect: handleSelectQueueItem,
-                queueSourceById,
-              })
-            : renderOverviewList()}
-        </div>
-      </SurfaceCard>
+            <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto xl:grid-cols-[minmax(0,1.45fr)_320px]">
+              <div className="grid content-start gap-4 px-6 py-6">
+                {detailError && !selectedWorkflow ? (
+                  <div className="rounded-2xl border border-destructive/40 bg-destructive/5 px-4 py-6 text-sm text-destructive">
+                    {detailError}
+                  </div>
+                ) : isLoadingDetail && !selectedWorkflow ? (
+                  <div className="rounded-2xl border border-border/70 bg-muted/10 px-4 py-6 text-sm text-muted-foreground">
+                    Loading the selected release workflow from the authenticated API.
+                  </div>
+                ) : !selectedWorkflow ? (
+                  <div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 px-4 py-6 text-sm text-muted-foreground">
+                    Select a release card to inspect scope, draft, claim check, approval, and publish pack.
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid gap-4 xl:grid-cols-2">
+                      <div className="grid gap-2 rounded-2xl border border-border/70 bg-background p-4">
+                        <p className="text-sm font-medium text-foreground">Scope</p>
+                        <InlineList
+                          items={[
+                            {
+                              label: "Compare range",
+                              value: selectedWorkflow.releaseRecord.compareRange ?? "Release tag scope",
+                            },
+                            {
+                              label: "Evidence blocks",
+                              value: String(selectedWorkflow.evidenceBlocks.length),
+                            },
+                            {
+                              label: "Source links",
+                              value: String(selectedWorkflow.sourceLinks.length),
+                            },
+                          ]}
+                        />
+                        <BulletList
+                          items={[
+                            selectedWorkflow.releaseRecord.summary ?? "No release summary is attached yet.",
+                            ...buildReleaseWorkflowEvidenceNotes(selectedWorkflow).slice(0, 2),
+                          ]}
+                        />
+                      </div>
+
+                      <div className="grid gap-2 rounded-2xl border border-border/70 bg-background p-4">
+                        <p className="text-sm font-medium text-foreground">Claim check</p>
+                        <div className="flex flex-wrap gap-2">
+                          {claimCheckBadge(selectedWorkflow.claimCheckSummary.state)}
+                          <Badge variant="outline">
+                            {selectedWorkflow.claimCheckSummary.totalClaims} claims
+                          </Badge>
+                          <Badge variant="outline">
+                            {selectedWorkflow.claimCheckSummary.flaggedClaims} flagged
+                          </Badge>
+                        </div>
+                        <BulletList items={buildReleaseWorkflowClaimCheckNotes(selectedWorkflow)} />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 rounded-2xl border border-border/70 bg-background p-4">
+                      <p className="text-sm font-medium text-foreground">Draft</p>
+                      {selectedWorkflow.currentDraft ? (
+                        <div className="grid gap-4">
+                          <InlineList
+                            items={[
+                              {
+                                label: "Draft revision",
+                                value: `Draft v${selectedWorkflow.currentDraft.version}`,
+                              },
+                              {
+                                label: "Created at",
+                                value: formatHistoryTimestamp(selectedWorkflow.currentDraft.createdAt),
+                              },
+                            ]}
+                          />
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <div className="grid gap-2 rounded-xl border border-border/70 bg-muted/20 p-4">
+                              <p className="text-sm font-medium text-foreground">Release notes</p>
+                              <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+                                {selectedWorkflow.currentDraft.releaseNotesBody}
+                              </p>
+                            </div>
+                            <div className="grid gap-2 rounded-xl border border-border/70 bg-muted/20 p-4">
+                              <p className="text-sm font-medium text-foreground">Changelog</p>
+                              <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+                                {selectedWorkflow.currentDraft.changelogBody}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          Create the first draft before expecting wording or review state here.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="grid gap-4 xl:grid-cols-2">
+                      <div className="grid gap-2 rounded-2xl border border-border/70 bg-background p-4">
+                        <p className="text-sm font-medium text-foreground">Approval</p>
+                        <div className="flex flex-wrap gap-2">
+                          {approvalBadge(selectedWorkflow.approvalSummary.state)}
+                          {selectedOwnershipCue &&
+                          selectedQueueSourceItem?.approvalSummary.state === "pending"
+                            ? ownershipCueBadge(selectedOwnershipCue)
+                            : null}
+                        </div>
+                        <InlineList
+                          items={[
+                            {
+                              label: "Assigned reviewer",
+                              value:
+                                selectedWorkflow.approvalSummary.ownerName ??
+                                (selectedWorkflow.approvalSummary.ownerUserId
+                                  ? "Unknown reviewer"
+                                  : "Not assigned"),
+                            },
+                            {
+                              label: "Requested by",
+                              value:
+                                selectedWorkflow.approvalSummary.requestedByName ??
+                                (selectedWorkflow.approvalSummary.requestedByUserId
+                                  ? "Unknown requester"
+                                  : "Not requested"),
+                            },
+                          ]}
+                        />
+                        <BulletList items={buildReleaseWorkflowApprovalNotes(selectedWorkflow)} />
+                      </div>
+
+                      <div className="grid gap-2 rounded-2xl border border-border/70 bg-background p-4">
+                        <p className="text-sm font-medium text-foreground">Recent history</p>
+                        {historyError ? (
+                          <p className="text-sm text-destructive">{historyError}</p>
+                        ) : isLoadingHistory && recentHistory.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">
+                            Loading the recent workflow history for this release.
+                          </p>
+                        ) : recentHistory.length > 0 ? (
+                          <div className="grid gap-3">
+                            {recentHistory.map((entry) => (
+                              <div
+                                key={entry.id}
+                                className="rounded-xl border border-border/70 bg-muted/20 p-3"
+                              >
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="text-sm font-medium text-foreground">
+                                    {entry.eventLabel}
+                                  </span>
+                                  {historyOutcomeBadge(entry.outcome)}
+                                </div>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {formatHistoryTimestamp(entry.createdAt)}
+                                </p>
+                                <p className="mt-2 text-sm text-muted-foreground">
+                                  {entry.note ?? "No review note was stored for this event."}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            Workflow history will appear here once actions are recorded on this release.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="grid content-start gap-4 border-t border-border/70 bg-muted/10 px-6 py-6 xl:border-t-0 xl:border-l">
+                <div className="grid gap-2 rounded-2xl border border-border/70 bg-background p-4">
+                  <p className="text-sm font-medium text-foreground">Properties</p>
+                  <InlineList
+                    items={[
+                      { label: "Release", value: selectedQueueItem?.title ?? "Unknown release" },
+                      { label: "Stage", value: selectedQueueItem?.stageLabel ?? "Unknown stage" },
+                      {
+                        label: "Readiness",
+                        value: selectedQueueItem?.readinessLabel ?? "Unknown readiness",
+                      },
+                      {
+                        label: "Approval",
+                        value: selectedQueueItem?.approvalLabel ?? "Unknown",
+                      },
+                      {
+                        label: "Publish pack",
+                        value: selectedQueueItem?.publishPackLabel ?? "Unknown",
+                      },
+                    ]}
+                  />
+                </div>
+
+                <div className="grid gap-2 rounded-2xl border border-border/70 bg-background p-4">
+                  <p className="text-sm font-medium text-foreground">Actions</p>
+                  {actionError ? <p className="text-sm text-destructive">{actionError}</p> : null}
+
+                  {canRequestApproval ? (
+                    <div className="grid gap-2 rounded-xl border border-border/70 bg-muted/20 p-3">
+                      <Label htmlFor="overview-approval-reviewer" className="text-sm font-medium">
+                        {approvalRequiresReviewer ? "Assign reviewer" : "Assign reviewer (optional)"}
+                      </Label>
+                      <Select
+                        value={approvalReviewerUserId}
+                        onValueChange={(value) => {
+                          setApprovalReviewerUserId(value ?? "")
+                        }}
+                        disabled={members.length === 0 || membersUnavailable}
+                      >
+                        <SelectTrigger id="overview-approval-reviewer">
+                          <SelectValue
+                            placeholder={
+                              membersUnavailable
+                                ? "Reviewer roster is unavailable"
+                                : members.length === 0
+                                  ? "No workspace members available"
+                                  : "Choose a reviewer"
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {members.map((member) => (
+                            <SelectItem key={member.user.id} value={member.user.id}>
+                              {getWorkspaceMemberLabel(member)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        size="sm"
+                        disabled={
+                          isRunningAction ||
+                          (approvalRequiresReviewer &&
+                            (!approvalReviewerUserId || membersUnavailable || members.length === 0))
+                        }
+                        onClick={() => {
+                          void runWorkflowAction("request_approval")
+                        }}
+                      >
+                        {actionButtonLabels.request_approval}
+                      </Button>
+                    </div>
+                  ) : null}
+
+                  <div className="flex flex-wrap gap-2">
+                    {otherActions.map((action, index) => (
+                      <Button
+                        key={action}
+                        variant={!canRequestApproval && index === 0 ? "default" : "outline"}
+                        size="sm"
+                        disabled={isRunningAction}
+                        onClick={() => {
+                          void runWorkflowAction(action)
+                        }}
+                      >
+                        {actionButtonLabels[action]}
+                      </Button>
+                    ))}
+                    {!canRequestApproval && otherActions.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        No workflow actions are available for this release right now.
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="grid gap-2 rounded-2xl border border-border/70 bg-background p-4">
+                  <p className="text-sm font-medium text-foreground">Publish pack</p>
+                  {!selectedWorkflow ? (
+                    <p className="text-sm text-muted-foreground">
+                      Select a release to inspect its frozen publish-pack handoff.
+                    </p>
+                  ) : selectedWorkflow.latestPublishPackArtifact ? (
+                    <div className="grid gap-3">
+                      <div className="flex flex-wrap gap-2">
+                        {publishPackBadge(selectedWorkflow.latestPublishPackSummary.state)}
+                        <Badge variant="outline">
+                          {getPublishPackArtifactCounts(selectedWorkflow).includedEvidenceCount} evidence
+                        </Badge>
+                        <Badge variant="outline">
+                          {getPublishPackArtifactCounts(selectedWorkflow).includedSourceLinkCount} sources
+                        </Badge>
+                      </div>
+                      <InlineList
+                        items={[
+                          {
+                            label: "Exported at",
+                            value: formatHistoryTimestamp(
+                              selectedWorkflow.latestPublishPackArtifact.exportedAt,
+                            ),
+                          },
+                          {
+                            label: "Exported by",
+                            value:
+                              selectedWorkflow.latestPublishPackArtifact.context.exportedByName ??
+                              "Unknown exporter",
+                          },
+                        ]}
+                      />
+                      <BulletList items={buildReleaseWorkflowPublishPackArtifactNotes(selectedWorkflow)} />
+                    </div>
+                  ) : (
+                    <BulletList
+                      items={
+                        selectedWorkflow
+                          ? buildReleaseWorkflowPublishPackNotes(selectedWorkflow)
+                          : ["Publish-pack state will appear here once a release is selected."]
+                      }
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
+      </>
     )
   }
 

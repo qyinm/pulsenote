@@ -102,6 +102,7 @@ export async function ReleaseWorkflowPage({
         currentUserId={accessState.session.user.id}
         initialMembers={workflowData.members}
         initialMembersUnavailable={workflowData.membersUnavailable}
+        initialOverviewDetailOpen={Boolean(preferredReleaseRecordId || preferredFocusSection)}
         initialPolicy={workflowData.policy}
         initialSelectedHistory={workflowData.selectedHistory}
         initialSelectedHistoryUnavailable={workflowData.selectedHistoryUnavailable}
