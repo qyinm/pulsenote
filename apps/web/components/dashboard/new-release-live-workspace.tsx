@@ -194,18 +194,8 @@ export function NewReleaseLiveWorkspace({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-  function resetPreview(nextMode?: NewReleaseScopeMode) {
-    setPreview((currentPreview) => {
-      if (!currentPreview) {
-        return null
-      }
-
-      if (!nextMode || currentPreview.mode === nextMode) {
-        return null
-      }
-
-      return null
-    })
+  function resetPreview() {
+    setPreview(null)
   }
 
   async function handlePreview(event: FormEvent<HTMLFormElement>) {
@@ -375,9 +365,8 @@ export function NewReleaseLiveWorkspace({
                 <Tabs
                   value={scopeMode}
                   onValueChange={(value) => {
-                    const nextMode = value as NewReleaseScopeMode
-                    setScopeMode(nextMode)
-                    resetPreview(nextMode)
+                    setScopeMode(value as NewReleaseScopeMode)
+                    resetPreview()
                     setErrorMessage(null)
                   }}
                   className="gap-4"

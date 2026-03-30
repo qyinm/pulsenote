@@ -207,13 +207,15 @@ async function resolveSinceDateCompareRange(input: {
     }
   }
 
+  const latestCommit = commits[0]
   const oldestCommit = commits[commits.length - 1]
   const base = oldestCommit?.parentShas[0] ?? oldestCommit?.sha ?? defaultBranch
+  const head = latestCommit?.sha ?? defaultBranch
   const comparison = await input.githubClient.compareCommits({
     auth: input.auth,
     compare: {
       base,
-      head: defaultBranch,
+      head,
     },
     repository: input.repository,
   })
@@ -224,7 +226,7 @@ async function resolveSinceDateCompareRange(input: {
     defaultBranch,
     resolvedCompare: {
       base,
-      head: defaultBranch,
+      head,
     },
   }
 }

@@ -159,7 +159,7 @@ export function createGitHubClient(): GitHubClient {
 
     async listCommitsSince({ auth, branch, repository, since }) {
       const octokit = createOctokit(auth)
-      const response = await octokit.rest.repos.listCommits({
+      const commits = await octokit.paginate(octokit.rest.repos.listCommits, {
         owner: repository.owner,
         per_page: 100,
         repo: repository.repo,
@@ -167,7 +167,7 @@ export function createGitHubClient(): GitHubClient {
         since,
       })
 
-      return response.data.map((commit) => ({
+      return commits.map((commit) => ({
         committedAt: commit.commit.committer?.date ?? null,
         message: commit.commit.message,
         parentShas: commit.parents.map((parent) => parent.sha),

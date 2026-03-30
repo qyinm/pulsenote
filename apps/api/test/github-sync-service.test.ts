@@ -724,7 +724,7 @@ test("previewSinceDate resolves an explicit compare range from the default branc
   assert.equal(preview.defaultBranch, "main")
   assert.deepEqual(preview.resolvedCompare, {
     base: "base123",
-    head: "main",
+    head: "ghi789",
   })
   assert.equal(preview.totalCommits, 2)
 })

@@ -1018,7 +1018,7 @@ test("github since-date preview route resolves a reviewable compare range", asyn
   assert.equal(body.defaultBranch, "main")
   assert.deepEqual(body.resolvedCompare, {
     base: "base123",
-    head: "main",
+    head: "ghi789",
   })
 })
 
