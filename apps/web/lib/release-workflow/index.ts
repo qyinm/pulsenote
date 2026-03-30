@@ -286,6 +286,64 @@ export function getReleaseWorkflowActionLabel(action: WorkflowAllowedAction) {
   return workflowActionLabels[action]
 }
 
+function isCommitLikeRef(value: string) {
+  return /^[0-9a-f]{12,40}$/i.test(value)
+}
+
+function shortenCompareRef(value: string) {
+  const trimmedValue = value.trim()
+
+  if (!trimmedValue) {
+    return trimmedValue
+  }
+
+  if (isCommitLikeRef(trimmedValue)) {
+    return trimmedValue.slice(0, 7)
+  }
+
+  return trimmedValue
+}
+
+export function formatReleaseWorkflowCompareRange(compareRange: string | null) {
+  if (!compareRange) {
+    return "Release tag scope"
+  }
+
+  const normalizedCompareRange = compareRange.trim()
+
+  if (!normalizedCompareRange) {
+    return "Release tag scope"
+  }
+
+  const parts = normalizedCompareRange.split("...")
+
+  if (parts.length !== 2) {
+    return shortenCompareRef(normalizedCompareRange)
+  }
+
+  const [base, head] = parts
+
+  return `${shortenCompareRef(base)}...${shortenCompareRef(head)}`
+}
+
+export function getReleaseWorkflowDisplayTitle(releaseRecord: Pick<ReleaseWorkflowListItem["releaseRecord"], "compareRange" | "title">) {
+  const trimmedTitle = releaseRecord.title.trim()
+
+  if (!trimmedTitle) {
+    return "Untitled release"
+  }
+
+  const compareRange = releaseRecord.compareRange?.trim()
+
+  if (!compareRange) {
+    return trimmedTitle
+  }
+
+  return trimmedTitle.includes(compareRange)
+    ? trimmedTitle.replace(compareRange, formatReleaseWorkflowCompareRange(compareRange))
+    : trimmedTitle
+}
+
 export function getReleaseWorkflowNextAction(item: ReleaseWorkflowListItem) {
   if (item.claimCheckSummary.blockerNotes.length > 0) {
     return item.claimCheckSummary.blockerNotes[0] as string
@@ -478,7 +536,7 @@ export function buildReleaseWorkflowQueueItem(
     sourceLinkCount: item.sourceLinkCount,
     stageLabel: getReleaseWorkflowStageLabel(item.releaseRecord.stage),
     summary: item.releaseRecord.summary ?? "No release summary is attached yet.",
-    title: item.releaseRecord.title,
+    title: getReleaseWorkflowDisplayTitle(item.releaseRecord),
     versionLabel: item.currentDraft ? `Draft v${item.currentDraft.version}` : "No draft yet",
   }
 }

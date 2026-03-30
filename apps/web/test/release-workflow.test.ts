@@ -14,6 +14,7 @@ import {
   buildReleaseWorkflowApprovalFilterCounts,
   buildReleaseWorkflowApprovalNotes,
   buildReleaseWorkflowBoardColumns,
+  formatReleaseWorkflowCompareRange,
   buildReleaseWorkflowMetrics,
   buildReleaseWorkflowPublishPackArtifactNotes,
   buildReleaseWorkflowPublishPackNotes,
@@ -22,6 +23,7 @@ import {
   filterReleaseWorkflowQueueByMode,
   filterReleaseWorkflowApprovalQueue,
   getReleaseWorkflowActionLabel,
+  getReleaseWorkflowDisplayTitle,
   getReleaseWorkflowBoardStage,
   getReleaseWorkflowOwnershipCue,
   getSelectedReleaseWorkflowDetail,
@@ -1076,6 +1078,25 @@ test("buildReleaseWorkflowQueueItem surfaces workflow labels and next actions", 
   assert.equal(
     getReleaseWorkflowActionLabel("create_publish_pack"),
     "Freeze the approved publish pack for handoff.",
+  )
+})
+
+test("release workflow display helpers shorten raw commit compare ranges for UI", () => {
+  assert.equal(
+    formatReleaseWorkflowCompareRange(
+      "68b4a8d16a6497e4b559fef89885f401a7b0b4d1...eafbd117a544530e4c93f76bcc1fdb05529e0c4f",
+    ),
+    "68b4a8d...eafbd11",
+  )
+
+  assert.equal(
+    getReleaseWorkflowDisplayTitle({
+      compareRange:
+        "68b4a8d16a6497e4b559fef89885f401a7b0b4d1...eafbd117a544530e4c93f76bcc1fdb05529e0c4f",
+      title:
+        "qyinm/pulsenote 68b4a8d16a6497e4b559fef89885f401a7b0b4d1...eafbd117a544530e4c93f76bcc1fdb05529e0c4f",
+    }),
+    "qyinm/pulsenote 68b4a8d...eafbd11",
   )
 })
 
