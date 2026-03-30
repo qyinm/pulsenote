@@ -275,6 +275,7 @@ const releaseWorkflowHistoryEntrySchema = z.object({
   eventLabel: z.string(),
   eventType: z.enum([
     "draft_created",
+    "draft_updated",
     "claim_check_completed",
     "approval_requested",
     "draft_approved",

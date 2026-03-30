@@ -213,16 +213,21 @@ export function buildDraftTemplateFields(input: {
 export function normalizeDraftTemplateFieldSnapshots(
   template: DraftTemplateDefinition,
   fieldSnapshots: DraftFieldSnapshot[],
+  existingFieldSnapshots: DraftFieldSnapshot[] = [],
 ): DraftFieldSnapshot[] {
-  const fieldSnapshotByKey = new Map(fieldSnapshots.map((fieldSnapshot) => [fieldSnapshot.fieldKey, fieldSnapshot]))
+  const existingFieldSnapshotByKey = new Map(
+    existingFieldSnapshots.map((fieldSnapshot) => [fieldSnapshot.fieldKey, fieldSnapshot]),
+  )
+  const nextFieldSnapshotByKey = new Map(fieldSnapshots.map((fieldSnapshot) => [fieldSnapshot.fieldKey, fieldSnapshot]))
 
   return template.fields.map((field, index) => {
-    const currentFieldSnapshot = fieldSnapshotByKey.get(field.key)
-    const nextContent = currentFieldSnapshot?.content ?? ""
+    const nextFieldSnapshot =
+      nextFieldSnapshotByKey.get(field.key) ?? existingFieldSnapshotByKey.get(field.key) ?? null
+    const nextContent = nextFieldSnapshot?.content ?? ""
 
     return {
       content: nextContent,
-      contentFormat: currentFieldSnapshot?.contentFormat ?? field.defaultContentFormat,
+      contentFormat: nextFieldSnapshot?.contentFormat ?? field.defaultContentFormat,
       fieldKey: field.key,
       label: field.label,
       plainText: stripMarkdown(nextContent),

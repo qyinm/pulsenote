@@ -30,82 +30,90 @@ function isDraftContentFormat(value: unknown): value is DraftContentFormat {
   return typeof value === "string" && draftContentFormats.includes(value as DraftContentFormat)
 }
 
-function parseDraftFieldSnapshots(value: unknown): DraftFieldSnapshot[] | null {
+function parseArrayOf<T>(value: unknown, parser: (item: unknown) => T | null): T[] | null {
   if (!Array.isArray(value)) {
     return null
   }
 
-  const parsedFieldSnapshots: DraftFieldSnapshot[] = []
+  const parsedItems: T[] = []
 
   for (const item of value) {
-    const record = asRecord(item)
+    const parsedItem = parser(item)
 
-    if (!record) {
+    if (!parsedItem) {
       return null
     }
 
-    if (
-      typeof record.content !== "string" ||
-      !isDraftContentFormat(record.contentFormat) ||
-      typeof record.fieldKey !== "string" ||
-      typeof record.label !== "string" ||
-      typeof record.plainText !== "string" ||
-      typeof record.sortOrder !== "number"
-    ) {
-      return null
-    }
-
-    parsedFieldSnapshots.push({
-      content: record.content,
-      contentFormat: record.contentFormat,
-      fieldKey: record.fieldKey,
-      label: record.label,
-      plainText: record.plainText,
-      sortOrder: record.sortOrder,
-    })
+    parsedItems.push(parsedItem)
   }
 
-  return parsedFieldSnapshots
+  return parsedItems
+}
+
+function parseDraftFieldSnapshot(value: unknown): DraftFieldSnapshot | null {
+  const record = asRecord(value)
+
+  if (!record) {
+    return null
+  }
+
+  if (
+    typeof record.content !== "string" ||
+    !isDraftContentFormat(record.contentFormat) ||
+    typeof record.fieldKey !== "string" ||
+    typeof record.label !== "string" ||
+    typeof record.plainText !== "string" ||
+    typeof record.sortOrder !== "number"
+  ) {
+    return null
+  }
+
+  return {
+    content: record.content,
+    contentFormat: record.contentFormat,
+    fieldKey: record.fieldKey,
+    label: record.label,
+    plainText: record.plainText,
+    sortOrder: record.sortOrder,
+  }
+}
+
+function parseDraftFieldSnapshots(value: unknown): DraftFieldSnapshot[] | null {
+  return parseArrayOf(value, parseDraftFieldSnapshot)
+}
+
+function parseDraftEvidenceRef(value: unknown): DraftEvidenceRef | null {
+  const record = asRecord(value)
+
+  if (!record) {
+    return null
+  }
+
+  if (
+    typeof record.createdAt !== "string" ||
+    typeof record.evidenceBlockId !== "string" ||
+    typeof record.fieldKey !== "string" ||
+    typeof record.id !== "string" ||
+    (record.anchorText !== null && typeof record.anchorText !== "string") ||
+    (record.note !== null && typeof record.note !== "string") ||
+    (record.sourceLinkId !== null && typeof record.sourceLinkId !== "string")
+  ) {
+    return null
+  }
+
+  return {
+    anchorText: record.anchorText ?? null,
+    createdAt: record.createdAt,
+    evidenceBlockId: record.evidenceBlockId,
+    fieldKey: record.fieldKey,
+    id: record.id,
+    note: record.note ?? null,
+    sourceLinkId: record.sourceLinkId ?? null,
+  }
 }
 
 function parseDraftEvidenceRefs(value: unknown): DraftEvidenceRef[] | null {
-  if (!Array.isArray(value)) {
-    return null
-  }
-
-  const parsedEvidenceRefs: DraftEvidenceRef[] = []
-
-  for (const item of value) {
-    const record = asRecord(item)
-
-    if (!record) {
-      return null
-    }
-
-    if (
-      typeof record.createdAt !== "string" ||
-      typeof record.evidenceBlockId !== "string" ||
-      typeof record.fieldKey !== "string" ||
-      typeof record.id !== "string" ||
-      (record.anchorText !== null && typeof record.anchorText !== "string") ||
-      (record.note !== null && typeof record.note !== "string") ||
-      (record.sourceLinkId !== null && typeof record.sourceLinkId !== "string")
-    ) {
-      return null
-    }
-
-    parsedEvidenceRefs.push({
-      anchorText: record.anchorText ?? null,
-      createdAt: record.createdAt,
-      evidenceBlockId: record.evidenceBlockId,
-      fieldKey: record.fieldKey,
-      id: record.id,
-      note: record.note ?? null,
-      sourceLinkId: record.sourceLinkId ?? null,
-    })
-  }
-
-  return parsedEvidenceRefs
+  return parseArrayOf(value, parseDraftEvidenceRef)
 }
 
 function badRequest(message: string) {

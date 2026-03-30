@@ -795,6 +795,40 @@ export function ReleaseWorkflowLiveWorkspace({
   const canRequestApproval =
     selectedDraftRevisionId !== null &&
     (selectedWorkflow?.allowedActions ?? []).includes("request_approval")
+
+  async function applyNextWorkflowDetail(
+    nextDetail: ReleaseWorkflowDetail,
+    historyLoadFailureMessage: string,
+  ) {
+    if (!activeSelectedId) {
+      return
+    }
+
+    setDetailById((currentDetails) => ({
+      ...currentDetails,
+      [activeSelectedId]: nextDetail,
+    }))
+    setWorkflow((currentWorkflow) =>
+      currentWorkflow.map((item) =>
+        item.releaseRecord.id === activeSelectedId ? detailToReleaseWorkflowListItem(nextDetail) : item,
+      ),
+    )
+    setDetailError(null)
+
+    try {
+      const nextHistory = await loadSelectedWorkflowHistory(activeSelectedId)
+      setHistoryById((currentHistory) => ({
+        ...currentHistory,
+        [activeSelectedId]: nextHistory,
+      }))
+      setHistoryError(null)
+    } catch (historyError) {
+      setHistoryError(
+        historyError instanceof Error ? historyError.message : historyLoadFailureMessage,
+      )
+    }
+  }
+
   const detailSectionLinks: Array<{
     description: string
     label: string
@@ -923,31 +957,10 @@ export function ReleaseWorkflowLiveWorkspace({
         }
       }
 
-      setDetailById((currentDetails) => ({
-        ...currentDetails,
-        [activeSelectedId]: nextDetail,
-      }))
-      setWorkflow((currentWorkflow) =>
-        currentWorkflow.map((item) =>
-          item.releaseRecord.id === activeSelectedId ? detailToReleaseWorkflowListItem(nextDetail) : item,
-        ),
+      await applyNextWorkflowDetail(
+        nextDetail,
+        "Recent workflow history could not be refreshed after the action completed.",
       )
-      setDetailError(null)
-
-      try {
-        const nextHistory = await loadSelectedWorkflowHistory(activeSelectedId)
-        setHistoryById((currentHistory) => ({
-          ...currentHistory,
-          [activeSelectedId]: nextHistory,
-        }))
-        setHistoryError(null)
-      } catch (historyError) {
-        setHistoryError(
-          historyError instanceof Error
-            ? historyError.message
-            : "Recent workflow history could not be refreshed after the action completed.",
-        )
-      }
     } catch (error) {
       setActionError(error instanceof Error ? error.message : "The workflow action failed.")
     } finally {
@@ -978,31 +991,10 @@ export function ReleaseWorkflowLiveWorkspace({
         },
       )
 
-      setDetailById((currentDetails) => ({
-        ...currentDetails,
-        [activeSelectedId]: nextDetail,
-      }))
-      setWorkflow((currentWorkflow) =>
-        currentWorkflow.map((item) =>
-          item.releaseRecord.id === activeSelectedId ? detailToReleaseWorkflowListItem(nextDetail) : item,
-        ),
+      await applyNextWorkflowDetail(
+        nextDetail,
+        "Recent workflow history could not be refreshed after the draft was saved.",
       )
-      setDetailError(null)
-
-      try {
-        const nextHistory = await loadSelectedWorkflowHistory(activeSelectedId)
-        setHistoryById((currentHistory) => ({
-          ...currentHistory,
-          [activeSelectedId]: nextHistory,
-        }))
-        setHistoryError(null)
-      } catch (historyError) {
-        setHistoryError(
-          historyError instanceof Error
-            ? historyError.message
-            : "Recent workflow history could not be refreshed after the draft was saved.",
-        )
-      }
     } catch (error) {
       setDraftSaveError(error instanceof Error ? error.message : "The draft could not be saved.")
     } finally {

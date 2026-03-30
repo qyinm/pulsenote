@@ -141,6 +141,18 @@ test("release workflow draft route saves edited draft fields as the next revisio
   const updatedBody = await updateResponse.json()
   assert.equal(updatedBody.currentDraft.version, 2)
   assert.match(updatedBody.currentDraft.releaseNotesBody, /customers can now track release-ready founder notes/i)
+  assert.equal(
+    updatedBody.currentDraft.fieldSnapshots.find((fieldSnapshot: { fieldKey: string }) => fieldSnapshot.fieldKey === "subject")?.content,
+    createdDraftBody.currentDraft.fieldSnapshots.find((fieldSnapshot: { fieldKey: string }) => fieldSnapshot.fieldKey === "subject")?.content,
+  )
+
+  const historyResponse = await app.request(
+    `/v1/workspaces/${fixture.bootstrap.workspace.id}/release-workflow/${fixture.releaseRecord.id}/history`,
+  )
+
+  assert.equal(historyResponse.status, 200)
+  const historyBody = await historyResponse.json()
+  assert.equal(historyBody[0]?.eventType, "draft_updated")
 })
 
 test("release workflow routes expose workspace and release history read models", async () => {

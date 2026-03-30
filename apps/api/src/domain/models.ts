@@ -33,6 +33,7 @@ export type ReviewState = (typeof reviewStates)[number]
 
 export const workflowEventTypes = [
   "draft_created",
+  "draft_updated",
   "claim_check_completed",
   "approval_requested",
   "draft_approved",

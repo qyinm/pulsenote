@@ -763,6 +763,8 @@ function buildHistoryEventLabel(workflowEvent: WorkflowEvent): string {
   switch (workflowEvent.type) {
     case "draft_created":
       return "Draft created"
+    case "draft_updated":
+      return "Draft updated"
     case "claim_check_completed":
       return "Claim check completed"
     case "approval_requested":
@@ -782,6 +784,7 @@ function buildHistoryEventOutcome(
 ): ReleaseWorkflowHistoryEntry["outcome"] {
   switch (workflowEvent.type) {
     case "draft_created":
+    case "draft_updated":
       return "revision"
     case "claim_check_completed": {
       if (!workflowEvent.draftRevisionId) {
@@ -856,6 +859,31 @@ function buildPublishPackExportSourceSnapshots(releaseSnapshot: ReleaseRecordSna
   }))
 }
 
+function sanitizeDraftEvidenceRefs(
+  evidenceRefs: DraftRevision["evidenceRefs"],
+  releaseSnapshot: ReleaseRecordSnapshot,
+  templateFieldKeys: Set<string>,
+) {
+  const evidenceBlockIds = new Set(releaseSnapshot.evidenceBlocks.map((evidenceBlock) => evidenceBlock.id))
+  const sourceLinkIds = new Set(releaseSnapshot.sourceLinks.map((sourceLink) => sourceLink.id))
+
+  return evidenceRefs.filter((evidenceRef) => {
+    if (!templateFieldKeys.has(evidenceRef.fieldKey)) {
+      return false
+    }
+
+    if (!evidenceBlockIds.has(evidenceRef.evidenceBlockId)) {
+      return false
+    }
+
+    if (evidenceRef.sourceLinkId && !sourceLinkIds.has(evidenceRef.sourceLinkId)) {
+      return false
+    }
+
+    return true
+  })
+}
+
 function collectWorkflowUserIds(
   releaseSnapshots: ReleaseRecordSnapshot[],
   workflowEvents: WorkflowEvent[],
@@ -904,16 +932,18 @@ function compareWorkflowHistoryEntries(
     switch (entry.eventType) {
       case "draft_created":
         return 1
-      case "claim_check_completed":
+      case "draft_updated":
         return 2
-      case "approval_requested":
+      case "claim_check_completed":
         return 3
-      case "draft_approved":
+      case "approval_requested":
         return 4
-      case "draft_reopened":
+      case "draft_approved":
         return 5
-      case "publish_pack_created":
+      case "draft_reopened":
         return 6
+      case "publish_pack_created":
+        return 7
     }
   }
   const createdAtComparison = right.createdAt.localeCompare(left.createdAt)
@@ -1257,15 +1287,20 @@ export function createReleaseWorkflowService(
       }
 
       assertExpectedDraftRevision(resources.currentDraft, input.expectedDraftRevisionId)
+      const currentDraft = resources.currentDraft!
 
-      if (!resources.currentDraft) {
-        throw new DraftRevisionNotFoundError(input.expectedDraftRevisionId)
-      }
-
-      const draftTemplate = getReleaseDraftTemplate(resources.currentDraft.templateId)
-      const fieldSnapshots = normalizeDraftTemplateFieldSnapshots(draftTemplate, input.fieldSnapshots)
+      const draftTemplate = getReleaseDraftTemplate(currentDraft.templateId)
+      const fieldSnapshots = normalizeDraftTemplateFieldSnapshots(
+        draftTemplate,
+        input.fieldSnapshots,
+        currentDraft.fieldSnapshots,
+      )
       const projectedDraftBodies = projectDraftBodiesFromFields(draftTemplate, fieldSnapshots)
-      const evidenceRefs = input.evidenceRefs ?? resources.currentDraft.evidenceRefs
+      const evidenceRefs = sanitizeDraftEvidenceRefs(
+        currentDraft.evidenceRefs,
+        resources.releaseSnapshot,
+        new Set(draftTemplate.fields.map((field) => field.key)),
+      )
 
       await store.transaction(async (transactionStore) => {
         const draftRevision = await transactionStore.createDraftRevision({
@@ -1275,10 +1310,10 @@ export function createReleaseWorkflowService(
           fieldSnapshots,
           releaseNotesBody: projectedDraftBodies.releaseNotesBody,
           releaseRecordId: input.releaseRecordId,
-          templateId: resources.currentDraft!.templateId,
-          templateLabel: resources.currentDraft!.templateLabel,
-          templateVersion: resources.currentDraft!.templateVersion,
-          version: resources.currentDraft!.version + 1,
+          templateId: currentDraft.templateId,
+          templateLabel: currentDraft.templateLabel,
+          templateVersion: currentDraft.templateVersion,
+          version: currentDraft.version + 1,
         })
 
         await transactionStore.createWorkflowEvent({
@@ -1287,7 +1322,7 @@ export function createReleaseWorkflowService(
           note: "Draft fields updated",
           releaseRecordId: input.releaseRecordId,
           stage: "draft",
-          type: "draft_created",
+          type: "draft_updated",
         })
       })
 
