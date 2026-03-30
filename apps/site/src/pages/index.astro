@@ -1,0 +1,382 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const proof = [
+  "Release context stays attached to the draft.",
+  "Claim checks run before sign-off.",
+  "The publish pack leaves as one reviewed handoff.",
+];
+
+const reviewCards = [
+  {
+    kicker: "Release record",
+    title: "Inputs stay visible while wording changes",
+    body:
+      "Pull requests, linked issues, rollout notes, and support caveats stay connected to the release draft instead of disappearing into chat or documents.",
+  },
+  {
+    kicker: "Claim checks",
+    title: "Risky public language is surfaced before approval",
+    body:
+      "PulseNote flags unsupported certainty, missing evidence, and internal-only phrasing before the note moves to reviewers.",
+  },
+  {
+    kicker: "Approval trail",
+    title: "Human accountability stays inspectable",
+    body:
+      "Edits, rationale, and final sign-off remain attached to the release so teams can reconstruct why the final wording was approved.",
+  },
+];
+
+const workflow = [
+  {
+    step: "Step 01",
+    title: "Ingest release context",
+    body:
+      "Collect shipped scope, linked issues, rollout files, QA notes, and customer-facing constraints into one release record.",
+  },
+  {
+    step: "Step 02",
+    title: "Draft public communication",
+    body:
+      "Start from the release record instead of rebuilding the message from scratch for every reviewer and downstream team.",
+  },
+  {
+    step: "Step 03",
+    title: "Run claim checks",
+    body:
+      "Surface unsupported claims, internal-only wording, and evidence gaps before public language leaves review.",
+  },
+  {
+    step: "Step 04",
+    title: "Collect approval",
+    body:
+      "Keep reviewer comments, wording changes, and human responsibility visible in the same approval trail.",
+  },
+  {
+    step: "Step 05",
+    title: "Export the publish pack",
+    body:
+      "Send approved release notes, support brief, stakeholder summary, and evidence links forward as one controlled handoff.",
+  },
+  {
+    step: "Step 06",
+    title: "Publish with confidence",
+    body:
+      "PulseNote stops at the handoff so the people responsible for publication still control the final customer-facing step.",
+  },
+];
+
+const outputs = [
+  {
+    kicker: "Customer-facing",
+    title: "Public release notes",
+    body:
+      "Explain what changed, why it matters, and what customers can do now without overreaching beyond the evidence.",
+  },
+  {
+    kicker: "Support and success",
+    title: "Support brief",
+    body:
+      "Carry rollout caveats, known edges, and likely customer questions forward so support does not have to reverse-engineer the release.",
+  },
+  {
+    kicker: "Internal alignment",
+    title: "Stakeholder summary",
+    body:
+      "Keep engineering, support, and product marketing aligned on shipped scope and approved customer-facing language.",
+  },
+];
+
+const quotes = [
+  {
+    quote:
+      "We stopped rebuilding release notes from pull requests and Slack threads. The review now starts from the same evidence everyone else saw.",
+    person: "Sample product marketing lead",
+  },
+  {
+    quote:
+      "The claim checks catch language drift early. That makes review faster because the debate stays tied to shipped facts.",
+    person: "Sample engineering manager",
+  },
+  {
+    quote:
+      "The support brief is finally part of the same handoff instead of an afterthought. That changed how ready the team feels on release day.",
+    person: "Sample support lead",
+  },
+];
+
+const faqs = [
+  {
+    question: "Why not just draft this in a generic AI tool?",
+    answer:
+      "Generic writing tools can help with wording, but your team still has to collect release context, inspect risky claims, and reconstruct who approved the final copy. PulseNote keeps those steps attached to the release itself.",
+  },
+  {
+    question: "Does PulseNote publish automatically?",
+    answer:
+      "No. PulseNote prepares the draft, runs checks, collects approval, and exports a publish pack. Final publication still belongs to the humans responsible for the release.",
+  },
+  {
+    question: "Who is PulseNote built for?",
+    answer:
+      "PulseNote is built for B2B SaaS teams shipping weekly or faster, especially when engineering, support, and product marketing all need to align on exact customer-facing language.",
+  },
+  {
+    question: "What inputs does PulseNote use?",
+    answer:
+      "Release records, merged pull requests, linked issues, rollout notes, QA context, and related review discussion that explains what actually shipped.",
+  },
+];
+---
+
+<BaseLayout>
+  <div class="page-shell">
+    <header class="site-header">
+      <div class="container site-header-inner">
+        <a class="brand" href="#top" aria-label="PulseNote home">
+          <img src="/brand-mark.svg" alt="" />
+          <span>
+            PulseNote
+            <small>Release communication system</small>
+          </span>
+        </a>
+
+        <nav class="site-nav" aria-label="Primary">
+          <a href="#review">Review</a>
+          <a href="#workflow">Workflow</a>
+          <a href="#outputs">Outputs</a>
+          <a href="#faq">FAQ</a>
+        </nav>
+
+        <div class="header-actions">
+          <a class="button-ghost" href="/coming-soon">Hosted access</a>
+          <a class="button" href="#cta">Request access</a>
+        </div>
+      </div>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <div class="container hero-grid">
+          <div class="hero-copy">
+            <span class="eyebrow">Source-backed release communication</span>
+            <h1>Turn shipped work into approved customer messaging.</h1>
+            <p>
+              PulseNote helps product teams ingest release context, draft public communication, run claim
+              checks, collect approval, and export a publish pack without drifting away from shipped facts.
+            </p>
+
+            <div class="hero-actions">
+              <a class="button" href="#cta">Request access</a>
+              <a class="button-secondary" href="#workflow">See the workflow</a>
+            </div>
+
+            <div class="hero-proof">
+              {proof.map((item) => <span class="proof-chip">{item}</span>)}
+            </div>
+          </div>
+
+          <div class="hero-panel">
+            <section class="panel">
+              <p class="panel-kicker">Sample release review</p>
+              <h2>Q1 permissions rollout candidate</h2>
+              <p>
+                Demo state. Illustrative content only. The release draft, evidence, and review signals stay in the
+                same workspace.
+              </p>
+              <div class="panel-list">
+                <span class="proof-chip">11 merged pull requests attached</span>
+                <span class="proof-chip">4 linked issues with rollout notes</span>
+                <span class="proof-chip">Support caveat requested before sign-off</span>
+              </div>
+            </section>
+
+            <section class="metric-grid">
+              <article class="metric-card">
+                <strong>Inputs</strong>
+                <p>Pull requests, issues, rollout notes, QA context.</p>
+              </article>
+              <article class="metric-card">
+                <strong>Checks</strong>
+                <p>Unsupported certainty, internal wording, missing evidence.</p>
+              </article>
+              <article class="metric-card">
+                <strong>Outputs</strong>
+                <p>Release notes, support brief, stakeholder summary.</p>
+              </article>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="review">
+        <div class="container">
+          <div class="section-heading">
+            <div>
+              <p class="section-kicker">Review surface</p>
+              <h2>Designed for evidence, checks, and approvals.</h2>
+            </div>
+            <p>
+              Inspired by a clean product-launch layout, but narrowed to one job: making release communication
+              safer and easier to review.
+            </p>
+          </div>
+
+          <div class="card-grid">
+            {reviewCards.map((card) => (
+              <article class="review-card">
+                <p class="card-kicker">{card.kicker}</p>
+                <h3>{card.title}</h3>
+                <p>{card.body}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="workflow">
+        <div class="container">
+          <div class="section-heading">
+            <div>
+              <p class="section-kicker">Operational flow</p>
+              <h2>A practical release path from intake to publish pack.</h2>
+            </div>
+            <p>
+              The flow stays narrow on purpose. PulseNote is not a generic writing studio. It helps teams move from
+              release evidence to reviewed customer communication.
+            </p>
+          </div>
+
+          <div class="workflow-grid">
+            {workflow.map((item) => (
+              <article class="workflow-card">
+                <strong>{item.step}</strong>
+                <h3>{item.title}</h3>
+                <p>{item.body}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="outputs">
+        <div class="container">
+          <div class="section-heading">
+            <div>
+              <p class="section-kicker">Outputs</p>
+              <h2>One release, multiple reviewed handoffs.</h2>
+            </div>
+            <p>
+              PulseNote keeps downstream teams aligned by exporting communication artifacts that remain tied to the
+              same release context and approval trail.
+            </p>
+          </div>
+
+          <div class="card-grid">
+            {outputs.map((card) => (
+              <article class="output-card">
+                <p class="card-kicker">{card.kicker}</p>
+                <h3>{card.title}</h3>
+                <p>{card.body}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="container">
+          <div class="section-heading">
+            <div>
+              <p class="section-kicker">Sample voices</p>
+              <h2>Built for cross-functional review.</h2>
+            </div>
+            <p>Illustrative quotes only. These are placeholders to show the kind of teams PulseNote is designed for.</p>
+          </div>
+
+          <div class="quote-grid">
+            {quotes.map((item) => (
+              <article class="quote-card">
+                <blockquote>{item.quote}</blockquote>
+                <p>{item.person}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="faq">
+        <div class="container">
+          <div class="section-heading">
+            <div>
+              <p class="section-kicker">FAQ</p>
+              <h2>Clear answers before the workflow opens.</h2>
+            </div>
+            <p>Keep the promise concrete: safer release communication, visible review, and controlled handoff.</p>
+          </div>
+
+          <div class="faq-stack">
+            {faqs.map((item) => (
+              <article class="faq-item">
+                <h3>{item.question}</h3>
+                <p>{item.answer}</p>
+              </article>
+            ))}
+          </div>
+
+          <div class="cta-band" id="cta">
+            <p class="section-kicker">Request access</p>
+            <h2>Open the hosted review workspace when your release team is ready.</h2>
+            <p>
+              PulseNote is being shaped around release intake, claim checks, approval, and publish-pack export.
+              Request access to review the hosted product direction.
+            </p>
+            <div class="cta-actions">
+              <a class="button-secondary" href="/coming-soon">View access status</a>
+              <a class="button-secondary" href="mailto:biz@pulsenotes.xyz">Email biz@pulsenotes.xyz</a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-grid">
+        <div>
+          <a class="brand" href="#top">
+            <img src="/brand-mark.svg" alt="" />
+            <span>
+              PulseNote
+              <small>Release communication system</small>
+            </span>
+          </a>
+          <p class="footer-note">
+            PulseNote helps teams turn release activity into public-safe, approval-ready communication.
+          </p>
+        </div>
+
+        <div class="footer-links">
+          <ul>
+            <li><a href="#review">Review surface</a></li>
+            <li><a href="#workflow">Workflow</a></li>
+            <li><a href="#outputs">Outputs</a></li>
+          </ul>
+          <ul>
+            <li><a href="#faq">FAQ</a></li>
+            <li><a href="/coming-soon">Hosted access</a></li>
+            <li><a href="mailto:biz@pulsenotes.xyz">biz@pulsenotes.xyz</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <p class="card-kicker">Scope</p>
+          <p>
+            Not a generic content studio. PulseNote is focused on release context, public wording checks,
+            approvals, and exportable publish packs.
+          </p>
+        </div>
+      </div>
+    </footer>
+  </div>
+</BaseLayout>
