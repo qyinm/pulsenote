@@ -79,7 +79,6 @@ export type ReleaseWorkflowMetrics = {
 }
 
 export type ReleaseWorkflowBoardColumn = {
-  description: string
   items: ReleaseWorkflowQueueItem[]
   stage: ReleaseWorkflowBoardStage
   title: string
@@ -140,26 +139,21 @@ const workflowActionLabels = {
 
 const releaseWorkflowBoardColumnMeta = {
   intake: {
-    description: "New scopes live here until PulseNote turns them into a reviewable draft.",
     title: "Intake",
   },
   claim_check: {
-    description: "Drafted releases stay here until wording, evidence, and risky claims are checked.",
     title: "Claim check",
   },
   approval: {
-    description: "These releases are waiting on one explicit reviewer handoff before export.",
     title: "Approval",
   },
   publish_pack: {
-    description: "Approved releases gather frozen handoff context before they are exported.",
     title: "Publish pack",
   },
   exported: {
-    description: "These releases already have a frozen publish pack artifact attached to them.",
     title: "Exported",
   },
-} satisfies Record<ReleaseWorkflowBoardStage, { description: string; title: string }>
+} satisfies Record<ReleaseWorkflowBoardStage, { title: string }>
 
 const releaseWorkflowWorkspaceFocusValues = new Set<ReleaseWorkflowWorkspaceFocus>([
   "scope",
@@ -599,7 +593,6 @@ export function buildReleaseWorkflowBoardColumns(
   }
 
   return boardStagesInOrder.map((stage) => ({
-      description: releaseWorkflowBoardColumnMeta[stage].description,
       items: itemsByStage.get(stage) ?? [],
       stage,
       title: releaseWorkflowBoardColumnMeta[stage].title,
