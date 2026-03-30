@@ -604,54 +604,48 @@ function OverviewBoardCard({
       type="button"
       onClick={() => onSelect(item.id)}
       className={cn(
-        "grid min-w-0 gap-4 overflow-hidden rounded-3xl border border-border/70 bg-background p-4 text-left shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-        isSelected && "border-foreground/35 bg-muted/20 shadow-sm ring-1 ring-foreground/10",
+        "grid min-w-0 gap-3 overflow-hidden rounded-3xl border border-border/60 bg-background px-4 py-3 text-left transition-all duration-200 hover:border-foreground/20 hover:bg-muted/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+        isSelected && "border-foreground/30 bg-muted/[0.16] ring-1 ring-foreground/10",
       )}
     >
-      <div className="grid gap-3">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="grid min-w-0 flex-1 gap-1">
-            <span className="line-clamp-2 text-sm font-semibold leading-5 text-foreground [overflow-wrap:anywhere]">
-              {item.title}
-            </span>
-            <span className="text-[11px] text-muted-foreground uppercase tracking-[0.12em]">
-              {item.stageLabel}
-            </span>
-          </div>
-          <div className="flex shrink-0 flex-wrap justify-end gap-2">
-            {statusBadge(item.readinessTone, item.readinessLabel)}
-            {queuedWorkflowItem?.approvalSummary.state === "pending" && ownershipCue
-              ? ownershipCueBadge(ownershipCue)
-              : null}
-          </div>
+      <div className="flex items-start justify-between gap-3">
+        <div className="grid min-w-0 flex-1 gap-1.5">
+          <span className="line-clamp-2 text-sm font-semibold leading-5 text-foreground [overflow-wrap:anywhere]">
+            {item.title}
+          </span>
+          <p className="line-clamp-2 text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
+            {item.summary}
+          </p>
         </div>
-        <p className="line-clamp-3 text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
-          {item.summary}
-        </p>
+        <div className="flex shrink-0 flex-wrap justify-end gap-2">
+          {statusBadge(item.readinessTone, item.readinessLabel)}
+        </div>
       </div>
-      <div className="grid grid-cols-[auto,minmax(0,1fr)] gap-x-3 gap-y-2 rounded-2xl border border-border/60 bg-muted/15 p-3 text-xs text-muted-foreground">
-        <div className="self-start">
-          <span>Draft</span>
-        </div>
-        <span className="min-w-0 text-right font-medium text-foreground [overflow-wrap:anywhere]">
+      <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+        <span className="rounded-full bg-muted px-2.5 py-1 font-medium text-foreground">
           {item.versionLabel}
         </span>
-        <div className="self-start">
-          <span>Reviewer</span>
-        </div>
-        <span className="min-w-0 text-right font-medium text-foreground [overflow-wrap:anywhere]">
-          {item.ownerName ?? "Not assigned"}
+        <span className="rounded-full bg-muted/70 px-2.5 py-1">
+          {item.evidenceCount} evidence
         </span>
-        <div className="self-start">
-          <span>Proof</span>
-        </div>
-        <span className="min-w-0 text-right font-medium text-foreground [overflow-wrap:anywhere]">
-          {item.evidenceCount} evidence · {item.sourceLinkCount} sources
+        <span className="rounded-full bg-muted/70 px-2.5 py-1">
+          {item.sourceLinkCount} sources
         </span>
+        {queuedWorkflowItem?.approvalSummary.state === "pending" && ownershipCue ? (
+          <span className="rounded-full bg-muted/70 px-2.5 py-1">
+            {ownershipCue.label}
+          </span>
+        ) : item.ownerName ? (
+          <span className="rounded-full bg-muted/70 px-2.5 py-1">
+            {item.ownerName}
+          </span>
+        ) : null}
       </div>
-      <div className="grid gap-1 rounded-2xl bg-muted/30 p-3">
-        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Next</p>
-        <p className="line-clamp-3 text-sm leading-5 text-foreground [overflow-wrap:anywhere]">
+      <div className="grid gap-1">
+        <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+          Next
+        </p>
+        <p className="line-clamp-2 text-xs leading-5 text-foreground/85 [overflow-wrap:anywhere]">
           {item.nextAction}
         </p>
       </div>
@@ -678,16 +672,15 @@ function renderOverviewBoard({
       {boardColumns.map((column) => (
         <div
           key={column.stage}
-          className="grid w-[320px] shrink-0 snap-start content-start gap-3 rounded-3xl border border-border/70 bg-muted/20 p-4"
+          className="grid w-[280px] shrink-0 snap-start content-start gap-3 rounded-[28px] bg-muted/[0.16] p-3"
         >
-          <div className="grid gap-2">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-sm font-medium text-foreground">{column.title}</p>
-              <Badge variant="secondary">{column.items.length}</Badge>
-            </div>
-            <p className="text-xs leading-5 text-muted-foreground">{column.description}</p>
+          <div className="flex items-center justify-between gap-3 px-1 pt-1">
+            <p className="text-sm font-semibold text-foreground">{column.title}</p>
+            <span className="text-xs font-medium text-muted-foreground">
+              {column.items.length}
+            </span>
           </div>
-          <div className="grid gap-3">
+          <div className="grid gap-2">
             {column.items.length > 0 ? (
               column.items.map((item) => (
                 <OverviewBoardCard
@@ -700,7 +693,7 @@ function renderOverviewBoard({
                 />
               ))
             ) : (
-              <div className="rounded-2xl border border-dashed border-border/70 bg-background/70 px-4 py-8 text-center text-sm text-muted-foreground">
+              <div className="grid min-h-36 place-items-center rounded-3xl border border-dashed border-border/50 bg-background/40 px-4 text-center text-sm text-muted-foreground">
                 No releases in this stage.
               </div>
             )}
