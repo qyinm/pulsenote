@@ -92,6 +92,13 @@
       "when": 1774749000000,
       "tag": "0012_nimble_talos",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1774835400000,
+      "tag": "0013_kind_banshee",
+      "breakpoints": true
     }
   ]
 }

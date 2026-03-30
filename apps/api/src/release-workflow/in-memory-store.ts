@@ -76,6 +76,14 @@ function clonePublishPackExport(publishPackExport: PublishPackExport): PublishPa
   }
 }
 
+function cloneDraftRevision(draftRevision: DraftRevision): DraftRevision {
+  return {
+    ...draftRevision,
+    evidenceRefs: draftRevision.evidenceRefs.map((evidenceRef) => ({ ...evidenceRef })),
+    fieldSnapshots: draftRevision.fieldSnapshots.map((fieldSnapshot) => ({ ...fieldSnapshot })),
+  }
+}
+
 export function createInMemoryReleaseWorkflowStore(
   foundationStore: FoundationStore,
 ): ReleaseWorkflowStore {
@@ -94,7 +102,7 @@ export function createInMemoryReleaseWorkflowStore(
         Array.from(state.draftClaimCheckResults.entries()).map(([key, value]) => [key, { ...value }]),
       ),
       draftRevisions: new Map(
-        Array.from(state.draftRevisions.entries()).map(([key, value]) => [key, { ...value }]),
+        Array.from(state.draftRevisions.entries()).map(([key, value]) => [key, cloneDraftRevision(value)]),
       ),
       publishPackExports: new Map(
         Array.from(state.publishPackExports.entries()).map(([key, value]) => [
@@ -158,9 +166,14 @@ export function createInMemoryReleaseWorkflowStore(
         changelogBody: input.changelogBody,
         createdAt: nowIso(),
         createdByUserId: input.createdByUserId,
+        evidenceRefs: input.evidenceRefs.map((evidenceRef) => ({ ...evidenceRef })),
+        fieldSnapshots: input.fieldSnapshots.map((fieldSnapshot) => ({ ...fieldSnapshot })),
         id: createId(),
         releaseNotesBody: input.releaseNotesBody,
         releaseRecordId: input.releaseRecordId,
+        templateId: input.templateId,
+        templateLabel: input.templateLabel,
+        templateVersion: input.templateVersion,
         version: input.version,
       }
 

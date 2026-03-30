@@ -145,8 +145,32 @@ function createReleaseWorkflowDetail(
             changelogBody: overrides.currentDraft?.changelogBody ?? "## SDK rollout v2.4",
             createdAt: overrides.currentDraft?.createdAt ?? "2026-03-20T00:00:00.000Z",
             createdByUserId: overrides.currentDraft?.createdByUserId ?? "user_1",
+            evidenceRefs: overrides.currentDraft?.evidenceRefs ?? [],
+            fieldSnapshots:
+              overrides.currentDraft?.fieldSnapshots ??
+              [
+                {
+                  content: "SDK rollout v2.4",
+                  contentFormat: "markdown",
+                  fieldKey: "release_notes",
+                  label: "Release notes",
+                  plainText: "SDK rollout v2.4",
+                  sortOrder: 0,
+                },
+                {
+                  content: "## SDK rollout v2.4",
+                  contentFormat: "markdown",
+                  fieldKey: "changelog",
+                  label: "Changelog",
+                  plainText: "SDK rollout v2.4",
+                  sortOrder: 1,
+                },
+              ],
             id: overrides.currentDraft?.id ?? "draft_1",
             releaseNotesBody: overrides.currentDraft?.releaseNotesBody ?? "SDK rollout v2.4",
+            templateId: overrides.currentDraft?.templateId ?? "release_note_packet",
+            templateLabel: overrides.currentDraft?.templateLabel ?? "Release notes packet",
+            templateVersion: overrides.currentDraft?.templateVersion ?? 1,
             version: overrides.currentDraft?.version ?? 1,
           },
     evidenceBlocks: overrides.evidenceBlocks ?? [],

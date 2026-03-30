@@ -8,6 +8,7 @@ import {
   ClaimCheckRequiredError,
   DraftRevisionNotFoundError,
   InvalidStageTransitionError,
+  InvalidDraftTemplateError,
   ReleaseWorkflowNotFoundError,
   ReviewerApprovalRequiredError,
   ReviewerAssignmentNotAllowedError,
@@ -77,6 +78,7 @@ function mapWorkflowError(error: unknown) {
     error instanceof ClaimCheckRequiredError ||
     error instanceof ClaimCheckBlockedError ||
     error instanceof ApprovalRequestRequiredError ||
+    error instanceof InvalidDraftTemplateError ||
     error instanceof ReviewerAssignmentRequiredError ||
     error instanceof ReviewerAssignmentNotAllowedError ||
     error instanceof ApprovedDraftRequiredError
@@ -180,6 +182,7 @@ export function createReleaseWorkflowRoute(releaseWorkflowService: ReleaseWorkfl
         expectedLatestDraftRevisionId: asOptionalString(payload?.expectedLatestDraftRevisionId),
         releaseNotesBody: asOptionalString(payload?.releaseNotesBody) ?? undefined,
         releaseRecordId: getRouteParam(context, "releaseRecordId"),
+        templateId: asOptionalString(payload?.templateId) ?? undefined,
         workspaceId: getRouteParam(context, "workspaceId"),
       })
 

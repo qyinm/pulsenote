@@ -68,6 +68,10 @@ import {
 } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { formatUtcTimestamp } from "@/lib/format"
+import {
+  getReleaseDraftTemplateOption,
+  releaseDraftTemplateOptions,
+} from "@/lib/draft-templates"
 import { cn } from "@/lib/utils"
 
 const approvalOwnershipFilters: Array<{
@@ -686,6 +690,9 @@ export function ReleaseWorkflowLiveWorkspace({
     useState<ReleaseWorkflowApprovalOwnershipFilter>("all")
   const [actionError, setActionError] = useState<string | null>(null)
   const [approvalReviewerUserId, setApprovalReviewerUserId] = useState("")
+  const [draftTemplateId, setDraftTemplateId] = useState<string>(
+    releaseDraftTemplateOptions[0]?.id ?? "",
+  )
   const [isRunningAction, setIsRunningAction] = useState(false)
   const members = initialMembers
   const membersUnavailable = initialMembersUnavailable
@@ -814,6 +821,15 @@ export function ReleaseWorkflowLiveWorkspace({
     setApprovalReviewerUserId(getDefaultReviewerUserId(members, selectedWorkflow))
   }, [members, selectedWorkflow])
 
+  useEffect(() => {
+    if (selectedWorkflow?.currentDraft?.templateId) {
+      setDraftTemplateId(selectedWorkflow.currentDraft.templateId)
+      return
+    }
+
+    setDraftTemplateId(releaseDraftTemplateOptions[0]?.id ?? "")
+  }, [selectedWorkflow?.currentDraft?.templateId])
+
   async function runWorkflowAction(action: WorkflowAllowedAction) {
     if (!activeSelectedId || !selectedWorkflow) {
       return
@@ -829,6 +845,7 @@ export function ReleaseWorkflowLiveWorkspace({
       if (action === "create_draft") {
         nextDetail = await apiClient.createReleaseWorkflowDraft(workspaceId, activeSelectedId, {
           expectedLatestDraftRevisionId: selectedWorkflow.currentDraft?.id ?? null,
+          templateId: draftTemplateId,
         })
       } else {
         if (!selectedDraftRevisionId) {
@@ -909,6 +926,7 @@ export function ReleaseWorkflowLiveWorkspace({
   }
 
   const metricCards = buildModeMetricCards(mode, workflow, selectedWorkflow, currentUserId)
+  const selectedDraftTemplate = getReleaseDraftTemplateOption(draftTemplateId)
   const handleSelectQueueItem = useCallback(
     (rowKey: string) => {
       if (mode === "overview" && !isOverviewDetailPage) {
@@ -1206,19 +1224,6 @@ export function ReleaseWorkflowLiveWorkspace({
               <SurfaceCard
                 title="Scope"
                 description="Release scope, compare range, and attached source evidence."
-                action={
-                  (selectedWorkflow.allowedActions ?? []).includes("create_draft") ? (
-                    <Button
-                      size="sm"
-                      disabled={isRunningAction}
-                      onClick={() => {
-                        void runWorkflowAction("create_draft")
-                      }}
-                    >
-                      {actionButtonLabels.create_draft}
-                    </Button>
-                  ) : undefined
-                }
               >
                 <div className="grid gap-4">
                   <InlineList
@@ -1245,6 +1250,60 @@ export function ReleaseWorkflowLiveWorkspace({
                       ...buildReleaseWorkflowEvidenceNotes(selectedWorkflow).slice(0, 3),
                     ]}
                   />
+                  {(selectedWorkflow.allowedActions ?? []).includes("create_draft") ? (
+                    <div className="grid gap-3 rounded-2xl border border-border/70 bg-muted/20 p-4">
+                      <div className="grid gap-1">
+                        <p className="text-sm font-medium text-foreground">Draft template</p>
+                        <p className="text-sm text-muted-foreground">
+                          Pick the release output you want to compose before PulseNote creates the
+                          next draft revision.
+                        </p>
+                      </div>
+                      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+                        <div className="grid gap-2">
+                          <Label htmlFor="detail-draft-template">Output template</Label>
+                          <Select
+                            value={draftTemplateId}
+                            onValueChange={(value) => setDraftTemplateId(value ?? "")}
+                          >
+                            <SelectTrigger id="detail-draft-template">
+                              <SelectValue placeholder="Choose a draft template" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {releaseDraftTemplateOptions.map((template) => (
+                                <SelectItem key={template.id} value={template.id}>
+                                  {template.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <Button
+                          size="sm"
+                          disabled={isRunningAction || !draftTemplateId}
+                          onClick={() => {
+                            void runWorkflowAction("create_draft")
+                          }}
+                        >
+                          {actionButtonLabels.create_draft}
+                        </Button>
+                      </div>
+                      <div className="grid gap-2 rounded-xl border border-border/60 bg-background/80 p-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="outline">{selectedDraftTemplate.label}</Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {selectedDraftTemplate.fields.length} fields
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {selectedDraftTemplate.description}
+                        </p>
+                        <BulletList
+                          items={selectedDraftTemplate.fields.map((field) => field.label)}
+                        />
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </SurfaceCard>
             </div>
@@ -1259,6 +1318,10 @@ export function ReleaseWorkflowLiveWorkspace({
                     <InlineList
                       items={[
                         {
+                          label: "Template",
+                          value: `${selectedWorkflow.currentDraft.templateLabel} v${selectedWorkflow.currentDraft.templateVersion}`,
+                        },
+                        {
                           label: "Draft revision",
                           value: `Draft v${selectedWorkflow.currentDraft.version}`,
                         },
@@ -1266,22 +1329,65 @@ export function ReleaseWorkflowLiveWorkspace({
                           label: "Created at",
                           value: formatHistoryTimestamp(selectedWorkflow.currentDraft.createdAt),
                         },
+                        {
+                          label: "Linked evidence",
+                          value: `${selectedWorkflow.currentDraft.evidenceRefs.length} refs`,
+                        },
                       ]}
                     />
                     <div className="grid gap-3 xl:grid-cols-2">
-                      <div className="grid gap-2 rounded-xl border border-border/70 bg-muted/20 p-4">
-                        <p className="text-sm font-medium text-foreground">Release notes</p>
-                        <p className="min-w-0 whitespace-pre-wrap text-sm text-muted-foreground [overflow-wrap:anywhere]">
-                          {selectedWorkflow.currentDraft.releaseNotesBody}
-                        </p>
-                      </div>
-                      <div className="grid gap-2 rounded-xl border border-border/70 bg-muted/20 p-4">
-                        <p className="text-sm font-medium text-foreground">Changelog</p>
-                        <p className="min-w-0 whitespace-pre-wrap text-sm text-muted-foreground [overflow-wrap:anywhere]">
-                          {selectedWorkflow.currentDraft.changelogBody}
-                        </p>
-                      </div>
+                      {selectedWorkflow.currentDraft.fieldSnapshots.length > 0 ? (
+                        selectedWorkflow.currentDraft.fieldSnapshots.map((fieldSnapshot) => (
+                          <div
+                            key={fieldSnapshot.fieldKey}
+                            className="grid gap-2 rounded-xl border border-border/70 bg-muted/20 p-4"
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p className="text-sm font-medium text-foreground">
+                                {fieldSnapshot.label}
+                              </p>
+                              <Badge variant="secondary">
+                                {fieldSnapshot.contentFormat.replaceAll("_", " ")}
+                              </Badge>
+                            </div>
+                            <p className="min-w-0 whitespace-pre-wrap text-sm text-muted-foreground [overflow-wrap:anywhere]">
+                              {fieldSnapshot.content}
+                            </p>
+                          </div>
+                        ))
+                      ) : (
+                        <>
+                          <div className="grid gap-2 rounded-xl border border-border/70 bg-muted/20 p-4">
+                            <p className="text-sm font-medium text-foreground">Release notes</p>
+                            <p className="min-w-0 whitespace-pre-wrap text-sm text-muted-foreground [overflow-wrap:anywhere]">
+                              {selectedWorkflow.currentDraft.releaseNotesBody}
+                            </p>
+                          </div>
+                          <div className="grid gap-2 rounded-xl border border-border/70 bg-muted/20 p-4">
+                            <p className="text-sm font-medium text-foreground">Changelog</p>
+                            <p className="min-w-0 whitespace-pre-wrap text-sm text-muted-foreground [overflow-wrap:anywhere]">
+                              {selectedWorkflow.currentDraft.changelogBody}
+                            </p>
+                          </div>
+                        </>
+                      )}
                     </div>
+                    {selectedWorkflow.currentDraft.evidenceRefs.length > 0 ? (
+                      <div className="grid gap-2 rounded-xl border border-border/70 bg-muted/20 p-4">
+                        <p className="text-sm font-medium text-foreground">Linked evidence</p>
+                        <BulletList
+                          items={selectedWorkflow.currentDraft.evidenceRefs.slice(0, 5).map((evidenceRef) => {
+                            const linkedEvidence = selectedWorkflow.evidenceBlocks.find(
+                              (evidenceBlock) => evidenceBlock.id === evidenceRef.evidenceBlockId,
+                            )
+
+                            return linkedEvidence
+                              ? `${linkedEvidence.title} -> ${evidenceRef.fieldKey.replaceAll("_", " ")}`
+                              : `Evidence ref ${evidenceRef.evidenceBlockId} -> ${evidenceRef.fieldKey.replaceAll("_", " ")}`
+                          })}
+                        />
+                      </div>
+                    ) : null}
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">

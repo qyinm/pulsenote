@@ -190,9 +190,14 @@ export function createPostgresReleaseWorkflowStore(
           changelogBody: input.changelogBody,
           createdAt: nowIso(),
           createdByUserId: input.createdByUserId,
+          evidenceRefs: input.evidenceRefs,
+          fieldSnapshots: input.fieldSnapshots,
           id: createId(),
           releaseNotesBody: input.releaseNotesBody,
           releaseRecordId: input.releaseRecordId,
+          templateId: input.templateId,
+          templateLabel: input.templateLabel,
+          templateVersion: input.templateVersion,
           version: input.version,
         })
         .returning()
