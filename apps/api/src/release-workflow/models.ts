@@ -1,5 +1,7 @@
 import type {
   DraftClaimCheckResult,
+  DraftEvidenceRef,
+  DraftFieldSnapshot,
   DraftRevision,
   PublishPackExport,
   PublishPackExportContextSnapshot,
@@ -89,7 +91,17 @@ export type PublishPackArtifact = {
 
 export type WorkflowCurrentDraft = Pick<
   DraftRevision,
-  "changelogBody" | "createdAt" | "createdByUserId" | "id" | "releaseNotesBody" | "version"
+  | "changelogBody"
+  | "createdAt"
+  | "createdByUserId"
+  | "evidenceRefs"
+  | "fieldSnapshots"
+  | "id"
+  | "releaseNotesBody"
+  | "templateId"
+  | "templateLabel"
+  | "templateVersion"
+  | "version"
 >
 
 export type ReleaseWorkflowListItem = {
@@ -154,6 +166,16 @@ export type CreateDraftInput = {
   changelogBody?: string
   expectedLatestDraftRevisionId: string | null
   releaseNotesBody?: string
+  releaseRecordId: string
+  templateId?: string
+  workspaceId: string
+}
+
+export type UpdateDraftInput = {
+  actorUserId: string | null
+  evidenceRefs?: DraftEvidenceRef[]
+  expectedDraftRevisionId: string
+  fieldSnapshots: DraftFieldSnapshot[]
   releaseRecordId: string
   workspaceId: string
 }

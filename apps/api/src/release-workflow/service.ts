@@ -9,6 +9,13 @@ import type {
 } from "../domain/models.js"
 import { createDefaultWorkspacePolicySettings } from "../domain/models.js"
 import type { ReleaseRecordSnapshot } from "../foundation/store.js"
+import {
+  buildDraftTemplateFields,
+  createDraftEvidenceRefs,
+  getReleaseDraftTemplate,
+  isReleaseDraftTemplateId,
+  projectDraftBodiesFromFields,
+} from "./draft-templates.js"
 import type {
   ApprovalSummary,
   ClaimCheckSummary,
@@ -121,6 +128,13 @@ export class ApprovedDraftRequiredError extends Error {
   constructor() {
     super("An approved draft is required before creating a publish pack")
     this.name = "ApprovedDraftRequiredError"
+  }
+}
+
+export class InvalidDraftTemplateError extends Error {
+  constructor(templateId: string) {
+    super(`Draft template ${templateId} is not supported`)
+    this.name = "InvalidDraftTemplateError"
   }
 }
 
@@ -661,8 +675,13 @@ function buildWorkflowDetailFromBaseRecord(
             changelogBody: baseRecord.currentDraft.changelogBody,
             createdAt: baseRecord.currentDraft.createdAt,
             createdByUserId: baseRecord.currentDraft.createdByUserId,
+            evidenceRefs: baseRecord.currentDraft.evidenceRefs,
+            fieldSnapshots: baseRecord.currentDraft.fieldSnapshots,
             id: baseRecord.currentDraft.id,
             releaseNotesBody: baseRecord.currentDraft.releaseNotesBody,
+            templateId: baseRecord.currentDraft.templateId,
+            templateLabel: baseRecord.currentDraft.templateLabel,
+            templateVersion: baseRecord.currentDraft.templateVersion,
             version: baseRecord.currentDraft.version,
           },
     evidenceBlocks: baseRecord.releaseSnapshot.evidenceBlocks,
@@ -1177,6 +1196,12 @@ export function createReleaseWorkflowService(
 
       assertExpectedDraftRevision(resources.currentDraft, input.expectedLatestDraftRevisionId)
 
+      const requestedTemplateId = input.templateId?.trim() ?? ""
+
+      if (requestedTemplateId.length > 0 && !isReleaseDraftTemplateId(requestedTemplateId)) {
+        throw new InvalidDraftTemplateError(requestedTemplateId)
+      }
+
       const draftContent =
         input.changelogBody && input.releaseNotesBody
           ? {
@@ -1184,13 +1209,27 @@ export function createReleaseWorkflowService(
               releaseNotesBody: input.releaseNotesBody,
             }
           : await composeDraft(resources.releaseSnapshot)
+      const draftTemplate = getReleaseDraftTemplate(requestedTemplateId)
+      const fieldSnapshots = buildDraftTemplateFields({
+        changelogBody: draftContent.changelogBody,
+        releaseNotesBody: draftContent.releaseNotesBody,
+        releaseSnapshot: resources.releaseSnapshot,
+        template: draftTemplate,
+      })
+      const projectedDraftBodies = projectDraftBodiesFromFields(draftTemplate, fieldSnapshots)
+      const evidenceRefs = createDraftEvidenceRefs(resources.releaseSnapshot, fieldSnapshots)
 
       await store.transaction(async (transactionStore) => {
         const draftRevision = await transactionStore.createDraftRevision({
-          changelogBody: draftContent.changelogBody,
+          changelogBody: projectedDraftBodies.changelogBody,
           createdByUserId: input.actorUserId,
-          releaseNotesBody: draftContent.releaseNotesBody,
+          evidenceRefs,
+          fieldSnapshots,
+          releaseNotesBody: projectedDraftBodies.releaseNotesBody,
           releaseRecordId: input.releaseRecordId,
+          templateId: draftTemplate.id,
+          templateLabel: draftTemplate.label,
+          templateVersion: draftTemplate.version,
           version: (resources.currentDraft?.version ?? 0) + 1,
         })
 

@@ -41,6 +41,28 @@ export const workflowEventTypes = [
 ] as const
 export type WorkflowEventType = (typeof workflowEventTypes)[number]
 
+export const draftContentFormats = ["markdown", "plain_text", "tiptap_json"] as const
+export type DraftContentFormat = (typeof draftContentFormats)[number]
+
+export type DraftFieldSnapshot = {
+  content: string
+  contentFormat: DraftContentFormat
+  fieldKey: string
+  label: string
+  plainText: string
+  sortOrder: number
+}
+
+export type DraftEvidenceRef = {
+  anchorText: string | null
+  createdAt: string
+  evidenceBlockId: string
+  fieldKey: string
+  id: string
+  note: string | null
+  sourceLinkId: string | null
+}
+
 export type User = {
   id: string
   email: string
@@ -241,7 +263,12 @@ export type DraftRevision = {
   changelogBody: string
   createdAt: string
   createdByUserId: string | null
+  evidenceRefs: DraftEvidenceRef[]
+  fieldSnapshots: DraftFieldSnapshot[]
   releaseNotesBody: string
+  templateId: string
+  templateLabel: string
+  templateVersion: number
 }
 
 export type DraftClaimCheckResult = {

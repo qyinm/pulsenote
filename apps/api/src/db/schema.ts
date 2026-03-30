@@ -1,5 +1,7 @@
 import {
   claimStatuses,
+  type DraftEvidenceRef,
+  type DraftFieldSnapshot,
   evidenceStates,
   evidenceSourceTypes,
   integrationConnectionStatuses,
@@ -354,11 +356,22 @@ export const draftRevisions = pgTable(
     changelogBody: text("changelog_body").notNull(),
     createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
     createdByUserId: uuid("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    evidenceRefs: jsonb("evidence_refs")
+      .$type<DraftEvidenceRef[]>()
+      .default(sql`'[]'::jsonb`)
+      .notNull(),
+    fieldSnapshots: jsonb("field_snapshots")
+      .$type<DraftFieldSnapshot[]>()
+      .default(sql`'[]'::jsonb`)
+      .notNull(),
     id: uuid("id").defaultRandom().primaryKey(),
     releaseNotesBody: text("release_notes_body").notNull(),
     releaseRecordId: uuid("release_record_id")
       .notNull()
       .references(() => releaseRecords.id, { onDelete: "cascade" }),
+    templateId: text("template_id").notNull().default("release_note_packet"),
+    templateLabel: text("template_label").notNull().default("Release notes packet"),
+    templateVersion: integer("template_version").notNull().default(1),
     version: integer("version").notNull(),
   },
   (table) => [

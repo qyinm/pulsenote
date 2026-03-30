@@ -3,6 +3,7 @@ import test from "node:test"
 
 import {
   ClaimCheckRequiredError,
+  InvalidDraftTemplateError,
   ReviewerApprovalRequiredError,
   ReviewerAssignmentNotAllowedError,
   ReviewerAssignmentRequiredError,
@@ -30,8 +31,54 @@ test("release workflow service creates a draft revision and advances the release
 
   assert.equal(detail.releaseRecord.stage, "draft")
   assert.equal(detail.currentDraft?.version, 1)
+  assert.equal(detail.currentDraft?.templateId, "release_note_packet")
+  assert.equal(detail.currentDraft?.templateLabel, "Release notes packet")
+  assert.equal(detail.currentDraft?.fieldSnapshots.length, 2)
+  assert.equal(detail.currentDraft?.evidenceRefs.length, 1)
   assert.match(detail.currentDraft?.releaseNotesBody ?? "", /founder release workflow/i)
   assert.deepEqual(detail.allowedActions, ["create_draft", "run_claim_check"])
+})
+
+test("release workflow service creates template-backed drafts for customer updates", async () => {
+  const fixture = await seedReleaseWorkflowFixture({
+    async composeDraft() {
+      return {
+        changelogBody: "## Founder workflow\n\n- Adds founder release workflow and approval checkpoints",
+        releaseNotesBody: "Founder workflow\n\n- Adds founder release workflow and approval checkpoints",
+      }
+    },
+  })
+
+  const detail = await fixture.workflowService.createDraft({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedLatestDraftRevisionId: null,
+    releaseRecordId: fixture.releaseRecord.id,
+    templateId: "customer_update",
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  assert.equal(detail.currentDraft?.templateId, "customer_update")
+  assert.equal(detail.currentDraft?.fieldSnapshots.length, 3)
+  assert.deepEqual(
+    detail.currentDraft?.fieldSnapshots.map((fieldSnapshot) => fieldSnapshot.fieldKey),
+    ["subject", "summary", "customer_update"],
+  )
+})
+
+test("release workflow service rejects unsupported draft templates", async () => {
+  const fixture = await seedReleaseWorkflowFixture()
+
+  await assert.rejects(
+    () =>
+      fixture.workflowService.createDraft({
+        actorUserId: fixture.bootstrap.user.id,
+        expectedLatestDraftRevisionId: null,
+        releaseRecordId: fixture.releaseRecord.id,
+        templateId: "not_a_release_template",
+        workspaceId: fixture.bootstrap.workspace.id,
+      }),
+    InvalidDraftTemplateError,
+  )
 })
 
 test("release workflow service rejects stale draft revisions for draft creation", async () => {

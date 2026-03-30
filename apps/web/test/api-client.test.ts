@@ -107,8 +107,40 @@ function createReleaseWorkflowDetailPayload() {
       changelogBody: "## SDK rollout v2.4",
       createdAt: "2026-03-20T00:00:00.000Z",
       createdByUserId: "user_1",
+      evidenceRefs: [
+        {
+          anchorText: null,
+          createdAt: "2026-03-20T00:00:00.000Z",
+          evidenceBlockId: "evidence_1",
+          fieldKey: "release_notes",
+          id: "draft_evidence_1",
+          note: null,
+          sourceLinkId: "source_1",
+        },
+      ],
+      fieldSnapshots: [
+        {
+          content: "SDK rollout v2.4",
+          contentFormat: "markdown",
+          fieldKey: "release_notes",
+          label: "Release notes",
+          plainText: "SDK rollout v2.4",
+          sortOrder: 0,
+        },
+        {
+          content: "## SDK rollout v2.4",
+          contentFormat: "markdown",
+          fieldKey: "changelog",
+          label: "Changelog",
+          plainText: "SDK rollout v2.4",
+          sortOrder: 1,
+        },
+      ],
       id: "draft_1",
       releaseNotesBody: "SDK rollout v2.4",
+      templateId: "release_note_packet",
+      templateLabel: "Release notes packet",
+      templateVersion: 1,
       version: 1,
     },
     evidenceBlocks: createReleaseRecordSnapshotPayload().evidenceBlocks,
@@ -472,6 +504,7 @@ test("api client sends workflow command requests with encoded payloads", async (
 
   await client.createReleaseWorkflowDraft("workspace_1", "release_1", {
     expectedLatestDraftRevisionId: null,
+    templateId: "release_note_packet",
   })
   await client.runReleaseWorkflowClaimCheck("workspace_1", "release_1", {
     expectedDraftRevisionId: "draft_1",
@@ -500,7 +533,10 @@ test("api client sends workflow command requests with encoded payloads", async (
     })),
     [
       {
-        body: JSON.stringify({ expectedLatestDraftRevisionId: null }),
+        body: JSON.stringify({
+          expectedLatestDraftRevisionId: null,
+          templateId: "release_note_packet",
+        }),
         method: "POST",
         url: "https://api.pulsenotes.xyz/v1/workspaces/workspace_1/release-workflow/release_1/drafts",
       },

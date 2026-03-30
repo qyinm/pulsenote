@@ -115,8 +115,32 @@ const workflowCurrentDraftSchema = z.object({
   changelogBody: z.string(),
   createdAt: z.string(),
   createdByUserId: z.string().nullable(),
+  evidenceRefs: z.array(
+    z.object({
+      anchorText: z.string().nullable(),
+      createdAt: z.string(),
+      evidenceBlockId: z.string(),
+      fieldKey: z.string(),
+      id: z.string(),
+      note: z.string().nullable(),
+      sourceLinkId: z.string().nullable(),
+    }),
+  ),
+  fieldSnapshots: z.array(
+    z.object({
+      content: z.string(),
+      contentFormat: z.enum(["markdown", "plain_text", "tiptap_json"]),
+      fieldKey: z.string(),
+      label: z.string(),
+      plainText: z.string(),
+      sortOrder: z.number().int(),
+    }),
+  ),
   id: z.string(),
   releaseNotesBody: z.string(),
+  templateId: z.string(),
+  templateLabel: z.string(),
+  templateVersion: z.number().int(),
   version: z.number().int(),
 })
 
@@ -526,6 +550,7 @@ type CreateReleaseWorkflowDraftPayload = {
   changelogBody?: string
   expectedLatestDraftRevisionId?: string | null
   releaseNotesBody?: string
+  templateId?: string
 }
 
 type ReleaseWorkflowDraftCommandPayload = {

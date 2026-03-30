@@ -1,6 +1,8 @@
 import type {
   ClaimStatus,
   DraftClaimCheckResult,
+  DraftEvidenceRef,
+  DraftFieldSnapshot,
   DraftRevision,
   PublishPackExport,
   PublishPackExportContextSnapshot,
@@ -21,8 +23,13 @@ import type { ReleaseRecordSnapshot } from "../foundation/store.js"
 export type CreateDraftRevisionInput = {
   changelogBody: string
   createdByUserId: string | null
+  evidenceRefs: DraftEvidenceRef[]
+  fieldSnapshots: DraftFieldSnapshot[]
   releaseNotesBody: string
   releaseRecordId: string
+  templateId: string
+  templateLabel: string
+  templateVersion: number
   version: number
 }
 

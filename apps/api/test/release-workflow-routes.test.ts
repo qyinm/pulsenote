@@ -33,6 +33,64 @@ test("release workflow routes expose list and detail read models", async () => {
   assert.equal(detailBody.latestPublishPackArtifact, null)
 })
 
+test("release workflow draft route returns template-backed draft payloads", async () => {
+  const fixture = await seedReleaseWorkflowFixture()
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(fixture.bootstrap.user.id)),
+    foundationService: fixture.foundationService,
+    releaseWorkflowService: fixture.workflowService,
+  })
+
+  const response = await app.request(
+    `/v1/workspaces/${fixture.bootstrap.workspace.id}/release-workflow/${fixture.releaseRecord.id}/drafts`,
+    {
+      body: JSON.stringify({
+        expectedLatestDraftRevisionId: null,
+        templateId: "customer_update",
+      }),
+      headers: {
+        "content-type": "application/json",
+      },
+      method: "POST",
+    },
+  )
+
+  assert.equal(response.status, 201)
+  const body = await response.json()
+  assert.equal(body.currentDraft.templateId, "customer_update")
+  assert.equal(body.currentDraft.fieldSnapshots.length, 3)
+  assert.equal(body.currentDraft.evidenceRefs.length, 1)
+})
+
+test("release workflow draft route rejects unsupported templates", async () => {
+  const fixture = await seedReleaseWorkflowFixture()
+  const app = createApp(runtimeEnv, {
+    authService: createAuthService(createAuthenticatedSession(fixture.bootstrap.user.id)),
+    foundationService: fixture.foundationService,
+    releaseWorkflowService: fixture.workflowService,
+  })
+
+  const response = await app.request(
+    `/v1/workspaces/${fixture.bootstrap.workspace.id}/release-workflow/${fixture.releaseRecord.id}/drafts`,
+    {
+      body: JSON.stringify({
+        expectedLatestDraftRevisionId: null,
+        templateId: "generic_doc",
+      }),
+      headers: {
+        "content-type": "application/json",
+      },
+      method: "POST",
+    },
+  )
+
+  assert.equal(response.status, 422)
+  assert.deepEqual(await response.json(), {
+    message: "Draft template generic_doc is not supported",
+    status: 422,
+  })
+})
+
 test("release workflow routes expose workspace and release history read models", async () => {
   const fixture = await seedReleaseWorkflowFixture({
     async composeDraft() {
