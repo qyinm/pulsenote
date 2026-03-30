@@ -1,6 +1,7 @@
 import { Hono, type Context } from "hono"
 
 import type { AppBindings } from "../types.js"
+import { draftContentFormats, type DraftContentFormat, type DraftEvidenceRef, type DraftFieldSnapshot } from "../domain/models.js"
 import {
   ApprovalRequestRequiredError,
   ApprovedDraftRequiredError,
@@ -23,6 +24,96 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 
 function asOptionalString(value: unknown) {
   return typeof value === "string" ? value : null
+}
+
+function isDraftContentFormat(value: unknown): value is DraftContentFormat {
+  return typeof value === "string" && draftContentFormats.includes(value as DraftContentFormat)
+}
+
+function parseArrayOf<T>(value: unknown, parser: (item: unknown) => T | null): T[] | null {
+  if (!Array.isArray(value)) {
+    return null
+  }
+
+  const parsedItems: T[] = []
+
+  for (const item of value) {
+    const parsedItem = parser(item)
+
+    if (!parsedItem) {
+      return null
+    }
+
+    parsedItems.push(parsedItem)
+  }
+
+  return parsedItems
+}
+
+function parseDraftFieldSnapshot(value: unknown): DraftFieldSnapshot | null {
+  const record = asRecord(value)
+
+  if (!record) {
+    return null
+  }
+
+  if (
+    typeof record.content !== "string" ||
+    !isDraftContentFormat(record.contentFormat) ||
+    typeof record.fieldKey !== "string" ||
+    typeof record.label !== "string" ||
+    typeof record.plainText !== "string" ||
+    typeof record.sortOrder !== "number"
+  ) {
+    return null
+  }
+
+  return {
+    content: record.content,
+    contentFormat: record.contentFormat,
+    fieldKey: record.fieldKey,
+    label: record.label,
+    plainText: record.plainText,
+    sortOrder: record.sortOrder,
+  }
+}
+
+function parseDraftFieldSnapshots(value: unknown): DraftFieldSnapshot[] | null {
+  return parseArrayOf(value, parseDraftFieldSnapshot)
+}
+
+function parseDraftEvidenceRef(value: unknown): DraftEvidenceRef | null {
+  const record = asRecord(value)
+
+  if (!record) {
+    return null
+  }
+
+  if (
+    typeof record.createdAt !== "string" ||
+    typeof record.evidenceBlockId !== "string" ||
+    typeof record.fieldKey !== "string" ||
+    typeof record.id !== "string" ||
+    (record.anchorText !== null && typeof record.anchorText !== "string") ||
+    (record.note !== null && typeof record.note !== "string") ||
+    (record.sourceLinkId !== null && typeof record.sourceLinkId !== "string")
+  ) {
+    return null
+  }
+
+  return {
+    anchorText: record.anchorText ?? null,
+    createdAt: record.createdAt,
+    evidenceBlockId: record.evidenceBlockId,
+    fieldKey: record.fieldKey,
+    id: record.id,
+    note: record.note ?? null,
+    sourceLinkId: record.sourceLinkId ?? null,
+  }
+}
+
+function parseDraftEvidenceRefs(value: unknown): DraftEvidenceRef[] | null {
+  return parseArrayOf(value, parseDraftEvidenceRef)
 }
 
 function badRequest(message: string) {
@@ -115,6 +206,16 @@ function getRouteParam(context: Context<AppBindings>, key: "workspaceId" | "rele
   return value
 }
 
+function getDraftRevisionRouteParam(context: Context<AppBindings>) {
+  const value = context.req.param("draftRevisionId")
+
+  if (!value) {
+    throw new Error("draftRevisionId is required")
+  }
+
+  return value
+}
+
 export function createReleaseWorkflowRoute(releaseWorkflowService: ReleaseWorkflowService) {
   const route = new Hono<AppBindings>()
 
@@ -187,6 +288,48 @@ export function createReleaseWorkflowRoute(releaseWorkflowService: ReleaseWorkfl
       })
 
       return context.json(detail, 201)
+    } catch (error) {
+      const mappedError = mapWorkflowError(error)
+
+      if (mappedError) {
+        return context.json(mappedError.body, mappedError.status)
+      }
+
+      throw error
+    }
+  })
+
+  route.patch("/:releaseRecordId/drafts/:draftRevisionId", async (context) => {
+    const { error, payload } = await parseOptionalJsonRecord(context)
+
+    if (error) {
+      return context.json(error, error.status)
+    }
+
+    const fieldSnapshots = parseDraftFieldSnapshots(payload?.fieldSnapshots)
+
+    if (!fieldSnapshots || fieldSnapshots.length === 0) {
+      return context.json(badRequest("fieldSnapshots must be a non-empty array"), 400)
+    }
+
+    const parsedEvidenceRefs =
+      payload?.evidenceRefs === undefined ? null : parseDraftEvidenceRefs(payload.evidenceRefs)
+
+    if (payload?.evidenceRefs !== undefined && !parsedEvidenceRefs) {
+      return context.json(badRequest("evidenceRefs must be a valid array"), 400)
+    }
+
+    try {
+      const detail = await releaseWorkflowService.updateDraft({
+        actorUserId: context.get("authUser")?.id ?? null,
+        evidenceRefs: parsedEvidenceRefs ?? undefined,
+        expectedDraftRevisionId: getDraftRevisionRouteParam(context),
+        fieldSnapshots,
+        releaseRecordId: getRouteParam(context, "releaseRecordId"),
+        workspaceId: getRouteParam(context, "workspaceId"),
+      })
+
+      return context.json(detail)
     } catch (error) {
       const mappedError = mapWorkflowError(error)
 

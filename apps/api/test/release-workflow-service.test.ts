@@ -110,6 +110,89 @@ test("release workflow service rejects stale draft revisions for draft creation"
   )
 })
 
+test("release workflow service saves edited template fields as the next draft revision", async () => {
+  const fixture = await seedReleaseWorkflowFixture({
+    async composeDraft() {
+      return {
+        changelogBody: "## Founder workflow\n\n- Adds founder release workflow and approval checkpoints",
+        releaseNotesBody: "Founder workflow\n\n- Adds founder release workflow and approval checkpoints",
+      }
+    },
+  })
+
+  const firstDraft = await fixture.workflowService.createDraft({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedLatestDraftRevisionId: null,
+    releaseRecordId: fixture.releaseRecord.id,
+    templateId: "customer_update",
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  const detail = await fixture.workflowService.updateDraft({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: firstDraft.currentDraft!.id,
+    fieldSnapshots: firstDraft.currentDraft!.fieldSnapshots.map((fieldSnapshot) =>
+      fieldSnapshot.fieldKey === "customer_update"
+        ? {
+            ...fieldSnapshot,
+            content: "Customers can now review founder release workflow revisions with explicit proof.",
+            plainText: "Customers can now review founder release workflow revisions with explicit proof.",
+          }
+        : fieldSnapshot,
+    ),
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  assert.equal(detail.currentDraft?.version, 2)
+  assert.equal(detail.currentDraft?.templateId, "customer_update")
+  assert.equal(detail.currentDraft?.fieldSnapshots.find((field) => field.fieldKey === "subject")?.content, firstDraft.currentDraft?.fieldSnapshots.find((field) => field.fieldKey === "subject")?.content)
+  assert.match(
+    detail.currentDraft?.releaseNotesBody ?? "",
+    /customers can now review founder release workflow revisions/i,
+  )
+  assert.equal(detail.currentDraft?.evidenceRefs.length, firstDraft.currentDraft?.evidenceRefs.length)
+})
+
+test("release workflow service preserves server-owned evidence refs on draft updates", async () => {
+  const fixture = await seedReleaseWorkflowFixture()
+
+  const firstDraft = await fixture.workflowService.createDraft({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedLatestDraftRevisionId: null,
+    releaseRecordId: fixture.releaseRecord.id,
+    templateId: "customer_update",
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  const detail = await fixture.workflowService.updateDraft({
+    actorUserId: fixture.bootstrap.user.id,
+    evidenceRefs: [
+      {
+        anchorText: "forged",
+        createdAt: "2026-03-30T00:00:00.000Z",
+        evidenceBlockId: "forged_evidence_block",
+        fieldKey: "customer_update",
+        id: "forged_ref",
+        note: "forged",
+        sourceLinkId: "forged_source_link",
+      },
+    ],
+    expectedDraftRevisionId: firstDraft.currentDraft!.id,
+    fieldSnapshots: [
+      {
+        ...firstDraft.currentDraft!.fieldSnapshots.find((fieldSnapshot) => fieldSnapshot.fieldKey === "customer_update")!,
+        content: "Customers can now review release drafts with preserved proof links.",
+        plainText: "Customers can now review release drafts with preserved proof links.",
+      },
+    ],
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  assert.deepEqual(detail.currentDraft?.evidenceRefs, firstDraft.currentDraft?.evidenceRefs)
+})
+
 test("release workflow service requires claim check before approval can be requested", async () => {
   const fixture = await seedReleaseWorkflowFixture({
     async composeDraft() {

@@ -58,6 +58,7 @@ import { SimpleTable } from "@/components/dashboard/simple-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { buttonVariants } from "@/components/ui/button-variants"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -67,6 +68,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Textarea } from "@/components/ui/textarea"
 import { formatUtcTimestamp } from "@/lib/format"
 import {
   getReleaseDraftTemplateOption,
@@ -220,6 +222,18 @@ function getDefaultReviewerUserId(
 
 function formatHistoryTimestamp(value: string) {
   return formatUtcTimestamp(value)
+}
+
+function buildDraftFieldValues(
+  draft: ReleaseWorkflowDetail["currentDraft"],
+) {
+  if (!draft) {
+    return {}
+  }
+
+  return Object.fromEntries(
+    draft.fieldSnapshots.map((fieldSnapshot) => [fieldSnapshot.fieldKey, fieldSnapshot.content]),
+  )
 }
 
 function buildPublishPackArtifactEvidenceItems(detail: ReleaseWorkflowDetail) {
@@ -693,6 +707,11 @@ export function ReleaseWorkflowLiveWorkspace({
   const [draftTemplateId, setDraftTemplateId] = useState<string>(
     releaseDraftTemplateOptions[0]?.id ?? "",
   )
+  const [draftFieldValues, setDraftFieldValues] = useState<Record<string, string>>(
+    buildDraftFieldValues(initialSelectedWorkflow.currentDraft),
+  )
+  const [draftSaveError, setDraftSaveError] = useState<string | null>(null)
+  const [isSavingDraft, setIsSavingDraft] = useState(false)
   const [isRunningAction, setIsRunningAction] = useState(false)
   const members = initialMembers
   const membersUnavailable = initialMembersUnavailable
@@ -751,7 +770,13 @@ export function ReleaseWorkflowLiveWorkspace({
   const selectedHistory = activeSelectedId ? historyById[activeSelectedId] ?? [] : []
   const recentHistory = selectedHistory.slice(0, 5)
   const approvalRequiresReviewer = initialPolicy.requireReviewerAssignment
-  const selectedDraftRevisionId = selectedWorkflow?.currentDraft?.id ?? null
+  const currentDraft = selectedWorkflow?.currentDraft ?? null
+  const selectedDraftRevisionId = currentDraft?.id ?? null
+  const isDraftEditable = selectedWorkflow?.releaseRecord.stage === "draft" && selectedWorkflow.currentDraft !== null
+  const hasDraftFieldChanges =
+    currentDraft?.fieldSnapshots.some(
+      (fieldSnapshot) => (draftFieldValues[fieldSnapshot.fieldKey] ?? "") !== fieldSnapshot.content,
+    ) ?? false
   const selectedQueueItem = queueItems.find((item) => item.id === activeSelectedId) ?? queueItems[0] ?? null
   const selectedQueueSourceItem = selectedQueueItem
     ? getQueuedWorkflowItem(queueSourceById, selectedQueueItem.id)
@@ -770,6 +795,40 @@ export function ReleaseWorkflowLiveWorkspace({
   const canRequestApproval =
     selectedDraftRevisionId !== null &&
     (selectedWorkflow?.allowedActions ?? []).includes("request_approval")
+
+  async function applyNextWorkflowDetail(
+    nextDetail: ReleaseWorkflowDetail,
+    historyLoadFailureMessage: string,
+  ) {
+    if (!activeSelectedId) {
+      return
+    }
+
+    setDetailById((currentDetails) => ({
+      ...currentDetails,
+      [activeSelectedId]: nextDetail,
+    }))
+    setWorkflow((currentWorkflow) =>
+      currentWorkflow.map((item) =>
+        item.releaseRecord.id === activeSelectedId ? detailToReleaseWorkflowListItem(nextDetail) : item,
+      ),
+    )
+    setDetailError(null)
+
+    try {
+      const nextHistory = await loadSelectedWorkflowHistory(activeSelectedId)
+      setHistoryById((currentHistory) => ({
+        ...currentHistory,
+        [activeSelectedId]: nextHistory,
+      }))
+      setHistoryError(null)
+    } catch (historyError) {
+      setHistoryError(
+        historyError instanceof Error ? historyError.message : historyLoadFailureMessage,
+      )
+    }
+  }
+
   const detailSectionLinks: Array<{
     description: string
     label: string
@@ -829,6 +888,11 @@ export function ReleaseWorkflowLiveWorkspace({
 
     setDraftTemplateId(releaseDraftTemplateOptions[0]?.id ?? "")
   }, [selectedWorkflow?.currentDraft?.templateId])
+
+  useEffect(() => {
+    setDraftFieldValues(buildDraftFieldValues(currentDraft))
+    setDraftSaveError(null)
+  }, [currentDraft])
 
   async function runWorkflowAction(action: WorkflowAllowedAction) {
     if (!activeSelectedId || !selectedWorkflow) {
@@ -893,35 +957,48 @@ export function ReleaseWorkflowLiveWorkspace({
         }
       }
 
-      setDetailById((currentDetails) => ({
-        ...currentDetails,
-        [activeSelectedId]: nextDetail,
-      }))
-      setWorkflow((currentWorkflow) =>
-        currentWorkflow.map((item) =>
-          item.releaseRecord.id === activeSelectedId ? detailToReleaseWorkflowListItem(nextDetail) : item,
-        ),
+      await applyNextWorkflowDetail(
+        nextDetail,
+        "Recent workflow history could not be refreshed after the action completed.",
       )
-      setDetailError(null)
-
-      try {
-        const nextHistory = await loadSelectedWorkflowHistory(activeSelectedId)
-        setHistoryById((currentHistory) => ({
-          ...currentHistory,
-          [activeSelectedId]: nextHistory,
-        }))
-        setHistoryError(null)
-      } catch (historyError) {
-        setHistoryError(
-          historyError instanceof Error
-            ? historyError.message
-            : "Recent workflow history could not be refreshed after the action completed.",
-        )
-      }
     } catch (error) {
       setActionError(error instanceof Error ? error.message : "The workflow action failed.")
     } finally {
       setIsRunningAction(false)
+    }
+  }
+
+  async function saveDraftFields() {
+    if (!activeSelectedId || !selectedWorkflow?.currentDraft) {
+      return
+    }
+
+    setDraftSaveError(null)
+    setIsSavingDraft(true)
+
+    try {
+      const apiClient = createApiClient()
+      const nextDetail = await apiClient.updateReleaseWorkflowDraft(
+        workspaceId,
+        activeSelectedId,
+        selectedWorkflow.currentDraft.id,
+        {
+          evidenceRefs: selectedWorkflow.currentDraft.evidenceRefs,
+          fieldSnapshots: selectedWorkflow.currentDraft.fieldSnapshots.map((fieldSnapshot) => ({
+            ...fieldSnapshot,
+            content: draftFieldValues[fieldSnapshot.fieldKey] ?? "",
+          })),
+        },
+      )
+
+      await applyNextWorkflowDetail(
+        nextDetail,
+        "Recent workflow history could not be refreshed after the draft was saved.",
+      )
+    } catch (error) {
+      setDraftSaveError(error instanceof Error ? error.message : "The draft could not be saved.")
+    } finally {
+      setIsSavingDraft(false)
     }
   }
 
@@ -1312,6 +1389,19 @@ export function ReleaseWorkflowLiveWorkspace({
               <SurfaceCard
                 title="Draft"
                 description="Current public wording stays bound to one explicit draft revision."
+                action={
+                  isDraftEditable ? (
+                    <Button
+                      size="sm"
+                      disabled={isSavingDraft || isRunningAction || !hasDraftFieldChanges}
+                      onClick={() => {
+                        void saveDraftFields()
+                      }}
+                    >
+                      {isSavingDraft ? "Saving…" : "Save draft"}
+                    </Button>
+                  ) : undefined
+                }
               >
                 {selectedWorkflow.currentDraft ? (
                   <div className="grid gap-4">
@@ -1337,24 +1427,60 @@ export function ReleaseWorkflowLiveWorkspace({
                     />
                     <div className="grid gap-3 xl:grid-cols-2">
                       {selectedWorkflow.currentDraft.fieldSnapshots.length > 0 ? (
-                        selectedWorkflow.currentDraft.fieldSnapshots.map((fieldSnapshot) => (
-                          <div
-                            key={fieldSnapshot.fieldKey}
-                            className="grid gap-2 rounded-xl border border-border/70 bg-muted/20 p-4"
-                          >
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <p className="text-sm font-medium text-foreground">
-                                {fieldSnapshot.label}
-                              </p>
-                              <Badge variant="secondary">
-                                {fieldSnapshot.contentFormat.replaceAll("_", " ")}
-                              </Badge>
+                        selectedWorkflow.currentDraft.fieldSnapshots.map((fieldSnapshot) => {
+                          const fieldEvidenceRefs = selectedWorkflow.currentDraft!.evidenceRefs.filter(
+                            (evidenceRef) => evidenceRef.fieldKey === fieldSnapshot.fieldKey,
+                          )
+
+                          return (
+                            <div
+                              key={fieldSnapshot.fieldKey}
+                              className="grid gap-3 rounded-xl border border-border/70 bg-muted/20 p-4"
+                            >
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <p className="text-sm font-medium text-foreground">
+                                  {fieldSnapshot.label}
+                                </p>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <Badge variant="secondary">
+                                    {fieldSnapshot.contentFormat.replaceAll("_", " ")}
+                                  </Badge>
+                                  <Badge variant="outline">
+                                    {fieldEvidenceRefs.length} evidence refs
+                                  </Badge>
+                                </div>
+                              </div>
+                              {isDraftEditable ? (
+                                fieldSnapshot.contentFormat === "plain_text" ? (
+                                  <Input
+                                    value={draftFieldValues[fieldSnapshot.fieldKey] ?? ""}
+                                    onChange={(event) =>
+                                      setDraftFieldValues((currentValues) => ({
+                                        ...currentValues,
+                                        [fieldSnapshot.fieldKey]: event.target.value,
+                                      }))
+                                    }
+                                  />
+                                ) : (
+                                  <Textarea
+                                    className="min-h-40 resize-y"
+                                    value={draftFieldValues[fieldSnapshot.fieldKey] ?? ""}
+                                    onChange={(event) =>
+                                      setDraftFieldValues((currentValues) => ({
+                                        ...currentValues,
+                                        [fieldSnapshot.fieldKey]: event.target.value,
+                                      }))
+                                    }
+                                  />
+                                )
+                              ) : (
+                                <p className="min-w-0 whitespace-pre-wrap text-sm text-muted-foreground [overflow-wrap:anywhere]">
+                                  {fieldSnapshot.content}
+                                </p>
+                              )}
                             </div>
-                            <p className="min-w-0 whitespace-pre-wrap text-sm text-muted-foreground [overflow-wrap:anywhere]">
-                              {fieldSnapshot.content}
-                            </p>
-                          </div>
-                        ))
+                          )
+                        })
                       ) : (
                         <>
                           <div className="grid gap-2 rounded-xl border border-border/70 bg-muted/20 p-4">
@@ -1372,6 +1498,14 @@ export function ReleaseWorkflowLiveWorkspace({
                         </>
                       )}
                     </div>
+                    {draftSaveError ? (
+                      <p className="text-sm text-destructive">{draftSaveError}</p>
+                    ) : null}
+                    {!isDraftEditable ? (
+                      <p className="text-sm text-muted-foreground">
+                        Reopen the draft to edit these fields after claim check or approval begins.
+                      </p>
+                    ) : null}
                     {selectedWorkflow.currentDraft.evidenceRefs.length > 0 ? (
                       <div className="grid gap-2 rounded-xl border border-border/70 bg-muted/20 p-4">
                         <p className="text-sm font-medium text-foreground">Linked evidence</p>

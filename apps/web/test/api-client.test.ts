@@ -506,6 +506,13 @@ test("api client sends workflow command requests with encoded payloads", async (
     expectedLatestDraftRevisionId: null,
     templateId: "release_note_packet",
   })
+  await client.updateReleaseWorkflowDraft("workspace_1", "release_1", "draft_1", {
+    evidenceRefs: createReleaseWorkflowDetailPayload().currentDraft.evidenceRefs,
+    fieldSnapshots: createReleaseWorkflowDetailPayload().currentDraft.fieldSnapshots.map((fieldSnapshot) => ({
+      ...fieldSnapshot,
+      contentFormat: fieldSnapshot.contentFormat as "markdown" | "plain_text" | "tiptap_json",
+    })),
+  })
   await client.runReleaseWorkflowClaimCheck("workspace_1", "release_1", {
     expectedDraftRevisionId: "draft_1",
     note: "Check wording",
@@ -539,6 +546,17 @@ test("api client sends workflow command requests with encoded payloads", async (
         }),
         method: "POST",
         url: "https://api.pulsenotes.xyz/v1/workspaces/workspace_1/release-workflow/release_1/drafts",
+      },
+      {
+        body: JSON.stringify({
+          evidenceRefs: createReleaseWorkflowDetailPayload().currentDraft.evidenceRefs,
+          fieldSnapshots: createReleaseWorkflowDetailPayload().currentDraft.fieldSnapshots.map((fieldSnapshot) => ({
+            ...fieldSnapshot,
+            contentFormat: fieldSnapshot.contentFormat as "markdown" | "plain_text" | "tiptap_json",
+          })),
+        }),
+        method: "PATCH",
+        url: "https://api.pulsenotes.xyz/v1/workspaces/workspace_1/release-workflow/release_1/drafts/draft_1",
       },
       {
         body: JSON.stringify({ expectedDraftRevisionId: "draft_1", note: "Check wording" }),
