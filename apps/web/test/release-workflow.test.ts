@@ -9,6 +9,7 @@ import type {
   WorkspaceMember,
 } from "../lib/api/client.js"
 import { ApiError } from "../lib/api/client.js"
+import { buildReleaseDraftEditorFields } from "../lib/draft-templates.js"
 import {
   buildReleaseWorkspaceHref,
   buildReleaseWorkflowApprovalFilterCounts,
@@ -1116,6 +1117,63 @@ test("release workflow display helpers shorten raw commit compare ranges for UI"
     }),
     "qyinm/pulsenote 68b4a8d...eafbd11",
   )
+})
+
+test("buildReleaseDraftEditorFields matches the API fallback for changelog-only publish packs", () => {
+  const detail = createReleaseWorkflowDetail({
+    currentDraft: {
+      changelogBody: "- Only changelog content",
+      fieldSnapshots: [],
+      releaseNotesBody: "",
+      templateId: "release_note_packet",
+      templateLabel: "Release notes packet",
+      templateVersion: 1,
+    },
+  })
+
+  const fields = buildReleaseDraftEditorFields(detail.currentDraft!)
+
+  assert.equal(fields[0]?.fieldKey, "publish_pack")
+  assert.equal(fields[0]?.content, "- Only changelog content")
+})
+
+test("buildReleaseDraftEditorFields keeps legacy customer drafts on one visible field", () => {
+  const detail = createReleaseWorkflowDetail({
+    currentDraft: {
+      changelogBody: "Legacy summary",
+      evidenceRefs: [
+        {
+          anchorText: null,
+          createdAt: "2026-03-20T00:00:00.000Z",
+          evidenceBlockId: "evidence_1",
+          fieldKey: "subject",
+          id: "evidence_ref_1",
+          note: null,
+          sourceLinkId: null,
+        },
+      ],
+      fieldSnapshots: [
+        {
+          content: "Legacy subject",
+          contentFormat: "plain_text",
+          fieldKey: "subject",
+          label: "Subject",
+          plainText: "Legacy subject",
+          sortOrder: 0,
+        },
+      ],
+      releaseNotesBody: "Legacy subject\n\nLegacy summary",
+      templateId: "customer_update",
+      templateLabel: "Customer update",
+      templateVersion: 1,
+    },
+  })
+
+  const fields = buildReleaseDraftEditorFields(detail.currentDraft!)
+
+  assert.equal(fields.length, 1)
+  assert.equal(fields[0]?.fieldKey, "customer_update")
+  assert.equal(fields[0]?.label, "Customer update")
 })
 
 test("buildReleaseWorkflowMetrics summarizes blocked, pending, and export-ready workflow records", () => {

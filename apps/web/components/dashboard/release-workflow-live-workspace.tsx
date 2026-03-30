@@ -231,11 +231,15 @@ function buildDraftFieldValues(draftFieldSnapshots: Array<{ content: string; fie
   )
 }
 
-function buildDraftLinkedEvidenceItems(detail: ReleaseWorkflowDetail, draftFieldSnapshots: Array<{ fieldKey: string }>) {
+function buildDraftLinkedEvidenceItems(
+  detail: ReleaseWorkflowDetail,
+  draftFieldSnapshots: Array<{ fieldKey: string; label?: string }>,
+) {
+  const singleVisibleLabel = draftFieldSnapshots[0]?.label ?? "Draft content"
   const fieldKeyLabel = new Map(
     draftFieldSnapshots.map((fieldSnapshot) => [
       fieldSnapshot.fieldKey,
-      fieldSnapshot.fieldKey.replaceAll("_", " "),
+      fieldSnapshot.label ?? fieldSnapshot.fieldKey.replaceAll("_", " "),
     ]),
   )
 
@@ -243,10 +247,15 @@ function buildDraftLinkedEvidenceItems(detail: ReleaseWorkflowDetail, draftField
     const linkedEvidence = detail.evidenceBlocks.find(
       (evidenceBlock) => evidenceBlock.id === evidenceRef.evidenceBlockId,
     )
+    const targetLabel =
+      fieldKeyLabel.get(evidenceRef.fieldKey) ??
+      (draftFieldSnapshots.length === 1
+        ? singleVisibleLabel
+        : evidenceRef.fieldKey.replaceAll("_", " "))
 
     return linkedEvidence
-      ? `${linkedEvidence.title} -> ${fieldKeyLabel.get(evidenceRef.fieldKey) ?? evidenceRef.fieldKey.replaceAll("_", " ")}`
-      : `Evidence ref ${evidenceRef.evidenceBlockId} -> ${fieldKeyLabel.get(evidenceRef.fieldKey) ?? evidenceRef.fieldKey.replaceAll("_", " ")}`
+      ? `${linkedEvidence.title} -> ${targetLabel}`
+      : `Evidence ref ${evidenceRef.evidenceBlockId} -> ${targetLabel}`
   }) ?? []
 }
 

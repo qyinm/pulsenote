@@ -57,6 +57,10 @@ function buildDraftDisplayContent(draft: NonNullable<ReleaseWorkflowDetail["curr
       const trimmedReleaseNotesBody = draft.releaseNotesBody.trim()
       const trimmedChangelogBody = draft.changelogBody.trim()
 
+      if (trimmedReleaseNotesBody.length === 0) {
+        return trimmedChangelogBody
+      }
+
       if (trimmedChangelogBody.length === 0 || trimmedChangelogBody === trimmedReleaseNotesBody) {
         return trimmedReleaseNotesBody
       }
