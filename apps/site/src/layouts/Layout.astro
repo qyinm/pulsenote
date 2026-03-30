@@ -3,7 +3,6 @@ import NavigationBar from '../components/ui/NavigationBar.astro'
 import Main from '../components/ui/Main.astro'
 import Footer from '../components/ui/Footer.astro'
 import Header from '../components/blocks/head/Header.astro'
-import NotificationToast from '../components/ui/NotificationToast.astro'
 import Scripts from '../components/scripts/ThemeScripts.astro'
 import '../styles/global.css'
 
@@ -30,7 +29,6 @@ const { title, description, ogImage, noindex, navigation = 'sticky', footer = 'b
       <slot />
     </Main>
     {footer !== 'none' && <Footer />}
-    <NotificationToast />
     <Scripts />
   </body>
 </html>
