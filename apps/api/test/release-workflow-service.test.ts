@@ -33,7 +33,11 @@ test("release workflow service creates a draft revision and advances the release
   assert.equal(detail.currentDraft?.version, 1)
   assert.equal(detail.currentDraft?.templateId, "release_note_packet")
   assert.equal(detail.currentDraft?.templateLabel, "Release notes packet")
-  assert.equal(detail.currentDraft?.fieldSnapshots.length, 2)
+  assert.equal(detail.currentDraft?.fieldSnapshots.length, 1)
+  assert.deepEqual(
+    detail.currentDraft?.fieldSnapshots.map((fieldSnapshot) => fieldSnapshot.fieldKey),
+    ["publish_pack"],
+  )
   assert.equal(detail.currentDraft?.evidenceRefs.length, 1)
   assert.match(detail.currentDraft?.releaseNotesBody ?? "", /founder release workflow/i)
   assert.deepEqual(detail.allowedActions, ["create_draft", "run_claim_check"])
@@ -58,10 +62,10 @@ test("release workflow service creates template-backed drafts for customer updat
   })
 
   assert.equal(detail.currentDraft?.templateId, "customer_update")
-  assert.equal(detail.currentDraft?.fieldSnapshots.length, 3)
+  assert.equal(detail.currentDraft?.fieldSnapshots.length, 1)
   assert.deepEqual(
     detail.currentDraft?.fieldSnapshots.map((fieldSnapshot) => fieldSnapshot.fieldKey),
-    ["subject", "summary", "customer_update"],
+    ["customer_update"],
   )
 })
 
@@ -146,7 +150,6 @@ test("release workflow service saves edited template fields as the next draft re
 
   assert.equal(detail.currentDraft?.version, 2)
   assert.equal(detail.currentDraft?.templateId, "customer_update")
-  assert.equal(detail.currentDraft?.fieldSnapshots.find((field) => field.fieldKey === "subject")?.content, firstDraft.currentDraft?.fieldSnapshots.find((field) => field.fieldKey === "subject")?.content)
   assert.match(
     detail.currentDraft?.releaseNotesBody ?? "",
     /customers can now review founder release workflow revisions/i,
@@ -191,6 +194,83 @@ test("release workflow service preserves server-owned evidence refs on draft upd
   })
 
   assert.deepEqual(detail.currentDraft?.evidenceRefs, firstDraft.currentDraft?.evidenceRefs)
+})
+
+test("release workflow service preserves legacy draft field edits and remaps legacy evidence refs", async () => {
+  const fixture = await seedReleaseWorkflowFixture()
+
+  const firstDraft = await fixture.workflowService.createDraft({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedLatestDraftRevisionId: null,
+    releaseRecordId: fixture.releaseRecord.id,
+    templateId: "customer_update",
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  const legacyDraft = await fixture.workflowStore.createDraftRevision({
+    changelogBody: "Customer update summary",
+    createdByUserId: fixture.bootstrap.user.id,
+    evidenceRefs: [
+      {
+        ...firstDraft.currentDraft!.evidenceRefs[0]!,
+        fieldKey: "subject",
+      },
+    ],
+    fieldSnapshots: [
+      {
+        content: "Legacy subject",
+        contentFormat: "plain_text",
+        fieldKey: "subject",
+        label: "Subject",
+        plainText: "Legacy subject",
+        sortOrder: 0,
+      },
+      {
+        content: "Legacy summary",
+        contentFormat: "markdown",
+        fieldKey: "summary",
+        label: "Summary",
+        plainText: "Legacy summary",
+        sortOrder: 1,
+      },
+      {
+        content: "Legacy body",
+        contentFormat: "markdown",
+        fieldKey: "customer_update",
+        label: "Customer update",
+        plainText: "Legacy body",
+        sortOrder: 2,
+      },
+    ],
+    releaseNotesBody: "Legacy subject\n\nLegacy summary\n\nLegacy body",
+    releaseRecordId: fixture.releaseRecord.id,
+    templateId: "customer_update",
+    templateLabel: "Customer update",
+    templateVersion: 1,
+    version: firstDraft.currentDraft!.version + 1,
+  })
+
+  const detail = await fixture.workflowService.updateDraft({
+    actorUserId: fixture.bootstrap.user.id,
+    expectedDraftRevisionId: legacyDraft.id,
+    fieldSnapshots: [
+      {
+        content: "Updated legacy subject",
+        contentFormat: "plain_text",
+        fieldKey: "subject",
+        label: "Subject",
+        plainText: "Updated legacy subject",
+        sortOrder: 0,
+      },
+    ],
+    releaseRecordId: fixture.releaseRecord.id,
+    workspaceId: fixture.bootstrap.workspace.id,
+  })
+
+  assert.equal(detail.currentDraft?.fieldSnapshots.length, 1)
+  assert.equal(detail.currentDraft?.fieldSnapshots[0]?.fieldKey, "customer_update")
+  assert.match(detail.currentDraft?.fieldSnapshots[0]?.content ?? "", /updated legacy subject/i)
+  assert.equal(detail.currentDraft?.evidenceRefs[0]?.fieldKey, "customer_update")
 })
 
 test("release workflow service requires claim check before approval can be requested", async () => {

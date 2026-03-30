@@ -1,3 +1,5 @@
+import type { ReleaseWorkflowDraftFieldSnapshot, ReleaseWorkflowDetail } from "./api/client"
+
 export type ReleaseDraftTemplateOption = {
   description: string
   fields: Array<{
@@ -10,30 +12,25 @@ export type ReleaseDraftTemplateOption = {
 
 export const releaseDraftTemplateOptions = [
   {
-    description: "Bundle release notes and a changelog into one reviewable publish pack draft.",
+    description: "Compose one reviewable publish-pack draft for the selected release.",
     fields: [
-      { key: "release_notes", label: "Release notes" },
-      { key: "changelog", label: "Changelog" },
+      { key: "publish_pack", label: "Publish pack" },
     ],
     id: "release_note_packet",
     label: "Release notes packet",
   },
   {
-    description: "Write a customer-facing update with a subject, summary, and detailed body.",
+    description: "Write one customer-facing update for the shipped release.",
     fields: [
-      { key: "subject", label: "Subject" },
-      { key: "summary", label: "Summary" },
       { key: "customer_update", label: "Customer update" },
     ],
     id: "customer_update",
     label: "Customer update",
   },
   {
-    description: "Draft a help-center style update with a title, summary, and article body.",
+    description: "Draft one help-center style update for the shipped release.",
     fields: [
-      { key: "title", label: "Title" },
-      { key: "summary", label: "Summary" },
-      { key: "article_update", label: "Article update" },
+      { key: "help_center_update", label: "Help center update" },
     ],
     id: "help_center_update",
     label: "Help center update",
@@ -45,4 +42,79 @@ export function getReleaseDraftTemplateOption(templateId: string | null | undefi
     releaseDraftTemplateOptions.find((template) => template.id === templateId) ??
     releaseDraftTemplateOptions[0]
   )
+}
+
+function joinTemplateSections(sections: Array<string | null | undefined>) {
+  return sections
+    .map((section) => section?.trim() ?? "")
+    .filter((section) => section.length > 0)
+    .join("\n\n")
+}
+
+function buildDraftDisplayContent(draft: NonNullable<ReleaseWorkflowDetail["currentDraft"]>) {
+  switch (draft.templateId) {
+    case "release_note_packet": {
+      const trimmedReleaseNotesBody = draft.releaseNotesBody.trim()
+      const trimmedChangelogBody = draft.changelogBody.trim()
+
+      if (trimmedReleaseNotesBody.length === 0) {
+        return trimmedChangelogBody
+      }
+
+      if (trimmedChangelogBody.length === 0 || trimmedChangelogBody === trimmedReleaseNotesBody) {
+        return trimmedReleaseNotesBody
+      }
+
+      return joinTemplateSections([
+        trimmedReleaseNotesBody,
+        "## Included changes",
+        trimmedChangelogBody,
+      ])
+    }
+    case "customer_update":
+      return draft.releaseNotesBody
+    case "help_center_update":
+      return draft.changelogBody
+    default:
+      return draft.releaseNotesBody
+  }
+}
+
+export function buildReleaseDraftEditorFields(
+  draft: NonNullable<ReleaseWorkflowDetail["currentDraft"]>,
+): ReleaseWorkflowDraftFieldSnapshot[] {
+  const template = getReleaseDraftTemplateOption(draft.templateId)
+  const normalizedFieldSnapshots = template.fields
+    .map((field, index) => {
+      const matchingFieldSnapshot = draft.fieldSnapshots.find(
+        (fieldSnapshot) => fieldSnapshot.fieldKey === field.key,
+      )
+
+      if (matchingFieldSnapshot) {
+        return matchingFieldSnapshot
+      }
+
+      return {
+        content: buildDraftDisplayContent(draft),
+        contentFormat: "markdown" as const,
+        fieldKey: field.key,
+        label: field.label,
+        plainText: buildDraftDisplayContent(draft),
+        sortOrder: index,
+      }
+    })
+    .filter((fieldSnapshot) => fieldSnapshot.content.trim().length > 0)
+
+  return normalizedFieldSnapshots.length > 0
+    ? normalizedFieldSnapshots
+    : [
+        {
+          content: buildDraftDisplayContent(draft),
+          contentFormat: "markdown",
+          fieldKey: template.fields[0]?.key ?? "body",
+          label: template.fields[0]?.label ?? template.label,
+          plainText: buildDraftDisplayContent(draft),
+          sortOrder: 0,
+        },
+      ]
 }

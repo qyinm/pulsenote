@@ -16,6 +16,7 @@ import {
   isReleaseDraftTemplateId,
   normalizeDraftTemplateFieldSnapshots,
   projectDraftBodiesFromFields,
+  resolveDraftTemplateFieldKey,
 } from "./draft-templates.js"
 import type {
   ApprovalSummary,
@@ -862,25 +863,33 @@ function buildPublishPackExportSourceSnapshots(releaseSnapshot: ReleaseRecordSna
 function sanitizeDraftEvidenceRefs(
   evidenceRefs: DraftRevision["evidenceRefs"],
   releaseSnapshot: ReleaseRecordSnapshot,
-  templateFieldKeys: Set<string>,
+  draftTemplate: ReturnType<typeof getReleaseDraftTemplate>,
 ) {
   const evidenceBlockIds = new Set(releaseSnapshot.evidenceBlocks.map((evidenceBlock) => evidenceBlock.id))
   const sourceLinkIds = new Set(releaseSnapshot.sourceLinks.map((sourceLink) => sourceLink.id))
+  const templateFieldKeys = new Set<string>(draftTemplate.fields.map((field) => field.key))
 
-  return evidenceRefs.filter((evidenceRef) => {
-    if (!templateFieldKeys.has(evidenceRef.fieldKey)) {
-      return false
+  return evidenceRefs.flatMap((evidenceRef) => {
+    const canonicalFieldKey = resolveDraftTemplateFieldKey(draftTemplate, evidenceRef.fieldKey)
+
+    if (!templateFieldKeys.has(canonicalFieldKey)) {
+      return []
     }
 
     if (!evidenceBlockIds.has(evidenceRef.evidenceBlockId)) {
-      return false
+      return []
     }
 
     if (evidenceRef.sourceLinkId && !sourceLinkIds.has(evidenceRef.sourceLinkId)) {
-      return false
+      return []
     }
 
-    return true
+    return [
+      {
+        ...evidenceRef,
+        fieldKey: canonicalFieldKey,
+      },
+    ]
   })
 }
 
@@ -1299,7 +1308,7 @@ export function createReleaseWorkflowService(
       const evidenceRefs = sanitizeDraftEvidenceRefs(
         currentDraft.evidenceRefs,
         resources.releaseSnapshot,
-        new Set(draftTemplate.fields.map((field) => field.key)),
+        draftTemplate,
       )
 
       await store.transaction(async (transactionStore) => {
