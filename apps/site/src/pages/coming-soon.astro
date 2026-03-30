@@ -1,59 +1,43 @@
 ---
-import BaseLayout from "../layouts/BaseLayout.astro";
+import Layout from '../layouts/Layout.astro'
+import Section from '../components/ui/Section.astro'
+import Row from '../components/ui/Row.astro'
+import Col from '../components/ui/Col.astro'
+import Header from '../components/ui/Header.astro'
+import Button from '../components/ui/Button.astro'
+
+const SEO = {
+  title: 'PulseNote | Hosted access coming soon',
+  description:
+    'PulseNote hosted access is still being prepared around release review, approval, and publish-pack export.'
+}
 ---
 
-<BaseLayout title="PulseNote | Hosted access coming soon" description="PulseNote hosted access is still being prepared around release review, approval, and publish-pack export.">
-  <div class="page-shell">
-    <header class="site-header">
-      <div class="container site-header-inner">
-        <a class="brand" href="/" aria-label="PulseNote home">
-          <img src="/brand-mark.svg" alt="" />
-          <span>
-            PulseNote
-            <small>Release communication system</small>
-          </span>
-        </a>
-
-        <div class="header-actions">
-          <a class="button-secondary" href="/">Back to site</a>
-        </div>
-      </div>
-    </header>
-
-    <main class="hero">
-      <div class="container hero-grid hero-grid-single">
-        <section class="hero-copy">
-          <span class="eyebrow">Hosted access</span>
-          <h1>The review workspace is still being prepared.</h1>
-          <p>
+<Layout title={SEO.title} description={SEO.description}>
+  <Section spacerTop={true}>
+    <Row>
+      <Col span="12" classes="pt-16 lg:pt-24">
+        <Header
+          title="The review workspace is still being prepared"
+          subtitle="Hosted access"
+          classes="text-center"
+          titleWidth="mx-auto max-w-4xl"
+        />
+      </Col>
+      <Col span="2" style="transparent" />
+      <Col span="8" classes="bg-[url('/bgs/dot-gray-light.svg')] bg-size-[18px] bg-fixed" style="transparent">
+        <div class="mx-auto flex max-w-3xl flex-col items-center gap-6 px-6 py-10 text-center lg:px-10 lg:py-16">
+          <p class="text-xl leading-8 text-neutral-600">
             PulseNote’s hosted product opens around release review rather than a blank writing surface. The first
             experience is being shaped around draft inspection, claim checks, human approval, and publish-pack export.
           </p>
-          <div class="hero-actions">
-            <a class="button" href="/">Return to landing page</a>
-            <a class="button-secondary" href="mailto:biz@pulsenotes.xyz">Email biz@pulsenotes.xyz</a>
+          <div class="flex flex-col gap-4 lg:flex-row">
+            <Button link="/" style="neutral">Back to landing page</Button>
+            <Button link="mailto:biz@pulsenotes.xyz" style="primary">Email biz@pulsenotes.xyz</Button>
           </div>
-        </section>
-
-        <section class="panel">
-          <p class="panel-kicker">What opens first</p>
-          <h2>Hosted surface priorities</h2>
-          <div class="faq-stack compact-stack">
-            <article class="faq-item compact-card">
-              <h3>Release review workspace</h3>
-              <p>The draft and its source evidence stay visible in the same place during review.</p>
-            </article>
-            <article class="faq-item compact-card">
-              <h3>Approval visibility</h3>
-              <p>Reviewer comments, rationale, and sign-off stay attached before export.</p>
-            </article>
-            <article class="faq-item compact-card">
-              <h3>Publish-pack handoff</h3>
-              <p>Approved notes, support brief, and references leave together as one controlled export.</p>
-            </article>
-          </div>
-        </section>
-      </div>
-    </main>
-  </div>
-</BaseLayout>
+        </div>
+      </Col>
+      <Col span="2" style="transparent" />
+    </Row>
+  </Section>
+</Layout>

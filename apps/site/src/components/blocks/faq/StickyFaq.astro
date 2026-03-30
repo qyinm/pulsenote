@@ -1,0 +1,73 @@
+---
+import SectionSticky from '../../blocks/basic/StickySidebar.astro'
+import Header from '../../ui/Header.astro'
+import DecorationBorder from '../../ui/DecorationBorder.astro'
+
+type Props = {
+  title?: string
+  subtitle?: string
+  classes?: string
+}
+const { title = '', subtitle = '', classes = '' } = Astro.props
+---
+
+<SectionSticky classes={`${classes ? classes : ''}`}>
+  <Header
+    title={title}
+    subtitle={subtitle}
+    headingLevel="h2"
+    titleClasses="bg-white"
+    slot="sidebar"
+  />
+
+  <div class="faq">
+    <div class="faq__item">
+      <h3 class="faq__item__title">Why not just draft this in a generic AI tool?</h3>
+      <p class="faq__item__text">
+        Generic writing tools can help with wording, but your team still has to collect release context, inspect risky
+        claims, and reconstruct who approved the final copy. PulseNote keeps those steps attached to the release itself.
+      </p>
+      <DecorationBorder type="top bottom" style="dashed" />
+    </div>
+    <div class="faq__item">
+      <h3 class="faq__item__title">Does PulseNote publish automatically?</h3>
+      <p class="faq__item__text">
+        No. PulseNote prepares the draft, runs checks, collects approval, and exports a publish pack. Final publication
+        still belongs to the humans responsible for the release.
+      </p>
+      <DecorationBorder type="top bottom" style="dashed" />
+    </div>
+    <div class="faq__item">
+      <h3 class="faq__item__title">Who is PulseNote built for?</h3>
+      <p class="faq__item__text">
+        PulseNote is built for B2B SaaS teams shipping weekly or faster, especially when engineering, support, and
+        product marketing all need to align on exact customer-facing language.
+      </p>
+      <DecorationBorder type="top bottom" style="dashed" />
+    </div>
+    <div class="faq__item">
+      <h3 class="faq__item__title">What inputs does PulseNote use?</h3>
+      <p class="faq__item__text">
+        Release records, merged pull requests, linked issues, rollout notes, QA context, and related review discussion
+        that explains what actually shipped.
+      </p>
+      <DecorationBorder type="top bottom" style="dashed" />
+    </div>
+  </div>
+</SectionSticky>
+
+<style>
+  @reference '../../../styles/global.css';
+  .faq {
+    @apply flex flex-col gap-6 lg:gap-8;
+  }
+  .faq__item {
+    @apply relative bg-white p-6 lg:p-8;
+  }
+  .faq__item__title {
+    @apply mb-2 text-2xl leading-8;
+  }
+  .faq__item__text {
+    @apply mb-0 text-xl leading-8;
+  }
+</style>

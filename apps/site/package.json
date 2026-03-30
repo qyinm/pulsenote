@@ -1,20 +1,23 @@
 {
   "name": "@pulsenote/site",
+  "type": "module",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "start": "astro dev",
+    "build": "astro check && astro build",
     "preview": "astro preview",
     "lint": "astro check"
   },
   "dependencies": {
-    "astro": "^5.12.8"
-  },
-  "devDependencies": {
-    "@astrojs/check": "^0.9.4",
-    "@astrojs/sitemap": "^3.6.0",
-    "typescript": "^5.9.2"
+    "@astrojs/check": "^0.9.7",
+    "@astrojs/sitemap": "^3.7.1",
+    "@tailwindcss/typography": "^0.5.19",
+    "@tailwindcss/vite": "^4.1.18",
+    "astro": "^6.0.2",
+    "astro-icon": "^1.1.5",
+    "tailwindcss": "^4.1.18",
+    "typescript": "^5.9.3"
   }
 }

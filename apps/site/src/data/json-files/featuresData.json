@@ -1,0 +1,65 @@
+[
+  {
+    "title": "Keep the release record attached",
+    "subtitle": "Evidence",
+    "features": [
+      {
+        "title": "Source-backed release context",
+        "description": "Pull requests, linked issues, rollout notes, and QA context stay tied to the draft instead of being rebuilt across chat, docs, and handoff threads.",
+        "icon": "folder"
+      },
+      {
+        "title": "Visible evidence links",
+        "description": "Teams can inspect where a customer-facing claim came from before approving it for publication.",
+        "icon": "clipboard-document-list"
+      },
+      {
+        "title": "Shipped scope snapshots",
+        "description": "Scope stays grounded in what actually shipped so public wording does not drift beyond the release record.",
+        "icon": "document-text"
+      }
+    ]
+  },
+  {
+    "title": "Run checks before approval",
+    "subtitle": "Safety",
+    "features": [
+      {
+        "title": "Claim checks",
+        "description": "Flag unsupported certainty, missing evidence, and phrasing that belongs in internal rollout notes rather than customer communication.",
+        "icon": "shield-check"
+      },
+      {
+        "title": "Reviewable wording changes",
+        "description": "Teams can compare edits and rationale in one place instead of reconstructing wording decisions later.",
+        "icon": "chat-bubbles"
+      },
+      {
+        "title": "Human sign-off",
+        "description": "Engineering, support, and product marketing responsibility stays explicit before anything leaves review.",
+        "icon": "user-group"
+      }
+    ]
+  },
+  {
+    "title": "Export a controlled handoff",
+    "subtitle": "Outputs",
+    "features": [
+      {
+        "title": "Public release notes",
+        "description": "Explain what changed, why it matters, and what customers can do now without overstating the evidence.",
+        "icon": "rocket"
+      },
+      {
+        "title": "Support brief",
+        "description": "Carry rollout caveats, known edges, and likely customer questions forward for support and success teams.",
+        "icon": "lifebuoy"
+      },
+      {
+        "title": "Stakeholder summary",
+        "description": "Keep internal stakeholders aligned on shipped scope, approved wording, and evidence references.",
+        "icon": "chart-bar"
+      }
+    ]
+  }
+]

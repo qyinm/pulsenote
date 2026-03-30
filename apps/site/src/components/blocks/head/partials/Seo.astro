@@ -1,0 +1,29 @@
+---
+type Props = {
+  title?: string
+  description?: string
+  ogImage?: string
+  canonical?: boolean
+  noindex?: boolean
+}
+
+const { title, description, ogImage, canonical, noindex } = Astro.props
+const hasOgImage = Boolean(ogImage)
+---
+
+<Fragment>
+  <title>{title}</title>
+  <meta name="description" content={description} />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content={Astro.url} />
+  <meta property="og:title" content={title} />
+  <meta property="og:description" content={description} />
+  {hasOgImage && <meta property="og:image" content={ogImage} />}
+  <meta property="twitter:card" content={hasOgImage ? 'summary_large_image' : 'summary'} />
+  <meta property="twitter:url" content={Astro.url} />
+  <meta property="twitter:title" content={title} />
+  <meta property="twitter:description" content={description} />
+  {hasOgImage && <meta property="twitter:image" content={ogImage} />}
+  {canonical && <link rel="canonical" href={Astro.url} itemprop="url" />}
+  {noindex ? <meta name="robots" content="noindex,nofollow" /> : <meta name="robots" content="index,follow" />}
+</Fragment>
