@@ -15,6 +15,7 @@ type ReleaseWorkflowPageProps = {
   emptyDescription: string
   emptyTitle: string
   mode: ReleaseWorkflowMode
+  preferredReleaseRecordId?: string | null
   unavailableDescription: string
   unavailableTitle: string
 }
@@ -27,6 +28,7 @@ export async function ReleaseWorkflowPage({
   emptyDescription,
   emptyTitle,
   mode,
+  preferredReleaseRecordId,
   unavailableDescription,
   unavailableTitle,
 }: ReleaseWorkflowPageProps) {
@@ -44,6 +46,8 @@ export async function ReleaseWorkflowPage({
     workflowData = await getServerReleaseWorkflowData(
       requestHeaders,
       accessState.workspace.workspace.id,
+      undefined,
+      preferredReleaseRecordId,
     )
   } catch (error) {
     errorMessage =

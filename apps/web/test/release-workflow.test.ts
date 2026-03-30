@@ -358,6 +358,54 @@ test("getServerReleaseWorkflowData returns an empty selected history when no wor
   assert.deepEqual(data.workflow, [])
 })
 
+test("getServerReleaseWorkflowData prefers the requested selected release when it exists", async () => {
+  const releaseOne = createReleaseWorkflowListItem()
+  const releaseTwo = createReleaseWorkflowListItem({
+    releaseRecord: {
+      id: "release_2",
+      title: "SDK rollout v2.5",
+    },
+  })
+  const detail = createReleaseWorkflowDetail({
+    releaseRecord: {
+      id: "release_2",
+      title: "SDK rollout v2.5",
+    },
+  })
+
+  const requests: string[] = []
+  const data = await getServerReleaseWorkflowData(
+    new Headers(),
+    "workspace_1",
+    {
+      async getReleaseWorkflowDetail(_workspaceId, releaseRecordId) {
+        requests.push(`detail:${releaseRecordId}`)
+        assert.equal(releaseRecordId, "release_2")
+        return detail
+      },
+      async getReleaseWorkflowHistory(_workspaceId, releaseRecordId) {
+        requests.push(`history:${releaseRecordId}`)
+        assert.equal(releaseRecordId, "release_2")
+        return []
+      },
+      async getWorkspacePolicySettings() {
+        return createWorkspacePolicySettings()
+      },
+      async listWorkspaceMembers() {
+        return []
+      },
+      async listReleaseWorkflow() {
+        return [releaseOne, releaseTwo]
+      },
+    },
+    "release_2",
+  )
+
+  assert.equal(data.selectedId, "release_2")
+  assert.deepEqual(data.selectedWorkflow, detail)
+  assert.deepEqual(requests, ["detail:release_2", "history:release_2"])
+})
+
 test("getServerReleaseWorkflowData keeps workflow detail when the history endpoint fails", async () => {
   const listItem = createReleaseWorkflowListItem()
   const detail = createReleaseWorkflowDetail()

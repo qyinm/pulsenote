@@ -100,7 +100,7 @@ export function GitHubInstallationCallback({
         },
       })
 
-      window.location.assign("/dashboard/release-context")
+      window.location.assign("/dashboard/new-release")
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "GitHub connection could not be saved.")
       setIsSaving(false)
@@ -122,10 +122,10 @@ export function GitHubInstallationCallback({
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <a
-                href="/dashboard/release-context"
+                href="/dashboard/new-release"
                 className={buttonVariants({ size: "sm", variant: "outline" })}
               >
-                Back to release context
+                Back to new release
               </a>
             </div>
           </div>
@@ -156,10 +156,10 @@ export function GitHubInstallationCallback({
                 {isSaving ? "Saving..." : "Save GitHub connection"}
               </button>
               <a
-                href="/dashboard/release-context"
+                href="/dashboard/new-release"
                 className={buttonVariants({ size: "sm", variant: "outline" })}
               >
-                Back to release context
+                Back to new release
               </a>
             </div>
           </>

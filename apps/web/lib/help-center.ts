@@ -83,15 +83,15 @@ function buildHelpModules(
           : workflowCount === 0
             ? "Your source is connected. Ingest the first release record to start the reviewable workflow."
             : "Release context is already flowing into the workspace and can be reviewed before drafting.",
-      href: "/dashboard/release-context",
-      id: "release-context",
+      href: "/dashboard/new-release",
+      id: "new-release",
       status:
         stats.activeIntegrations === 0
           ? "Connect source"
           : workflowCount === 0
             ? "Start here"
             : `${workflowCount} records live`,
-      title: "Ingest release context",
+      title: "Create release scope",
     },
     {
       description: claimCheckDescription,
