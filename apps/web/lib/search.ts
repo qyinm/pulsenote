@@ -9,6 +9,7 @@ import { getForwardedAuthHeaders } from "./auth/headers"
 import { buildEvidenceLibraryData } from "./evidence-library"
 import { buildReviewInboxItems } from "./review-inbox"
 import {
+  buildReleaseWorkspaceHref,
   getReleaseWorkflowNextAction,
   getReleaseWorkflowOwnershipCue,
   getReleaseWorkflowReadinessLabel,
@@ -97,7 +98,9 @@ function buildWorkflowSearchResults(
     id: `release:${item.releaseRecord.id}`,
     meta: `${getReleaseWorkflowStageLabel(item.releaseRecord.stage)} · ${getReleaseWorkflowReadinessLabel(item.readiness)} · ${item.evidenceCount} evidence blocks`,
     orderTimestamp: item.releaseRecord.updatedAt,
-    route: "/dashboard/release-workflow",
+    route: buildReleaseWorkspaceHref({
+      selectedId: item.releaseRecord.id,
+    }),
     searchText: [
       item.releaseRecord.title,
       item.releaseRecord.summary ?? "",
@@ -135,7 +138,10 @@ function buildApprovalSearchResults(
         id: `approval:${item.releaseRecord.id}`,
         meta: `${cue.label} · ${ownerLabel}`,
         orderTimestamp: item.approvalSummary.updatedAt ?? item.releaseRecord.updatedAt,
-        route: "/dashboard/approval",
+        route: buildReleaseWorkspaceHref({
+          focus: "approval",
+          selectedId: item.releaseRecord.id,
+        }),
         searchText: [
           item.releaseRecord.title,
           cue.label,

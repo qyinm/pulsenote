@@ -6,6 +6,7 @@ import type {
 } from "./api/client"
 import { createApiClient } from "./api/client"
 import { getForwardedAuthHeaders } from "./auth/headers"
+import { buildReleaseWorkspaceHref } from "./release-workflow"
 import { buildReviewInboxItems } from "./review-inbox"
 import {
   createDefaultWorkspacePolicySettings,
@@ -95,7 +96,9 @@ function buildHelpModules(
     },
     {
       description: claimCheckDescription,
-      href: "/dashboard/claim-check",
+      href: buildReleaseWorkspaceHref({
+        focus: "claim_check",
+      }),
       id: "claim-check",
       status: claimCheckStatus,
       title: "Run claim check",
@@ -107,7 +110,9 @@ function buildHelpModules(
           : stats.pendingApprovals > 0
             ? "Approval handoff is active and should stay explicit until the reviewer records a decision."
             : "Approval guidance stays here when the queue needs a named reviewer and a visible decision trail.",
-      href: "/dashboard/approval",
+      href: buildReleaseWorkspaceHref({
+        focus: "approval",
+      }),
       id: "approval",
       status:
         stats.unassignedApprovals > 0
@@ -124,7 +129,9 @@ function buildHelpModules(
           : stats.exportedPacks > 0
             ? "Frozen publish packs stay visible so downstream handoff does not drift away from the approved draft."
             : "Publish-pack export should happen only after evidence, wording, and approval all agree.",
-      href: "/dashboard/publish-pack",
+      href: buildReleaseWorkspaceHref({
+        focus: "publish_pack",
+      }),
       id: "publish-pack",
       status:
         stats.readyToExport > 0

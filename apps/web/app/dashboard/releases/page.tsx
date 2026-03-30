@@ -1,3 +1,7 @@
+import {
+  isReleaseWorkflowWorkspaceFocus,
+  type ReleaseWorkflowWorkspaceFocus,
+} from "@/lib/release-workflow"
 import { ReleaseWorkflowPage } from "@/components/dashboard/release-workflow-page"
 
 export default async function ReleasesPage({
@@ -10,10 +14,15 @@ export default async function ReleasesPage({
     typeof resolvedSearchParams.selected === "string"
       ? resolvedSearchParams.selected
       : null
+  const preferredFocusSectionRaw =
+    typeof resolvedSearchParams.focus === "string" ? resolvedSearchParams.focus : null
+  const preferredFocusSection: ReleaseWorkflowWorkspaceFocus | null =
+    isReleaseWorkflowWorkspaceFocus(preferredFocusSectionRaw) ? preferredFocusSectionRaw : null
 
   return (
     <ReleaseWorkflowPage
       mode="overview"
+      preferredFocusSection={preferredFocusSection}
       preferredReleaseRecordId={preferredReleaseRecordId}
       unavailableTitle="Releases are unavailable"
       unavailableDescription="The authenticated API request failed before the releases board could be rendered."

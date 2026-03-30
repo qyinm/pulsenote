@@ -10,6 +10,7 @@ import type {
 } from "../lib/api/client.js"
 import { ApiError } from "../lib/api/client.js"
 import {
+  buildReleaseWorkspaceHref,
   buildReleaseWorkflowApprovalFilterCounts,
   buildReleaseWorkflowApprovalNotes,
   buildReleaseWorkflowBoardColumns,
@@ -25,6 +26,7 @@ import {
   getReleaseWorkflowOwnershipCue,
   getSelectedReleaseWorkflowDetail,
   getServerReleaseWorkflowData,
+  isReleaseWorkflowWorkspaceFocus,
 } from "../lib/release-workflow/index.js"
 
 type ReleaseWorkflowListItemOverrides = {
@@ -404,6 +406,19 @@ test("getServerReleaseWorkflowData prefers the requested selected release when i
   assert.equal(data.selectedId, "release_2")
   assert.deepEqual(data.selectedWorkflow, detail)
   assert.deepEqual(requests, ["detail:release_2", "history:release_2"])
+})
+
+test("buildReleaseWorkspaceHref keeps selected release and focus in one releases route", () => {
+  assert.equal(
+    buildReleaseWorkspaceHref({
+      focus: "claim_check",
+      selectedId: "release_1",
+    }),
+    "/dashboard/releases?selected=release_1&focus=claim_check",
+  )
+  assert.equal(buildReleaseWorkspaceHref({ focus: "approval" }), "/dashboard/releases?focus=approval")
+  assert.equal(isReleaseWorkflowWorkspaceFocus("publish_pack"), true)
+  assert.equal(isReleaseWorkflowWorkspaceFocus("not-a-section"), false)
 })
 
 test("getServerReleaseWorkflowData keeps workflow detail when the history endpoint fails", async () => {

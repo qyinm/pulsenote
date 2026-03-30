@@ -37,6 +37,12 @@ export type ReleaseWorkflowApprovalOwnershipFilter =
   | "unassigned"
 
 export type ReleaseWorkflowMode = "approval" | "claim_check" | "overview" | "publish_pack"
+export type ReleaseWorkflowWorkspaceFocus =
+  | "approval"
+  | "claim_check"
+  | "draft"
+  | "publish_pack"
+  | "scope"
 export type ReleaseWorkflowBoardStage =
   | "approval"
   | "claim_check"
@@ -154,6 +160,42 @@ const releaseWorkflowBoardColumnMeta = {
     title: "Exported",
   },
 } satisfies Record<ReleaseWorkflowBoardStage, { description: string; title: string }>
+
+const releaseWorkflowWorkspaceFocusValues = new Set<ReleaseWorkflowWorkspaceFocus>([
+  "scope",
+  "draft",
+  "claim_check",
+  "approval",
+  "publish_pack",
+])
+
+export function isReleaseWorkflowWorkspaceFocus(
+  value: string | null | undefined,
+): value is ReleaseWorkflowWorkspaceFocus {
+  return value !== null && value !== undefined && releaseWorkflowWorkspaceFocusValues.has(value as ReleaseWorkflowWorkspaceFocus)
+}
+
+export function buildReleaseWorkspaceHref({
+  focus,
+  selectedId,
+}: {
+  focus?: ReleaseWorkflowWorkspaceFocus | null
+  selectedId?: string | null
+}) {
+  const searchParams = new URLSearchParams()
+
+  if (selectedId) {
+    searchParams.set("selected", selectedId)
+  }
+
+  if (focus) {
+    searchParams.set("focus", focus)
+  }
+
+  const query = searchParams.toString()
+
+  return query ? `/dashboard/releases?${query}` : "/dashboard/releases"
+}
 
 export function createReleaseWorkflowDetailCache(
   selectedId: string,

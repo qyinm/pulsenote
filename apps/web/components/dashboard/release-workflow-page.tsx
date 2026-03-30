@@ -7,7 +7,10 @@ import {
 import { ReleaseWorkflowLiveWorkspace } from "@/components/dashboard/release-workflow-live-workspace"
 import { DashboardPage, SurfaceCard } from "@/components/dashboard/surfaces"
 import { resolveDashboardAccessState } from "@/lib/dashboard/access"
-import { getServerReleaseWorkflowData } from "@/lib/release-workflow"
+import {
+  getServerReleaseWorkflowData,
+  type ReleaseWorkflowWorkspaceFocus,
+} from "@/lib/release-workflow"
 
 type ReleaseWorkflowMode = "approval" | "claim_check" | "overview" | "publish_pack"
 
@@ -15,6 +18,7 @@ type ReleaseWorkflowPageProps = {
   emptyDescription: string
   emptyTitle: string
   mode: ReleaseWorkflowMode
+  preferredFocusSection?: ReleaseWorkflowWorkspaceFocus | null
   preferredReleaseRecordId?: string | null
   unavailableDescription: string
   unavailableTitle: string
@@ -28,6 +32,7 @@ export async function ReleaseWorkflowPage({
   emptyDescription,
   emptyTitle,
   mode,
+  preferredFocusSection,
   preferredReleaseRecordId,
   unavailableDescription,
   unavailableTitle,
@@ -82,6 +87,7 @@ export async function ReleaseWorkflowPage({
     <DashboardPage>
       <ReleaseWorkflowLiveWorkspace
         currentUserId={accessState.session.user.id}
+        initialFocusedSection={preferredFocusSection}
         initialMembers={workflowData.members}
         initialMembersUnavailable={workflowData.membersUnavailable}
         initialPolicy={workflowData.policy}

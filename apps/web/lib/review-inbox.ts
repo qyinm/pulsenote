@@ -5,7 +5,10 @@ import type {
 } from "./api/client"
 import { createApiClient } from "./api/client"
 import { getForwardedAuthHeaders } from "./auth/headers"
-import { getReleaseWorkflowOwnershipCue } from "./release-workflow"
+import {
+  buildReleaseWorkspaceHref,
+  getReleaseWorkflowOwnershipCue,
+} from "./release-workflow"
 import {
   createDefaultWorkspacePolicySettings,
   getWorkspacePolicySettingsOrDefault,
@@ -99,8 +102,11 @@ function buildBlockedClaimItems(
         ],
         owner: "Claim check queue",
         preview: blockerNote,
-        routeHref: "/dashboard/claim-check",
-        routeLabel: "Open claim check",
+        routeHref: buildReleaseWorkspaceHref({
+          focus: "claim_check",
+          selectedId: item.releaseRecord.id,
+        }),
+        routeLabel: "Open release",
         secondaryHref: "/dashboard/new-release",
         secondaryLabel: "Create another release",
         source: "claim",
@@ -153,8 +159,11 @@ function buildApprovalItems(
           (item.approvalSummary.ownerName
             ? `Waiting on ${item.approvalSummary.ownerName} to review the current draft.`
             : "Approval is pending without an assigned reviewer."),
-        routeHref: "/dashboard/approval",
-        routeLabel: "Open approval",
+        routeHref: buildReleaseWorkspaceHref({
+          focus: "approval",
+          selectedId: item.releaseRecord.id,
+        }),
+        routeLabel: "Open release",
         secondaryHref: "/dashboard/review-log",
         secondaryLabel: "Open review log",
         source: "approval",
@@ -213,8 +222,11 @@ function buildReopenedDraftItems(
         preview: entry.note ?? "The draft was reopened and needs another review pass.",
         routeHref: "/dashboard/review-log",
         routeLabel: "Open review log",
-        secondaryHref: "/dashboard/approval",
-        secondaryLabel: "Back to approval",
+        secondaryHref: buildReleaseWorkspaceHref({
+          focus: "approval",
+          selectedId: entry.releaseRecordId,
+        }),
+        secondaryLabel: "Open release",
         source: "workflow",
         status: "Reopened",
         timeLabel: formatInboxTimestamp(entry.createdAt),
