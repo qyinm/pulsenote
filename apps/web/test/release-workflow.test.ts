@@ -10,6 +10,7 @@ import type {
 } from "../lib/api/client.js"
 import { ApiError } from "../lib/api/client.js"
 import {
+  buildReleaseWorkspaceHref,
   buildReleaseWorkflowApprovalFilterCounts,
   buildReleaseWorkflowApprovalNotes,
   buildReleaseWorkflowBoardColumns,
@@ -25,6 +26,7 @@ import {
   getReleaseWorkflowOwnershipCue,
   getSelectedReleaseWorkflowDetail,
   getServerReleaseWorkflowData,
+  isReleaseWorkflowWorkspaceFocus,
 } from "../lib/release-workflow/index.js"
 
 type ReleaseWorkflowListItemOverrides = {
@@ -404,6 +406,94 @@ test("getServerReleaseWorkflowData prefers the requested selected release when i
   assert.equal(data.selectedId, "release_2")
   assert.deepEqual(data.selectedWorkflow, detail)
   assert.deepEqual(requests, ["detail:release_2", "history:release_2"])
+})
+
+test("buildReleaseWorkspaceHref keeps selected release and focus in one releases route", () => {
+  assert.equal(
+    buildReleaseWorkspaceHref({
+      focus: "claim_check",
+      selectedId: "release_1",
+    }),
+    "/dashboard/releases?selected=release_1&focus=claim_check",
+  )
+  assert.equal(buildReleaseWorkspaceHref({ focus: "approval" }), "/dashboard/releases?focus=approval")
+  assert.equal(isReleaseWorkflowWorkspaceFocus("publish_pack"), true)
+  assert.equal(isReleaseWorkflowWorkspaceFocus("not-a-section"), false)
+})
+
+test("getServerReleaseWorkflowData falls back to a focus-matching release when no selected id is provided", async () => {
+  const intakeRelease = createReleaseWorkflowListItem({
+    releaseRecord: {
+      id: "release_1",
+      stage: "intake",
+      title: "Initial scope",
+    },
+  })
+  const approvalRelease = createReleaseWorkflowListItem({
+    allowedActions: ["approve_draft"],
+    approvalSummary: {
+      ownerName: "Reviewer User",
+      ownerUserId: "user_2",
+      requestedByName: "Owner User",
+      requestedByUserId: "user_1",
+      state: "pending",
+    },
+    currentDraft: {
+      id: "draft_2",
+      version: 2,
+    },
+    releaseRecord: {
+      id: "release_2",
+      stage: "approval",
+      title: "Needs sign-off",
+    },
+  })
+  const detail = createReleaseWorkflowDetail({
+    approvalSummary: {
+      ownerName: "Reviewer User",
+      ownerUserId: "user_2",
+      requestedByName: "Owner User",
+      requestedByUserId: "user_1",
+      state: "pending",
+    },
+    currentDraft: {
+      id: "draft_2",
+      version: 2,
+    },
+    releaseRecord: {
+      id: "release_2",
+      stage: "approval",
+      title: "Needs sign-off",
+    },
+  })
+
+  const data = await getServerReleaseWorkflowData(
+    new Headers(),
+    "workspace_1",
+    {
+      async getReleaseWorkflowDetail(_workspaceId, releaseRecordId) {
+        assert.equal(releaseRecordId, "release_2")
+        return detail
+      },
+      async getReleaseWorkflowHistory() {
+        return []
+      },
+      async getWorkspacePolicySettings() {
+        return createWorkspacePolicySettings()
+      },
+      async listWorkspaceMembers() {
+        return []
+      },
+      async listReleaseWorkflow() {
+        return [intakeRelease, approvalRelease]
+      },
+    },
+    null,
+    "approval",
+  )
+
+  assert.equal(data.selectedId, "release_2")
+  assert.equal(data.selectedWorkflow?.releaseRecord.id, "release_2")
 })
 
 test("getServerReleaseWorkflowData keeps workflow detail when the history endpoint fails", async () => {

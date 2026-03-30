@@ -7,14 +7,19 @@ import {
 import { ReleaseWorkflowLiveWorkspace } from "@/components/dashboard/release-workflow-live-workspace"
 import { DashboardPage, SurfaceCard } from "@/components/dashboard/surfaces"
 import { resolveDashboardAccessState } from "@/lib/dashboard/access"
-import { getServerReleaseWorkflowData } from "@/lib/release-workflow"
+import {
+  getServerReleaseWorkflowData,
+  type ReleaseWorkflowWorkspaceFocus,
+} from "@/lib/release-workflow"
 
 type ReleaseWorkflowMode = "approval" | "claim_check" | "overview" | "publish_pack"
 
 type ReleaseWorkflowPageProps = {
   emptyDescription: string
   emptyTitle: string
+  invalidFocusValue?: string | null
   mode: ReleaseWorkflowMode
+  preferredFocusSection?: ReleaseWorkflowWorkspaceFocus | null
   preferredReleaseRecordId?: string | null
   unavailableDescription: string
   unavailableTitle: string
@@ -27,7 +32,9 @@ export function renderReleaseWorkflowAccessFallback(state: DashboardAccessStateK
 export async function ReleaseWorkflowPage({
   emptyDescription,
   emptyTitle,
+  invalidFocusValue,
   mode,
+  preferredFocusSection,
   preferredReleaseRecordId,
   unavailableDescription,
   unavailableTitle,
@@ -48,6 +55,7 @@ export async function ReleaseWorkflowPage({
       accessState.workspace.workspace.id,
       undefined,
       preferredReleaseRecordId,
+      preferredFocusSection,
     )
   } catch (error) {
     errorMessage =
@@ -80,8 +88,19 @@ export async function ReleaseWorkflowPage({
 
   return (
     <DashboardPage>
+      {mode === "overview" && invalidFocusValue ? (
+        <SurfaceCard
+          title="Release focus was ignored"
+          description="The requested releases workspace section did not match a supported focus value."
+        >
+          <p className="text-sm text-muted-foreground">
+            Focus value <code className="rounded bg-muted px-1 py-0.5 text-xs">{invalidFocusValue}</code> is not supported, so PulseNote opened the default releases workspace instead.
+          </p>
+        </SurfaceCard>
+      ) : null}
       <ReleaseWorkflowLiveWorkspace
         currentUserId={accessState.session.user.id}
+        initialFocusedSection={preferredFocusSection}
         initialMembers={workflowData.members}
         initialMembersUnavailable={workflowData.membersUnavailable}
         initialPolicy={workflowData.policy}

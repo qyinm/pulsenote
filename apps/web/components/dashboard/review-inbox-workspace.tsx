@@ -38,6 +38,7 @@ const sourceIcons: Record<ReviewInboxSource, LucideIcon> = {
 const actionIcons: Record<string, LucideIcon> = {
   "/dashboard/approval": StampIcon,
   "/dashboard/claim-check": ShieldAlertIcon,
+  "/dashboard/releases": FolderKanbanIcon,
   "/dashboard/review-log": ArchiveIcon,
 }
 
@@ -79,7 +80,8 @@ function filterItems(items: ReviewInboxItem[], view: ReviewInboxView, query: str
 }
 
 function ActionIcon({ href }: { href: string }) {
-  const Icon = actionIcons[href] ?? FolderKanbanIcon
+  const normalizedHref = href.split("?")[0] ?? href
+  const Icon = actionIcons[normalizedHref] ?? FolderKanbanIcon
   return <Icon data-icon="inline-start" />
 }
 

@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
+import { buildReleaseWorkspaceHref } from "@/lib/release-workflow"
 
 type ExportFrameView = "all" | "exported" | "needs_review" | "ready"
 
@@ -236,7 +237,10 @@ export function ExportFramesWorkspace({ initialEntries }: { initialEntries: Live
               footer={
                 <div className="flex w-full flex-wrap gap-2">
                   <Link
-                    href="/dashboard/publish-pack"
+                    href={buildReleaseWorkspaceHref({
+                      focus: "publish_pack",
+                      selectedId: selectedEntry.id,
+                    })}
                     className={cn(buttonVariants({ size: "sm", variant: "secondary" }))}
                   >
                     <PackageCheckIcon data-icon="inline-start" />
