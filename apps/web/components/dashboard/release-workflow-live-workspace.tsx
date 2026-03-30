@@ -1080,8 +1080,8 @@ export function ReleaseWorkflowLiveWorkspace({
               </div>
             </SheetHeader>
 
-            <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto xl:grid-cols-[minmax(0,1.45fr)_320px]">
-              <div className="grid content-start gap-4 px-6 py-6">
+            <div className="grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[minmax(0,1.45fr)_320px]">
+              <div className="grid min-h-0 content-start gap-4 overflow-y-auto px-6 py-6">
                 {detailError && !selectedWorkflow ? (
                   <div className="rounded-2xl border border-destructive/40 bg-destructive/5 px-4 py-6 text-sm text-destructive">
                     {detailError}
@@ -1250,7 +1250,7 @@ export function ReleaseWorkflowLiveWorkspace({
                 )}
               </div>
 
-              <div className="grid content-start gap-4 border-t border-border/70 bg-muted/10 px-6 py-6 xl:border-t-0 xl:border-l">
+              <div className="grid min-h-0 content-start gap-4 overflow-y-auto border-t border-border/70 bg-muted/10 px-6 py-6 xl:border-t-0 xl:border-l">
                 <div className="grid gap-2 rounded-2xl border border-border/70 bg-background p-4">
                   <p className="text-sm font-medium text-foreground">Properties</p>
                   <InlineList
