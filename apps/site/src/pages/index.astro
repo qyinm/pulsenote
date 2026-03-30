@@ -1,0 +1,66 @@
+---
+import Layout from '../layouts/Layout.astro'
+import Hero from '../components/blocks/hero/CenteredHeroCTA.astro'
+import Features from '../components/blocks/features/MasonryGrid.astro'
+import ScrollSpySteps from '../components/blocks/onboarding/Steps.astro'
+import TestimonialMasonry from '../components/blocks/testimonials/TestimonialMasonry.astro'
+import Faq from '../components/blocks/faq/StickyFaq.astro'
+import CTA from '../components/blocks/cta/CTAPrimary.astro'
+
+const SEO = {
+  title: 'PulseNote | Source-backed release communication',
+  description:
+    'PulseNote helps product teams turn release context into reviewable, approval-ready public communication with claim checks and publish-pack export.'
+}
+
+const heroData = {
+  title: 'Turn shipped work into approved customer communication',
+  subtitle: 'Release communication system',
+  buttonLink: '/coming-soon',
+  buttonText: 'Request access'
+}
+
+const testimonialData = {
+  title: 'Built for teams that review before they publish',
+  subtitle: 'Sample voices'
+}
+
+const faqData = {
+  title: 'Frequently asked questions',
+  subtitle: 'Clear answers before the workflow opens'
+}
+
+const ctaData = {
+  title: 'Open the hosted review workspace when your release team is ready',
+  text: 'PulseNote is being shaped around release intake, claim checks, approval, and publish-pack export. Ask about hosted access at biz@pulsenotes.xyz.',
+  buttonLink: 'mailto:biz@pulsenotes.xyz',
+  buttonText: 'Email biz@pulsenotes.xyz'
+}
+---
+
+<Layout title={SEO.title} description={SEO.description}>
+  <Hero
+    title={heroData.title}
+    subtitle={heroData.subtitle}
+    buttonLink={heroData.buttonLink}
+    buttonText={heroData.buttonText}
+  />
+  <div id="review">
+    <Features />
+  </div>
+  <div id="workflow">
+    <ScrollSpySteps />
+  </div>
+  <div id="outputs">
+    <TestimonialMasonry title={testimonialData.title} subtitle={testimonialData.subtitle} />
+  </div>
+  <div id="faq">
+    <Faq subtitle={faqData.subtitle} title={faqData.title} />
+  </div>
+  <CTA
+    title={ctaData.title}
+    text={ctaData.text}
+    buttonLink={ctaData.buttonLink}
+    buttonText={ctaData.buttonText}
+  />
+</Layout>

@@ -15,6 +15,6 @@
     "lint": "pnpm --dir apps/site lint",
     "lint:site": "pnpm --dir apps/site lint",
     "typecheck:api": "pnpm --dir apps/api typecheck",
-    "typecheck:site": "pnpm --dir apps/site exec tsc --noEmit"
+    "typecheck:site": "pnpm --dir apps/site lint"
   }
 }

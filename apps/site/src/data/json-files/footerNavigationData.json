@@ -1,0 +1,40 @@
+{
+  "logo": {
+    "src": "/brand-mark.svg",
+    "srcDark": "/brand-mark.svg",
+    "alt": "PulseNote logo"
+  },
+  "footerAbout": {
+    "aboutText": "PulseNote turns release activity into public-safe, approval-ready communication."
+  },
+  "footerColumns": [
+    {
+      "title": "Workflow",
+      "links": [
+        { "label": "Review", "href": "/#review" },
+        { "label": "Workflow", "href": "/#workflow" },
+        { "label": "Outputs", "href": "/#outputs" },
+        { "label": "FAQ", "href": "/#faq" }
+      ]
+    },
+    {
+      "title": "Access",
+      "links": [
+        { "label": "Hosted access", "href": "/coming-soon" },
+        { "label": "biz@pulsenotes.xyz", "href": "mailto:biz@pulsenotes.xyz" }
+      ]
+    },
+    {
+      "title": "Scope",
+      "links": [
+        { "label": "Release communication system", "href": "/" },
+        { "label": "Evidence-first review", "href": "/#review" },
+        { "label": "Publish-pack handoff", "href": "/#outputs" }
+      ]
+    }
+  ],
+  "copyright": {
+    "text": "PulseNote, all rights reserved 2026",
+    "legal": []
+  }
+}

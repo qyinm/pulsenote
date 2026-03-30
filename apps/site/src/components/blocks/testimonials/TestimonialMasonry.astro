@@ -1,0 +1,58 @@
+---
+import Section from '../../ui/Section.astro'
+import Row from '../../ui/Row.astro'
+import Col from '../../ui/Col.astro'
+import TestimonialCard from '../../ui/cards/TestimonialCard.astro'
+import Header from '../../ui/Header.astro'
+
+type Props = {
+  title?: string
+  subtitle?: string
+}
+const { title = '', subtitle = '' } = Astro.props
+---
+
+<Section classes="bg-neutral-300/20!">
+  <Row classes="bg-white/20!">
+    <Col span="12" classes="pt-16 lg:pt-24 pb-8!" style="transparent">
+      <Header title={title} subtitle={subtitle} headingLevel="h2" titleWidth="max-w-2xl" />
+    </Col>
+  </Row>
+  <Row decorationBorder="bottom left right" style="transparent">
+    <Col span="8" style="transparent">
+      <TestimonialCard
+        quote="We stopped rebuilding release notes from pull requests and Slack threads. The review now starts from the same evidence everyone else saw."
+        quoteClasses="max-w-[42rem] lgmax-w-[50rem]"
+        author="Sample lead"
+        position="Product marketing"
+        decorationType="left right bottom"
+      />
+    </Col>
+    <Col span="4" style="transparent">
+      <TestimonialCard
+        quote="The claim checks catch language drift early. That makes review faster because the debate stays tied to shipped facts."
+        quoteClasses="max-w-[42rem] lgmax-w-[50rem]"
+        author="Sample lead"
+        position="Engineering"
+        decorationType="left right bottom"
+      />
+    </Col>
+    <Col span="4" style="transparent" classes="flex flex-col gap-8">
+      <TestimonialCard
+        quote="The support brief is finally part of the same handoff instead of an afterthought."
+        author="Sample lead"
+        position="Support"
+        decorationType="top left right bottom"
+      />
+    </Col>
+    <Col span="8" style="transparent">
+      <TestimonialCard
+        quote="One release record now carries the draft, checks, approval trail, and publish-pack outputs in one visible workflow."
+        author="Sample team"
+        position="Release operations"
+        decorationType="top left right bottom"
+        classes="h-full"
+      />
+    </Col>
+  </Row>
+</Section>

@@ -1,0 +1,15 @@
+{
+  "logo": {
+    "src": "/brand-mark.svg",
+    "srcDark": "/brand-mark.svg",
+    "alt": "PulseNote",
+    "text": "PulseNote"
+  },
+  "navItems": [
+    { "name": "Review", "link": "/#review" },
+    { "name": "Workflow", "link": "/#workflow" },
+    { "name": "Outputs", "link": "/#outputs" },
+    { "name": "FAQ", "link": "/#faq" }
+  ],
+  "navActions": [{ "name": "Hosted access", "link": "/coming-soon" }]
+}

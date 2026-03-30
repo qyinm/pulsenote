@@ -1,0 +1,43 @@
+---
+import Layout from '../layouts/Layout.astro'
+import Section from '../components/ui/Section.astro'
+import Row from '../components/ui/Row.astro'
+import Col from '../components/ui/Col.astro'
+import Header from '../components/ui/Header.astro'
+import Button from '../components/ui/Button.astro'
+
+const SEO = {
+  title: 'PulseNote | Hosted access coming soon',
+  description:
+    'PulseNote hosted access is still being prepared around release review, approval, and publish-pack export.'
+}
+---
+
+<Layout title={SEO.title} description={SEO.description}>
+  <Section spacerTop={true}>
+    <Row>
+      <Col span="12" classes="pt-16 lg:pt-24">
+        <Header
+          title="The review workspace is still being prepared"
+          subtitle="Hosted access"
+          classes="text-center"
+          titleWidth="mx-auto max-w-4xl"
+        />
+      </Col>
+      <Col span="2" style="transparent" />
+      <Col span="8" classes="bg-[url('/bgs/dot-gray-light.svg')] bg-size-[18px] bg-fixed" style="transparent">
+        <div class="mx-auto flex max-w-3xl flex-col items-center gap-6 px-6 py-10 text-center lg:px-10 lg:py-16">
+          <p class="text-xl leading-8 text-neutral-600">
+            PulseNote’s hosted product opens around release review rather than a blank writing surface. The first
+            experience is being shaped around draft inspection, claim checks, human approval, and publish-pack export.
+          </p>
+          <div class="flex flex-col gap-4 lg:flex-row">
+            <Button link="/" style="neutral">Back to landing page</Button>
+            <Button link="mailto:biz@pulsenotes.xyz" style="primary">Email biz@pulsenotes.xyz</Button>
+          </div>
+        </div>
+      </Col>
+      <Col span="2" style="transparent" />
+    </Row>
+  </Section>
+</Layout>
