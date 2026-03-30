@@ -158,7 +158,6 @@ export function NewReleaseLiveWorkspace({
       })
 
       router.push(`/dashboard/releases?selected=${encodeURIComponent(result.releaseRecordId)}`)
-      router.refresh()
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "GitHub release intake failed.")
     } finally {
@@ -192,7 +191,6 @@ export function NewReleaseLiveWorkspace({
       })
 
       router.push(`/dashboard/releases?selected=${encodeURIComponent(result.releaseRecordId)}`)
-      router.refresh()
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "GitHub compare intake failed.")
     } finally {
