@@ -94,6 +94,30 @@ function pickTemplateField(template: DraftTemplateDefinition, fieldKey: string) 
   return template.fields.find((field) => field.key === fieldKey) ?? null
 }
 
+function getLegacyTemplateFieldKeys(template: DraftTemplateDefinition) {
+  switch (template.id) {
+    case "release_note_packet":
+      return ["publish_pack", "release_notes", "changelog"]
+    case "customer_update":
+      return ["customer_update", "subject", "summary"]
+    case "help_center_update":
+      return ["help_center_update", "title", "summary", "article_update"]
+    default:
+      return template.fields.map((field) => field.key)
+  }
+}
+
+export function resolveDraftTemplateFieldKey(
+  template: DraftTemplateDefinition,
+  fieldKey: string,
+) {
+  const canonicalFieldKey = template.fields[0]?.key ?? fieldKey
+
+  return getLegacyTemplateFieldKeys(template).includes(fieldKey)
+    ? canonicalFieldKey
+    : fieldKey
+}
+
 export function getReleaseDraftTemplate(templateId: string | null | undefined) {
   if (!templateId) {
     return releaseDraftTemplates.find((template) => template.id === defaultReleaseDraftTemplateId) ?? releaseDraftTemplates[0]
@@ -198,25 +222,25 @@ function buildTemplateOutputContent(input: {
 
 function buildLegacyTemplateOutputContent(
   template: DraftTemplateDefinition,
-  existingFieldSnapshotByKey: Map<string, DraftFieldSnapshot>,
+  fieldSnapshotByKey: Map<string, DraftFieldSnapshot>,
 ) {
   switch (template.id) {
     case "release_note_packet":
       return buildPublishPackContent(
-        existingFieldSnapshotByKey.get("release_notes")?.content ?? "",
-        existingFieldSnapshotByKey.get("changelog")?.content ?? "",
+        fieldSnapshotByKey.get("release_notes")?.content ?? "",
+        fieldSnapshotByKey.get("changelog")?.content ?? "",
       )
     case "customer_update":
       return joinTemplateSections([
-        existingFieldSnapshotByKey.get("subject")?.content ?? "",
-        existingFieldSnapshotByKey.get("summary")?.content ?? "",
-        existingFieldSnapshotByKey.get("customer_update")?.content ?? "",
+        fieldSnapshotByKey.get("subject")?.content ?? "",
+        fieldSnapshotByKey.get("summary")?.content ?? "",
+        fieldSnapshotByKey.get("customer_update")?.content ?? "",
       ])
     case "help_center_update":
       return joinTemplateSections([
-        existingFieldSnapshotByKey.get("title")?.content ?? "",
-        existingFieldSnapshotByKey.get("summary")?.content ?? "",
-        existingFieldSnapshotByKey.get("article_update")?.content ?? "",
+        fieldSnapshotByKey.get("title")?.content ?? "",
+        fieldSnapshotByKey.get("summary")?.content ?? "",
+        fieldSnapshotByKey.get("article_update")?.content ?? "",
       ])
     default:
       throw new Error(`Unknown draft template id: ${template.id}`)
@@ -248,19 +272,34 @@ export function normalizeDraftTemplateFieldSnapshots(
     existingFieldSnapshots.map((fieldSnapshot) => [fieldSnapshot.fieldKey, fieldSnapshot]),
   )
   const nextFieldSnapshotByKey = new Map(fieldSnapshots.map((fieldSnapshot) => [fieldSnapshot.fieldKey, fieldSnapshot]))
+  const mergedFieldSnapshotByKey = new Map(existingFieldSnapshotByKey)
+
+  for (const [fieldKey, fieldSnapshot] of nextFieldSnapshotByKey.entries()) {
+    mergedFieldSnapshotByKey.set(fieldKey, fieldSnapshot)
+  }
 
   return template.fields.map((field, index) => {
-    const nextFieldSnapshot =
-      nextFieldSnapshotByKey.get(field.key) ?? existingFieldSnapshotByKey.get(field.key) ?? null
+    const hasIncomingLegacyFieldSnapshot =
+      template.fields.length === 1 &&
+      [...nextFieldSnapshotByKey.keys()].some(
+        (fieldKey) => fieldKey !== field.key && resolveDraftTemplateFieldKey(template, fieldKey) === field.key,
+      )
+
+    const nextFieldSnapshot = nextFieldSnapshotByKey.get(field.key) ?? null
+    const existingFieldSnapshot = existingFieldSnapshotByKey.get(field.key) ?? null
+    const synthesizedLegacyContent =
+      template.fields.length === 1
+        ? buildLegacyTemplateOutputContent(template, mergedFieldSnapshotByKey)
+        : ""
     const nextContent =
       nextFieldSnapshot?.content ??
-      (template.fields.length === 1
-        ? buildLegacyTemplateOutputContent(template, existingFieldSnapshotByKey)
-        : "")
+      (hasIncomingLegacyFieldSnapshot
+        ? synthesizedLegacyContent
+        : existingFieldSnapshot?.content ?? synthesizedLegacyContent)
 
     return {
       content: nextContent,
-      contentFormat: nextFieldSnapshot?.contentFormat ?? field.defaultContentFormat,
+      contentFormat: nextFieldSnapshot?.contentFormat ?? existingFieldSnapshot?.contentFormat ?? field.defaultContentFormat,
       fieldKey: field.key,
       label: field.label,
       plainText: stripMarkdown(nextContent),
