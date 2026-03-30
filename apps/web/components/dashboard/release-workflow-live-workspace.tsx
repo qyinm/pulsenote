@@ -34,7 +34,6 @@ import {
   buildReleaseWorkflowApprovalFilterCounts,
   buildReleaseWorkflowApprovalNotes,
   buildReleaseWorkflowClaimCheckNotes,
-  formatReleaseWorkflowCompareRange,
   buildReleaseWorkflowEvidenceNotes,
   buildReleaseWorkflowMetrics,
   buildReleaseWorkflowPublishPackArtifactNotes,
@@ -859,42 +858,15 @@ export function ReleaseWorkflowLiveWorkspace({
     }
   }
 
-  const detailSectionLinks: Array<{
-    description: string
-    label: string
-    value: ReleaseWorkflowWorkspaceFocus
-  }> = [
-    {
-      description: "Release scope, compare range, and attached proof.",
-      label: "Scope",
-      value: "scope",
-    },
-    {
-      description: "Current public wording and revision snapshot.",
-      label: "Draft",
-      value: "draft",
-    },
-    {
-      description: "Risk checks and blocked claims before sign-off.",
-      label: "Claim check",
-      value: "claim_check",
-    },
-    {
-      description: "Reviewer handoff and approval state.",
-      label: "Approval",
-      value: "approval",
-    },
-    {
-      description: "Frozen export artifact and publish-pack readiness.",
-      label: "Publish pack",
-      value: "publish_pack",
-    },
-  ]
+  const detailFocusSection: "approval" | "draft" | "publish_pack" =
+    preferredFocusSection === "approval" || preferredFocusSection === "publish_pack"
+      ? preferredFocusSection
+      : "draft"
 
-  function getDetailSectionCardClassName(section: ReleaseWorkflowWorkspaceFocus) {
+  function getDetailSectionCardClassName(section: "approval" | "draft" | "publish_pack") {
     return cn(
       "scroll-mt-24",
-      preferredFocusSection === section && "ring-2 ring-foreground/15 ring-offset-0",
+      detailFocusSection === section && "ring-2 ring-foreground/15 ring-offset-0",
     )
   }
 
@@ -1212,13 +1184,13 @@ export function ReleaseWorkflowLiveWorkspace({
           title={selectedQueueItem?.title ?? "Release workflow"}
           description={
             selectedQueueItem?.summary ??
-            "Inspect one release record across scope, draft, claim check, approval, and publish pack."
+            "Open one release as an editable draft and move it through approval and publish."
           }
           action={
             <Link
               href="/dashboard/releases"
               className={cn(buttonVariants({ size: "sm", variant: "outline" }))}
-          >
+            >
               Back to releases
             </Link>
           }
@@ -1233,62 +1205,70 @@ export function ReleaseWorkflowLiveWorkspace({
                 ? ownershipCueBadge(selectedOwnershipCue)
                 : null}
               {selectedQueueItem ? <Badge variant="secondary">{selectedQueueItem.versionLabel}</Badge> : null}
+              <Badge variant="outline">{selectedDraftTemplate.label}</Badge>
             </div>
-
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_340px]">
-              <div className="grid gap-3">
-                <div className="grid gap-1">
-                  <p className="text-sm font-medium text-foreground">Workflow sections</p>
-                  <p className="text-sm text-muted-foreground">
-                    One release record keeps its scope, wording, checks, approval, and publish handoff in one page.
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {detailSectionLinks.map((section) => (
-                    <Link
-                      key={section.value}
-                      href={buildReleaseWorkspaceHref({
-                        focus: section.value,
-                        selectedId: activeSelectedId,
-                      })}
-                      className={cn(
-                        buttonVariants({
-                          size: "sm",
-                          variant:
-                            preferredFocusSection === section.value ? "default" : "outline",
-                        }),
-                      )}
-                    >
-                      {section.label}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-                <InlineList
-                  items={[
-                    { label: "Stage", value: selectedQueueItem?.stageLabel ?? "Unknown stage" },
-                    {
-                      label: "Readiness",
-                      value: selectedQueueItem?.readinessLabel ?? "Unknown readiness",
-                    },
-                    {
-                      label: "Assigned reviewer",
-                      value:
-                        selectedWorkflow?.approvalSummary.ownerName ??
-                        (selectedWorkflow?.approvalSummary.ownerUserId
-                          ? "Unknown reviewer"
-                          : "Not assigned"),
-                    },
-                    {
-                      label: "Publish pack",
-                      value: selectedQueueItem?.publishPackLabel ?? "Unknown",
-                    },
-                  ]}
-                />
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 bg-muted/20 p-4">
+              <p className="text-sm text-muted-foreground">
+                This page stays centered on the current draft. Scope and safety checks stay in the
+                workflow state, but they do not take over the main writing surface.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {(selectedWorkflow?.allowedActions ?? []).includes("create_draft") ? (
+                  <Button
+                    size="sm"
+                    disabled={isRunningAction}
+                    onClick={() => {
+                      void runWorkflowAction("create_draft")
+                    }}
+                  >
+                    {actionButtonLabels.create_draft}
+                  </Button>
+                ) : null}
+                {canRequestApproval ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={
+                      isRunningAction ||
+                      (approvalRequiresReviewer &&
+                        (!approvalReviewerUserId || membersUnavailable || members.length === 0))
+                    }
+                    onClick={() => {
+                      void runWorkflowAction("request_approval")
+                    }}
+                  >
+                    {actionButtonLabels.request_approval}
+                  </Button>
+                ) : null}
+                {selectedDraftRevisionId !== null &&
+                (selectedWorkflow?.allowedActions ?? []).includes("approve_draft") ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={isRunningAction}
+                    onClick={() => {
+                      void runWorkflowAction("approve_draft")
+                    }}
+                  >
+                    {actionButtonLabels.approve_draft}
+                  </Button>
+                ) : null}
+                {selectedDraftRevisionId !== null &&
+                (selectedWorkflow?.allowedActions ?? []).includes("create_publish_pack") ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={isRunningAction}
+                    onClick={() => {
+                      void runWorkflowAction("create_publish_pack")
+                    }}
+                  >
+                    {actionButtonLabels.create_publish_pack}
+                  </Button>
+                ) : null}
               </div>
             </div>
+            {actionError ? <p className="text-sm text-destructive">{actionError}</p> : null}
           </div>
         </SurfaceCard>
 
@@ -1319,79 +1299,10 @@ export function ReleaseWorkflowLiveWorkspace({
           </SurfaceCard>
         ) : (
           <div className="grid gap-4">
-            <div id="scope" className={getDetailSectionCardClassName("scope")}>
-              <SurfaceCard
-                title="Scope"
-                description="Release scope, compare range, and attached source evidence."
-              >
-                <div className="grid gap-4">
-                  <InlineList
-                    items={[
-                      {
-                        label: "Compare range",
-                        value: formatReleaseWorkflowCompareRange(
-                          selectedWorkflow.releaseRecord.compareRange,
-                        ),
-                      },
-                      {
-                        label: "Evidence blocks",
-                        value: String(selectedWorkflow.evidenceBlocks.length),
-                      },
-                      {
-                        label: "Source links",
-                        value: String(selectedWorkflow.sourceLinks.length),
-                      },
-                    ]}
-                  />
-                  <BulletList
-                    items={[
-                      selectedWorkflow.releaseRecord.summary ?? "No release summary is attached yet.",
-                      ...buildReleaseWorkflowEvidenceNotes(selectedWorkflow).slice(0, 3),
-                    ]}
-                  />
-                  <div className="grid gap-3 rounded-2xl border border-border/70 bg-muted/20 p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="grid gap-1">
-                        <p className="text-sm font-medium text-foreground">Draft template</p>
-                        <p className="text-sm text-muted-foreground">
-                          This release keeps the output template chosen during release creation.
-                        </p>
-                      </div>
-                      {(selectedWorkflow.allowedActions ?? []).includes("create_draft") ? (
-                        <Button
-                          size="sm"
-                          disabled={isRunningAction}
-                          onClick={() => {
-                            void runWorkflowAction("create_draft")
-                          }}
-                        >
-                          {actionButtonLabels.create_draft}
-                        </Button>
-                      ) : null}
-                    </div>
-                    <div className="grid gap-2 rounded-xl border border-border/60 bg-background/80 p-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="outline">{selectedDraftTemplate.label}</Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {selectedDraftTemplate.fields.length} field
-                        </span>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        {selectedDraftTemplate.description}
-                      </p>
-                      <BulletList
-                        items={selectedDraftTemplate.fields.map((field) => field.label)}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </SurfaceCard>
-            </div>
-
             <div id="draft" className={getDetailSectionCardClassName("draft")}>
               <SurfaceCard
                 title="Draft"
-                description="Current public wording stays bound to one explicit draft revision."
+                description="Compose the current release output here, then move it through approval and publish."
                 action={
                   isDraftEditable ? (
                     <Button
@@ -1408,46 +1319,41 @@ export function ReleaseWorkflowLiveWorkspace({
               >
                 {selectedWorkflow.currentDraft ? (
                   <div className="grid gap-4">
-                    <InlineList
-                      items={[
-                        {
-                          label: "Template",
-                          value: `${selectedWorkflow.currentDraft.templateLabel} v${selectedWorkflow.currentDraft.templateVersion}`,
-                        },
-                        {
-                          label: "Draft revision",
-                          value: `Draft v${selectedWorkflow.currentDraft.version}`,
-                        },
-                        {
-                          label: "Created at",
-                          value: formatHistoryTimestamp(selectedWorkflow.currentDraft.createdAt),
-                        },
-                        {
-                          label: "Linked evidence",
-                          value: `${selectedWorkflow.currentDraft.evidenceRefs.length} refs`,
-                        },
-                      ]}
-                    />
-                    <div className="grid gap-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline">
+                        {selectedWorkflow.currentDraft.templateLabel} v{selectedWorkflow.currentDraft.templateVersion}
+                      </Badge>
+                      <Badge variant="secondary">Draft v{selectedWorkflow.currentDraft.version}</Badge>
+                      <Badge variant="outline">
+                        {selectedWorkflow.currentDraft.evidenceRefs.length} linked refs
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {formatHistoryTimestamp(selectedWorkflow.currentDraft.createdAt)}
+                      </span>
+                    </div>
+                    <div className="grid gap-4">
                       {draftEditorFieldSnapshots.map((fieldSnapshot) => (
                         <div
                           key={fieldSnapshot.fieldKey}
-                          className="grid gap-3 rounded-xl border border-border/70 bg-muted/20 p-4"
+                          className="grid gap-3 rounded-3xl border border-border/70 bg-background p-6 shadow-xs"
                         >
                           <div className="flex flex-wrap items-center justify-between gap-2">
-                            <p className="text-sm font-medium text-foreground">Draft content</p>
+                            <div className="grid gap-1">
+                              <p className="text-sm font-medium text-foreground">Draft content</p>
+                              <p className="text-sm text-muted-foreground">
+                                {selectedDraftTemplate.description}
+                              </p>
+                            </div>
                             <div className="flex flex-wrap items-center gap-2">
                               <Badge variant="secondary">
                                 {fieldSnapshot.contentFormat.replaceAll("_", " ")}
-                              </Badge>
-                              <Badge variant="outline">
-                                {currentDraft?.evidenceRefs.length ?? 0} evidence refs
                               </Badge>
                             </div>
                           </div>
                           {isDraftEditable ? (
                             fieldSnapshot.contentFormat === "plain_text" ? (
                               <Input
+                                className="h-12 border-0 bg-transparent px-0 text-lg font-medium shadow-none focus-visible:ring-0"
                                 value={draftFieldValues[fieldSnapshot.fieldKey] ?? ""}
                                 onChange={(event) =>
                                   setDraftFieldValues((currentValues) => ({
@@ -1458,7 +1364,7 @@ export function ReleaseWorkflowLiveWorkspace({
                               />
                             ) : (
                               <Textarea
-                                className="min-h-56 resize-y"
+                                className="min-h-[420px] resize-y border-0 bg-transparent px-0 py-0 text-base leading-7 shadow-none focus-visible:ring-0"
                                 value={draftFieldValues[fieldSnapshot.fieldKey] ?? ""}
                                 onChange={(event) =>
                                   setDraftFieldValues((currentValues) => ({
@@ -1469,7 +1375,7 @@ export function ReleaseWorkflowLiveWorkspace({
                               />
                             )
                           ) : (
-                            <p className="min-w-0 whitespace-pre-wrap text-sm text-muted-foreground [overflow-wrap:anywhere]">
+                            <p className="min-w-0 whitespace-pre-wrap text-base leading-7 text-foreground [overflow-wrap:anywhere]">
                               {fieldSnapshot.content}
                             </p>
                           )}
@@ -1485,58 +1391,44 @@ export function ReleaseWorkflowLiveWorkspace({
                       </p>
                     ) : null}
                     {selectedWorkflow.currentDraft.evidenceRefs.length > 0 ? (
-                      <div className="grid gap-2 rounded-xl border border-border/70 bg-muted/20 p-4">
-                        <p className="text-sm font-medium text-foreground">Linked evidence</p>
-                        <BulletList items={buildDraftLinkedEvidenceItems(selectedWorkflow, draftEditorFieldSnapshots)} />
+                      <div className="grid gap-2 rounded-2xl border border-border/70 bg-muted/20 p-4">
+                        <p className="text-sm font-medium text-foreground">Attached proof</p>
+                        <BulletList
+                          items={buildDraftLinkedEvidenceItems(selectedWorkflow, draftEditorFieldSnapshots)}
+                        />
                       </div>
                     ) : null}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Create the first draft before expecting wording or review state here.
-                  </p>
+                  <div className="grid gap-3 rounded-3xl border border-dashed border-border/70 bg-muted/20 p-8">
+                    <p className="text-sm text-muted-foreground">
+                      Create the first draft and PulseNote will open the release output directly here.
+                    </p>
+                    {(selectedWorkflow.allowedActions ?? []).includes("create_draft") ? (
+                      <div>
+                        <Button
+                          size="sm"
+                          disabled={isRunningAction}
+                          onClick={() => {
+                            void runWorkflowAction("create_draft")
+                          }}
+                        >
+                          {actionButtonLabels.create_draft}
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
                 )}
               </SurfaceCard>
             </div>
 
-            <div id="claim_check" className={getDetailSectionCardClassName("claim_check")}>
-              <SurfaceCard
-                title="Claim check"
-                description="Blocked claims and risky wording stay explicit before approval."
-                action={
-                  selectedDraftRevisionId !== null &&
-                  (selectedWorkflow.allowedActions ?? []).includes("run_claim_check") ? (
-                    <Button
-                      size="sm"
-                      disabled={isRunningAction}
-                      onClick={() => {
-                        void runWorkflowAction("run_claim_check")
-                      }}
-                    >
-                      {actionButtonLabels.run_claim_check}
-                    </Button>
-                  ) : undefined
-                }
-              >
-                <div className="grid gap-4">
-                  <div className="flex flex-wrap gap-2">
-                    {claimCheckBadge(selectedWorkflow.claimCheckSummary.state)}
-                    <Badge variant="outline">{selectedWorkflow.claimCheckSummary.totalClaims} claims</Badge>
-                    <Badge variant="outline">
-                      {selectedWorkflow.claimCheckSummary.flaggedClaims} flagged
-                    </Badge>
-                  </div>
-                  <BulletList items={buildReleaseWorkflowClaimCheckNotes(selectedWorkflow)} />
-                </div>
-              </SurfaceCard>
-            </div>
-
-            <div id="approval" className={getDetailSectionCardClassName("approval")}>
-              <SurfaceCard
-                title="Approval"
-                description="Reviewer handoff stays tied to the current draft revision."
-              >
-                <div className="grid gap-4">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+              <div id="approval" className={getDetailSectionCardClassName("approval")}>
+                <SurfaceCard
+                  title="Approval"
+                  description="Move the current draft into explicit reviewer sign-off."
+                >
+                  <div className="grid gap-4">
                   <div className="flex flex-wrap gap-2">
                     {approvalBadge(selectedWorkflow.approvalSummary.state)}
                     {selectedOwnershipCue && selectedQueueSourceItem?.approvalSummary.state === "pending"
@@ -1666,31 +1558,31 @@ export function ReleaseWorkflowLiveWorkspace({
                     </div>
                   )}
                   <BulletList items={buildReleaseWorkflowApprovalNotes(selectedWorkflow)} />
-                </div>
-              </SurfaceCard>
-            </div>
+                  </div>
+                </SurfaceCard>
+              </div>
 
-            <div id="publish_pack" className={getDetailSectionCardClassName("publish_pack")}>
-              <SurfaceCard
-                title="Publish pack"
-                description="Frozen export handoff stays attached to this release record."
-                action={
-                  selectedDraftRevisionId !== null &&
-                  (selectedWorkflow.allowedActions ?? []).includes("create_publish_pack") ? (
-                    <Button
-                      size="sm"
-                      disabled={isRunningAction}
-                      onClick={() => {
-                        void runWorkflowAction("create_publish_pack")
-                      }}
-                    >
-                      {actionButtonLabels.create_publish_pack}
-                    </Button>
-                  ) : undefined
-                }
-              >
-                {selectedWorkflow.latestPublishPackArtifact ? (
-                  <div className="grid gap-4">
+              <div id="publish_pack" className={getDetailSectionCardClassName("publish_pack")}>
+                <SurfaceCard
+                  title="Publish pack"
+                  description="Freeze the approved draft into a publish-ready artifact."
+                  action={
+                    selectedDraftRevisionId !== null &&
+                    (selectedWorkflow.allowedActions ?? []).includes("create_publish_pack") ? (
+                      <Button
+                        size="sm"
+                        disabled={isRunningAction}
+                        onClick={() => {
+                          void runWorkflowAction("create_publish_pack")
+                        }}
+                      >
+                        {actionButtonLabels.create_publish_pack}
+                      </Button>
+                    ) : undefined
+                  }
+                >
+                  {selectedWorkflow.latestPublishPackArtifact ? (
+                    <div className="grid gap-4">
                     <div className="flex flex-wrap gap-2">
                       {publishPackBadge(selectedWorkflow.latestPublishPackSummary.state)}
                       <Badge variant="outline">
@@ -1717,62 +1609,28 @@ export function ReleaseWorkflowLiveWorkspace({
                       ]}
                     />
                     <BulletList items={buildReleaseWorkflowPublishPackArtifactNotes(selectedWorkflow)} />
-                  </div>
-                ) : (
-                  <BulletList items={buildReleaseWorkflowPublishPackNotes(selectedWorkflow)} />
-                )}
-              </SurfaceCard>
+                    </div>
+                  ) : (
+                    <BulletList items={buildReleaseWorkflowPublishPackNotes(selectedWorkflow)} />
+                  )}
+                </SurfaceCard>
+              </div>
             </div>
 
-            <SurfaceCard
-              title="Recent history"
-              description="Recent workflow events stay attached to this release before handoff."
-              action={
-                <Link
-                  href="/dashboard/review-log"
-                  className={cn(buttonVariants({ size: "sm", variant: "outline" }))}
-                >
-                  Review log
-                </Link>
-              }
-            >
-              {historyError ? (
-                <p className="text-sm text-destructive">{historyError}</p>
-              ) : isLoadingHistory && recentHistory.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Loading the recent workflow history for this release.
-                </p>
-              ) : recentHistory.length > 0 ? (
-                <div className="grid gap-3">
-                  {recentHistory.map((entry) => (
-                    <div key={entry.id} className="rounded-xl border border-border/70 bg-muted/20 p-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-medium text-foreground">{entry.eventLabel}</span>
-                        {historyOutcomeBadge(entry.outcome)}
-                      </div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {formatHistoryTimestamp(entry.createdAt)}
-                      </p>
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        {entry.note ?? "No review note was stored for this event."}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  Workflow history will appear here once actions are recorded on this release.
-                </p>
-              )}
-            </SurfaceCard>
-
-            {actionError ? (
-              <SurfaceCard
-                title="Workflow action failed"
-                description="The last command could not be completed safely."
-              >
-                <p className="text-sm text-destructive">{actionError}</p>
-              </SurfaceCard>
+            {historyError ? (
+              <p className="text-sm text-destructive">{historyError}</p>
+            ) : isLoadingHistory && recentHistory.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Loading the recent workflow history for this release.
+              </p>
+            ) : recentHistory.length > 0 ? (
+              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                {recentHistory.map((entry) => (
+                  <span key={entry.id} className="rounded-full border border-border/70 bg-muted/20 px-3 py-1">
+                    {entry.eventLabel} · {formatHistoryTimestamp(entry.createdAt)}
+                  </span>
+                ))}
+              </div>
             ) : null}
           </div>
         )}
