@@ -19,11 +19,7 @@
         "Collect shipped scope, linked issues, rollout notes, QA context, and customer-facing constraints in one release record.",
         "PulseNote is designed to start from evidence rather than a blank document."
       ],
-      "cta": { "label": "Review the release record", "href": "/#review" },
-      "media": {
-        "front": { "src": "/steps/steps/step_01_front.webp", "alt": "Ingest release context" },
-        "back": { "src": "/steps/steps/step_01_back.webp", "alt": "Ingest release context" }
-      }
+      "cta": { "label": "Review the release record", "href": "/#review" }
     },
     {
       "id": "step-2",
@@ -35,11 +31,7 @@
         "Generate customer-facing wording from the release record instead of rebuilding the message from scratch for every reviewer.",
         "The draft stays attached to the release evidence while the copy evolves."
       ],
-      "cta": { "label": "See outputs", "href": "/#outputs" },
-      "media": {
-        "front": { "src": "/steps/steps/step_02_front.webp", "alt": "Draft communication" },
-        "back": { "src": "/steps/steps/step_02_back.webp", "alt": "Draft communication" }
-      }
+      "cta": { "label": "See outputs", "href": "/#outputs" }
     },
     {
       "id": "step-3",
@@ -51,11 +43,7 @@
         "PulseNote flags unsupported certainty, missing evidence, and internal-only wording before approval begins.",
         "That keeps review grounded in facts instead of late-stage copy drift."
       ],
-      "cta": { "label": "See review safeguards", "href": "/#review" },
-      "media": {
-        "front": { "src": "/steps/steps/step_03_front.webp", "alt": "Claim checks" },
-        "back": { "src": "/steps/steps/step_03_back.webp", "alt": "Claim checks" }
-      }
+      "cta": { "label": "See review safeguards", "href": "/#review" }
     },
     {
       "id": "step-4",
@@ -67,11 +55,7 @@
         "Keep wording changes, reviewer rationale, and human sign-off visible in the same workflow surface.",
         "Approval responsibility remains inspectable after the release is handed off."
       ],
-      "cta": { "label": "Read the FAQ", "href": "/#faq" },
-      "media": {
-        "front": { "src": "/steps/steps/step_04_front.webp", "alt": "Collect approval" },
-        "back": { "src": "/steps/steps/step_04_back.webp", "alt": "Collect approval" }
-      }
+      "cta": { "label": "Read the FAQ", "href": "/#faq" }
     },
     {
       "id": "step-5",
@@ -83,11 +67,7 @@
         "Export approved release notes, support brief, stakeholder summary, and evidence links as one controlled handoff.",
         "PulseNote stops at the handoff so publication still belongs to the humans responsible for the release."
       ],
-      "cta": { "label": "Ask about access", "href": "/coming-soon" },
-      "media": {
-        "front": { "src": "/steps/steps/step_02_front.webp", "alt": "Export publish pack" },
-        "back": { "src": "/steps/steps/step_02_back.webp", "alt": "Export publish pack" }
-      }
+      "cta": { "label": "Ask about access", "href": "/coming-soon" }
     }
   ]
 }
