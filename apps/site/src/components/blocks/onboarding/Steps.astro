@@ -160,18 +160,25 @@ const steps = data.steps.map((s) => ({
 								</figure>
 							) : index === 0 ? (
 								<div class="stepper__orbit">
-									<div class="stepper__orbit-track"></div>
+									<div class="stepper__orbit-track">
+										<div class="stepper__orbit-source" style="--i: 0">
+											<div class="stepper__orbit-icon">
+												<Icon name="simple-icons:linear" width="20" height="20" />
+											</div>
+										</div>
+										<div class="stepper__orbit-source" style="--i: 1">
+											<div class="stepper__orbit-icon">
+												<Icon name="logos:slack-icon" width="20" height="20" />
+											</div>
+										</div>
+										<div class="stepper__orbit-source" style="--i: 2">
+											<div class="stepper__orbit-icon">
+												<Icon name="mdi:github" width="20" height="20" />
+											</div>
+										</div>
+									</div>
 									<div class="stepper__orbit-center">
 										<img src="/brand-mark.svg" alt="PulseNote" class="stepper__orbit-brand" />
-									</div>
-									<div class="stepper__orbit-source" style="--i: 0">
-										<Icon name="simple-icons:linear" width="20" height="20" />
-									</div>
-									<div class="stepper__orbit-source" style="--i: 1">
-										<Icon name="logos:slack-icon" width="20" height="20" />
-									</div>
-									<div class="stepper__orbit-source" style="--i: 2">
-										<Icon name="mdi:github" width="20" height="20" />
 									</div>
 								</div>
 							) : null}
@@ -215,8 +222,7 @@ const steps = data.steps.map((s) => ({
 		min-height: 360px;
 	}
 	.stepper__orbit-track {
-		@apply relative h-64 w-64 rounded-full border border-dashed border-neutral-200;
-		animation: orbit-rotate 20s linear infinite;
+		@apply absolute h-64 w-64 rounded-full border border-dashed border-neutral-200;
 	}
 	.stepper__orbit-center {
 		@apply absolute left-1/2 top-1/2 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-neutral-950 shadow-lg;
@@ -227,18 +233,20 @@ const steps = data.steps.map((s) => ({
 	}
 	.stepper__orbit-source {
 		@apply absolute left-1/2 top-1/2 -ml-5.5 -mt-5.5 flex h-11 w-11 items-center justify-center rounded-full border border-neutral-200 bg-white shadow-md text-neutral-700;
-		--angle: calc(360deg / 3 * var(--i) - 90deg);
-		transform: rotate(var(--angle)) translateX(108px);
+		--start-angle: calc(360deg / 3 * var(--i) - 90deg);
+		animation: orbit-path 20s linear infinite;
+		animation-delay: calc(var(--i) * -6.666s);
 	}
 	.stepper__orbit-source svg {
 		@apply block;
-		animation: orbit-counter 20s linear infinite;
 	}
 
-	@keyframes orbit-rotate {
-		to { transform: rotate(360deg); }
-	}
-	@keyframes orbit-counter {
-		to { transform: rotate(-360deg); }
+	@keyframes orbit-path {
+		0% {
+			transform: rotate(var(--start-angle)) translateX(108px) rotate(calc(-1 * var(--start-angle)));
+		}
+		100% {
+			transform: rotate(calc(var(--start-angle) + 360deg)) translateX(108px) rotate(calc(-1 * (var(--start-angle) + 360deg)));
+		}
 	}
 </style>
