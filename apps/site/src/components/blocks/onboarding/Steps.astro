@@ -165,19 +165,13 @@ const steps = data.steps.map((s) => ({
 										<img src="/brand-mark.svg" alt="PulseNote" class="stepper__orbit-brand" />
 									</div>
 									<div class="stepper__orbit-source" style="--i: 0">
-										<div class="stepper__orbit-icon">
-											<Icon name="simple-icons:linear" width="20" height="20" />
-										</div>
+										<Icon name="simple-icons:linear" width="20" height="20" />
 									</div>
 									<div class="stepper__orbit-source" style="--i: 1">
-										<div class="stepper__orbit-icon">
-											<Icon name="logos:slack-icon" width="20" height="20" />
-										</div>
+										<Icon name="logos:slack-icon" width="20" height="20" />
 									</div>
 									<div class="stepper__orbit-source" style="--i: 2">
-										<div class="stepper__orbit-icon">
-											<Icon name="mdi:github" width="20" height="20" />
-										</div>
+										<Icon name="mdi:github" width="20" height="20" />
 									</div>
 								</div>
 							) : null}
@@ -221,12 +215,8 @@ const steps = data.steps.map((s) => ({
 		min-height: 360px;
 	}
 	.stepper__orbit-track {
-		@apply relative h-64 w-64;
+		@apply relative h-64 w-64 rounded-full border border-dashed border-neutral-200;
 		animation: orbit-rotate 20s linear infinite;
-	}
-	.stepper__orbit-track::before {
-		content: '';
-		@apply absolute inset-0 rounded-full border border-dashed border-neutral-200;
 	}
 	.stepper__orbit-center {
 		@apply absolute left-1/2 top-1/2 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-neutral-950 shadow-lg;
@@ -236,22 +226,12 @@ const steps = data.steps.map((s) => ({
 		@apply h-8 w-8;
 	}
 	.stepper__orbit-source {
-		@apply absolute flex items-center justify-center;
-		left: 50%;
-		top: 50%;
-		width: 44px;
-		height: 44px;
-		margin-left: -22px;
-		margin-top: -22px;
+		@apply absolute left-1/2 top-1/2 -ml-5.5 -mt-5.5 flex h-11 w-11 items-center justify-center rounded-full border border-neutral-200 bg-white shadow-md text-neutral-700;
 		--angle: calc(360deg / 3 * var(--i) - 90deg);
 		transform: rotate(var(--angle)) translateX(128px);
 	}
-	.stepper__orbit-icon {
-		@apply flex h-11 w-11 items-center justify-center rounded-full border border-neutral-200 bg-white shadow-md text-neutral-700;
-		animation: orbit-counter 20s linear infinite;
-	}
-	.stepper__orbit-label {
-		@apply font-body text-xs font-medium text-neutral-500 whitespace-nowrap;
+	.stepper__orbit-source svg {
+		@apply block;
 		animation: orbit-counter 20s linear infinite;
 	}
 
