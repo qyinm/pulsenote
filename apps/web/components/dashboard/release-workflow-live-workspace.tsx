@@ -241,7 +241,7 @@ function buildDraftLinkedEvidenceItems(
     ]),
   )
 
-  return detail.currentDraft?.evidenceRefs.slice(0, 5).map((evidenceRef) => {
+  return detail.currentDraft?.evidenceRefs.map((evidenceRef) => {
     const linkedEvidence = detail.evidenceBlocks.find(
       (evidenceBlock) => evidenceBlock.id === evidenceRef.evidenceBlockId,
     )
@@ -251,9 +251,13 @@ function buildDraftLinkedEvidenceItems(
         ? singleVisibleLabel
         : evidenceRef.fieldKey.replaceAll("_", " "))
 
-    return linkedEvidence
-      ? `${linkedEvidence.title} -> ${targetLabel}`
-      : `Evidence ref ${evidenceRef.evidenceBlockId} -> ${targetLabel}`
+    const evidenceLabel = linkedEvidence
+      ? linkedEvidence.title
+      : `Evidence ref ${evidenceRef.evidenceBlockId}`
+    const contextParts = [evidenceRef.anchorText, evidenceRef.note].filter(Boolean)
+    const contextSuffix = contextParts.length > 0 ? ` (${contextParts.join(" · ")})` : ""
+
+    return `${evidenceLabel} -> ${targetLabel}${contextSuffix}`
   }) ?? []
 }
 
@@ -1480,6 +1484,7 @@ export function ReleaseWorkflowLiveWorkspace({
                     ) : null}
                     <div className="grid gap-3 rounded-2xl border border-border/70 bg-muted/10 p-4">
                       <div className="flex flex-wrap items-center gap-2">
+                        {claimCheckBadge(selectedWorkflow.claimCheckSummary.state)}
                         {approvalBadge(selectedWorkflow.approvalSummary.state)}
                         {selectedOwnershipCue && selectedQueueSourceItem?.approvalSummary.state === "pending"
                           ? ownershipCueBadge(selectedOwnershipCue)
@@ -1488,6 +1493,14 @@ export function ReleaseWorkflowLiveWorkspace({
                       </div>
                       <InlineList
                         items={[
+                          {
+                            label: "Claim checks",
+                            value:
+                              selectedQueueItem?.claimCheckLabel ??
+                              (selectedWorkflow.claimCheckSummary.totalClaims > 0
+                                ? `${selectedWorkflow.claimCheckSummary.flaggedClaims} flagged of ${selectedWorkflow.claimCheckSummary.totalClaims}`
+                                : "Not checked"),
+                          },
                           {
                             label: "Assigned reviewer",
                             value:
