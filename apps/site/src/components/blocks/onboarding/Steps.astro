@@ -224,28 +224,28 @@ import githubIcon from '../../../icons/github-icon.svg'
 	}
 	.stepper__orbit {
 		@apply relative flex h-full w-full items-center justify-center overflow-hidden bg-white;
-		min-height: 320px;
+		min-height: 360px;
 		padding: 2rem;
 	}
 	.stepper__orbit-ring {
-		@apply relative flex h-56 w-56 items-center justify-center rounded-full border border-dashed border-neutral-200;
-		animation: orbit-spin 20s linear infinite;
+		@apply relative flex h-60 w-60 items-center justify-center rounded-full border-2 border-dashed border-neutral-200;
+		animation: orbit-spin 24s linear infinite;
 	}
 	.stepper__orbit-center {
-		@apply absolute flex h-14 w-14 items-center justify-center rounded-full bg-neutral-950;
+		@apply absolute flex h-16 w-16 items-center justify-center rounded-full bg-neutral-950 shadow-lg;
 		z-index: 2;
 	}
 	.stepper__orbit-logo {
 		@apply font-headings text-lg font-bold text-white;
 	}
 	.stepper__orbit-item {
-		@apply absolute flex flex-col items-center gap-1;
-		--angle: calc(360deg / 3 * var(--index) + 0deg);
-		transform: rotate(var(--angle)) translateX(112px) rotate(calc(-1 * var(--angle)));
-		animation: orbit-counter 20s linear infinite;
+		@apply absolute flex flex-col items-center gap-1.5;
+		--angle: calc(360deg / 3 * var(--index) - 90deg);
+		transform: rotate(var(--angle)) translateX(120px) rotate(calc(-1 * var(--angle)));
+		animation: orbit-counter 24s linear infinite;
 	}
 	.stepper__orbit-icon {
-		@apply flex h-10 w-10 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-700 shadow-sm;
+		@apply flex h-11 w-11 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-700 shadow-md;
 	}
 	.stepper__orbit-icon svg {
 		@apply h-5 w-5;
