@@ -245,19 +245,20 @@ const steps = data.steps.map((s) => ({
 		top: 50%;
 		--angle: calc(360deg / 3 * var(--i) - 90deg);
 		transform: rotate(var(--angle)) translateX(128px);
-		animation: orbit-counter 20s linear infinite;
 	}
 	.stepper__orbit-icon {
 		@apply flex h-11 w-11 items-center justify-center rounded-full border border-neutral-200 bg-white shadow-md text-neutral-700;
+		animation: orbit-counter 20s linear infinite;
 	}
 	.stepper__orbit-label {
 		@apply font-body text-xs font-medium text-neutral-500 whitespace-nowrap;
+		animation: orbit-counter 20s linear infinite;
 	}
 
 	@keyframes orbit-rotate {
 		to { transform: rotate(360deg); }
 	}
 	@keyframes orbit-counter {
-		to { transform: rotate(calc(var(--angle) + 360deg)) translateX(128px) rotate(-360deg); }
+		to { transform: rotate(-360deg); }
 	}
 </style>
