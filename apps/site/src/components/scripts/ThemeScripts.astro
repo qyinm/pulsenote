@@ -77,6 +77,11 @@
 <!-- Light mode only -->
 <script>
 	document.documentElement.classList.remove('dark')
+	const themeSelector = document.getElementById('theme-selector')
+	if (themeSelector) {
+		themeSelector.setAttribute('hidden', '')
+		themeSelector.setAttribute('aria-hidden', 'true')
+	}
 </script>
 
 <!-- Scroll animations -->

@@ -25,7 +25,6 @@ type Props = {
 	title?: string
 	subtitle?: string
 	text?: string
-	image?: any
 	titleSpan?: string
 	buttonText?: string
 	buttonLink?: string
@@ -48,7 +47,7 @@ const {
 		<!-- Intro Text -->
 		<Col
 			span="6"
-			classes="py-16 lg:py-24 border-b border-b-neutral-200 dark:border-b-neutral-700 lg:border-b-0 lg:border-r lg:border-r-neutral-200 dark:border-r-neutral-700"
+			classes="py-16 lg:py-24 border-b border-b-neutral-200 lg:border-b-0 lg:border-r lg:border-r-neutral-200"
 		>
 			<Header title={title} subtitle={subtitle} />
 			<div class="px-6 lg:px-8">
@@ -67,7 +66,7 @@ const {
 
 		<Col
 			span="6"
-			classes="lg:border-l lg:border-neutral-200 bg-neutral-50! dark:bg-neutral-900! dark:border-neutral-700 overflow-hidden lg:flex lg:items-center py-16 lg:py-0"
+			classes="lg:border-l lg:border-neutral-200 bg-neutral-50! overflow-hidden lg:flex lg:items-center py-16 lg:py-0"
 		/>
 	</Row>
 </Section>

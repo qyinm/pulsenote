@@ -85,7 +85,7 @@ const steps = data.steps.map((s) => ({
 			<div class="stepper__steps">
 				{
 					steps.map((step, index) => (
-						<div class="stepper__item scroll-animate group">
+						<div class="stepper__item scroll-animate group" class:list={[{ 'stepper__item--has-media': step.media || index === 0 }]}>
 							<div class="stepper__step scroll-animate" id={step.id}>
 								<Header
 									title={step.title}
@@ -202,7 +202,10 @@ const steps = data.steps.map((s) => ({
 		@apply relative flex flex-col gap-6 lg:gap-8;
 	}
 	.stepper__item {
-		@apply relative m-0 grid items-center bg-white/80 lg:grid-cols-2 lg:gap-x-8;
+		@apply relative m-0 grid items-center bg-white/80 lg:gap-x-8;
+	}
+	.stepper__item--has-media {
+		@apply lg:grid-cols-2;
 	}
 	.stepper__step-body {
 		@apply p-6 pb-0 lg:px-8 lg:py-12 lg:text-xl lg:leading-9;
@@ -234,12 +237,19 @@ const steps = data.steps.map((s) => ({
 	}
 	.stepper__orbit-source {
 		@apply absolute left-1/2 top-1/2 -ml-5.5 -mt-5.5 flex h-11 w-11 items-center justify-center rounded-full border border-neutral-200 bg-white shadow-md text-neutral-700;
-		--start-angle: calc(360deg / 3 * var(--i) - 90deg);
+		--start-angle: calc(360deg / var(--total-items, 3) * var(--i) - 90deg);
 		animation: orbit-path 20s linear infinite;
-		animation-delay: calc(var(--i) * -6.666s);
+		animation-delay: calc(var(--i) * (20s / var(--total-items, 3)) * -1);
 	}
 	.stepper__orbit-source svg {
 		@apply block;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.stepper__orbit-source {
+			animation: none;
+			transform: rotate(var(--start-angle)) translateX(108px) rotate(calc(-1 * var(--start-angle)));
+		}
 	}
 
 	@keyframes orbit-path {
