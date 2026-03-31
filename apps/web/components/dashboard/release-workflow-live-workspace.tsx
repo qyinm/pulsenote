@@ -229,38 +229,6 @@ function buildDraftFieldValues(draftFieldSnapshots: Array<{ content: string; fie
   )
 }
 
-function buildDraftLinkedEvidenceItems(
-  detail: ReleaseWorkflowDetail,
-  draftFieldSnapshots: Array<{ fieldKey: string; label?: string }>,
-) {
-  const singleVisibleLabel = draftFieldSnapshots[0]?.label ?? "Draft content"
-  const fieldKeyLabel = new Map(
-    draftFieldSnapshots.map((fieldSnapshot) => [
-      fieldSnapshot.fieldKey,
-      fieldSnapshot.label ?? fieldSnapshot.fieldKey.replaceAll("_", " "),
-    ]),
-  )
-
-  return detail.currentDraft?.evidenceRefs.map((evidenceRef) => {
-    const linkedEvidence = detail.evidenceBlocks.find(
-      (evidenceBlock) => evidenceBlock.id === evidenceRef.evidenceBlockId,
-    )
-    const targetLabel =
-      fieldKeyLabel.get(evidenceRef.fieldKey) ??
-      (draftFieldSnapshots.length === 1
-        ? singleVisibleLabel
-        : evidenceRef.fieldKey.replaceAll("_", " "))
-
-    const evidenceLabel = linkedEvidence
-      ? linkedEvidence.title
-      : `Evidence ref ${evidenceRef.evidenceBlockId}`
-    const contextParts = [evidenceRef.anchorText, evidenceRef.note].filter(Boolean)
-    const contextSuffix = contextParts.length > 0 ? ` (${contextParts.join(" · ")})` : ""
-
-    return `${evidenceLabel} -> ${targetLabel}${contextSuffix}`
-  }) ?? []
-}
-
 function buildDraftEditorFieldSnapshots(
   draft: ReleaseWorkflowDetail["currentDraft"],
 ) {
@@ -1254,9 +1222,6 @@ export function ReleaseWorkflowLiveWorkspace({
                         {selectedWorkflow.currentDraft.templateLabel} v{selectedWorkflow.currentDraft.templateVersion}
                       </Badge>
                       <Badge variant="secondary">Draft v{selectedWorkflow.currentDraft.version}</Badge>
-                      <Badge variant="outline">
-                        {selectedWorkflow.currentDraft.evidenceRefs.length} linked refs
-                      </Badge>
                       <span className="text-xs text-muted-foreground">
                         {formatHistoryTimestamp(selectedWorkflow.currentDraft.createdAt)}
                       </span>
@@ -1334,26 +1299,6 @@ export function ReleaseWorkflowLiveWorkspace({
                       ) : null}
                     </div>
                     {actionError ? <p className="text-sm text-destructive">{actionError}</p> : null}
-                    <div className="grid gap-2 rounded-2xl border border-border/70 bg-muted/10 p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-sm font-medium text-foreground">Linked evidence</p>
-                        <span className="text-xs text-muted-foreground">
-                          {selectedWorkflow.currentDraft.evidenceRefs.length} refs
-                        </span>
-                      </div>
-                      {selectedWorkflow.currentDraft.evidenceRefs.length > 0 ? (
-                        <BulletList
-                          items={buildDraftLinkedEvidenceItems(
-                            selectedWorkflow,
-                            draftEditorFieldSnapshots,
-                          )}
-                        />
-                      ) : (
-                        <p className="text-sm text-muted-foreground">
-                          No evidence is linked to this draft yet.
-                        </p>
-                      )}
-                    </div>
                     <div className="grid gap-4">
                       {draftEditorFieldSnapshots.map((fieldSnapshot) => (
                         <div
