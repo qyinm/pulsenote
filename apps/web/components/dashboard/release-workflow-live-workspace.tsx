@@ -1242,80 +1242,6 @@ export function ReleaseWorkflowLiveWorkspace({
               <SurfaceCard
                 title="Draft"
                 description="Compose the current release output here."
-                action={
-                  <div className="flex flex-wrap gap-2">
-                    {canCreateDraft ? (
-                      <Button
-                        size="sm"
-                        disabled={isRunningAction}
-                        onClick={() => {
-                          void runWorkflowAction("create_draft")
-                        }}
-                      >
-                        {actionButtonLabels.create_draft}
-                      </Button>
-                    ) : null}
-                    {isDraftEditable ? (
-                      <Button
-                        size="sm"
-                        disabled={isSavingDraft || isRunningAction || !hasDraftFieldChanges}
-                        onClick={() => {
-                          void saveDraftFields()
-                        }}
-                      >
-                        {isSavingDraft ? "Saving…" : "Save draft"}
-                      </Button>
-                    ) : null}
-                    {canRunClaimCheck ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={isRunningAction || hasPendingDraftEdits}
-                        onClick={() => {
-                          void runWorkflowAction("run_claim_check")
-                        }}
-                      >
-                        {actionButtonLabels.run_claim_check}
-                      </Button>
-                    ) : null}
-                    {canApproveDraft ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={isRunningAction || hasPendingDraftEdits}
-                        onClick={() => {
-                          void runWorkflowAction("approve_draft")
-                        }}
-                      >
-                        {actionButtonLabels.approve_draft}
-                      </Button>
-                    ) : null}
-                    {canCreatePublishPack ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={isRunningAction || hasPendingDraftEdits}
-                        onClick={() => {
-                          void runWorkflowAction("create_publish_pack")
-                        }}
-                      >
-                        {actionButtonLabels.create_publish_pack}
-                      </Button>
-                    ) : null}
-                    {canReopenDraft ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={isRunningAction || hasPendingDraftEdits}
-                        onClick={() => {
-                          void runWorkflowAction("reopen_draft")
-                        }}
-                      >
-                        {actionButtonLabels.reopen_draft}
-                      </Button>
-                    ) : null}
-                  </div>
-                }
               >
                 {selectedWorkflow.currentDraft ? (
                   <div className="grid gap-4">
@@ -1331,6 +1257,79 @@ export function ReleaseWorkflowLiveWorkspace({
                         {formatHistoryTimestamp(selectedWorkflow.currentDraft.createdAt)}
                       </span>
                     </div>
+                    <div className="flex flex-wrap gap-2">
+                      {canCreateDraft ? (
+                        <Button
+                          size="sm"
+                          disabled={isRunningAction}
+                          onClick={() => {
+                            void runWorkflowAction("create_draft")
+                          }}
+                        >
+                          {actionButtonLabels.create_draft}
+                        </Button>
+                      ) : null}
+                      {isDraftEditable ? (
+                        <Button
+                          size="sm"
+                          disabled={isSavingDraft || isRunningAction || !hasDraftFieldChanges}
+                          onClick={() => {
+                            void saveDraftFields()
+                          }}
+                        >
+                          {isSavingDraft ? "Saving…" : "Save draft"}
+                        </Button>
+                      ) : null}
+                      {canRunClaimCheck ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={isRunningAction || hasPendingDraftEdits}
+                          onClick={() => {
+                            void runWorkflowAction("run_claim_check")
+                          }}
+                        >
+                          {actionButtonLabels.run_claim_check}
+                        </Button>
+                      ) : null}
+                      {canApproveDraft ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={isRunningAction || hasPendingDraftEdits}
+                          onClick={() => {
+                            void runWorkflowAction("approve_draft")
+                          }}
+                        >
+                          {actionButtonLabels.approve_draft}
+                        </Button>
+                      ) : null}
+                      {canCreatePublishPack ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={isRunningAction || hasPendingDraftEdits}
+                          onClick={() => {
+                            void runWorkflowAction("create_publish_pack")
+                          }}
+                        >
+                          {actionButtonLabels.create_publish_pack}
+                        </Button>
+                      ) : null}
+                      {canReopenDraft ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={isRunningAction || hasPendingDraftEdits}
+                          onClick={() => {
+                            void runWorkflowAction("reopen_draft")
+                          }}
+                        >
+                          {actionButtonLabels.reopen_draft}
+                        </Button>
+                      ) : null}
+                    </div>
+                    {actionError ? <p className="text-sm text-destructive">{actionError}</p> : null}
                     <div className="grid gap-2 rounded-2xl border border-border/70 bg-muted/10 p-4">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="text-sm font-medium text-foreground">Linked evidence</p>
