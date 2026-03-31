@@ -17,6 +17,24 @@ import FeatureCard from '../../ui/cards/FeatureBasicCard.astro'
 	<Row classes="gap-6">
 		<Col span="4">
 			<FeatureCard title="Release Intake" classes="h-full">
+				<div class="orbit-visual">
+					<div class="orbit-center">
+						<svg class="orbit-center-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+						</svg>
+					</div>
+					<div class="orbit-ring">
+						<div class="orbit-node orbit-node--linear">
+							<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7.5 3.5L3 8l4.5 4.5M16.5 3.5L21 8l-4.5 4.5M12 12v9"/></svg>
+						</div>
+						<div class="orbit-node orbit-node--slack">
+							<svg viewBox="0 0 24 24" fill="currentColor"><path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 4.978a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.457v2.521H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.77a2.528 2.528 0 0 1 2.522-2.521h6.312zM16.437 15.165a2.528 2.528 0 0 1 2.521-2.52 2.528 2.528 0 0 1 2.522 2.52 2.528 2.528 0 0 1-2.522 2.523h-2.521v-2.523zm-1.271 0a2.528 2.528 0 0 1-2.521 2.521 2.528 2.528 0 0 1-2.521-2.521V8.834a2.528 2.528 0 0 1 2.521-2.521 2.528 2.528 0 0 1 2.521 2.521v6.331zm1.271-10.187a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H12.636a2.528 2.528 0 0 1-2.521-2.521A2.528 2.528 0 0 1 12.636 0h3.801zm0 1.271a2.528 2.528 0 0 1-2.521 2.521 2.528 2.528 0 0 1 2.521-2.521h6.313A2.528 2.528 0 0 1 24 8.77a2.528 2.528 0 0 1-2.522 2.521h-6.312z"/></svg>
+						</div>
+						<div class="orbit-node orbit-node--github">
+							<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+						</div>
+					</div>
+				</div>
 				<p class="text-neutral-600 dark:text-neutral-400">
 					Collect shipped scope, linked issues, and rollout notes into one release record.
 				</p>
@@ -45,3 +63,34 @@ import FeatureCard from '../../ui/cards/FeatureBasicCard.astro'
 		</Col>
 	</Row>
 </Section>
+
+<style>
+	@reference '../../../styles/global.css';
+	.orbit-visual {
+		@apply relative mx-auto my-6 h-36 w-36;
+	}
+	.orbit-center {
+		@apply absolute left-1/2 top-1/2 z-10 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-orange-500 text-white shadow-lg;
+	}
+	.orbit-center-icon {
+		@apply h-6 w-6;
+	}
+	.orbit-ring {
+		@apply absolute inset-0 animate-[spin_20s_linear_infinite];
+	}
+	.orbit-node {
+		@apply absolute flex h-9 w-9 items-center justify-center rounded-full bg-white p-1.5 text-neutral-700 shadow-md dark:bg-neutral-800 dark:text-neutral-300;
+	}
+	.orbit-node svg {
+		@apply h-full w-full;
+	}
+	.orbit-node--linear {
+		@apply -left-4 top-1/2 -translate-y-1/2;
+	}
+	.orbit-node--slack {
+		@apply left-1/2 -top-4 -translate-x-1/2;
+	}
+	.orbit-node--github {
+		@apply right-0 top-0;
+	}
+</style>
