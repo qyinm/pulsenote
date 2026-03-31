@@ -5,7 +5,6 @@ import Features from '../components/blocks/features/MasonryGrid.astro'
 import ScrollSpySteps from '../components/blocks/onboarding/Steps.astro'
 import TestimonialMasonry from '../components/blocks/testimonials/TestimonialMasonry.astro'
 import Faq from '../components/blocks/faq/StickyFaq.astro'
-import CTA from '../components/blocks/cta/CTAPrimary.astro'
 
 const SEO = {
   title: 'PulseNote | Source-backed release communication',
@@ -29,13 +28,6 @@ const faqData = {
   title: 'Frequently asked questions',
   subtitle: 'Clear answers before the workflow opens'
 }
-
-const ctaData = {
-  title: 'Open the hosted review workspace when your release team is ready',
-  text: 'PulseNote is being shaped around release intake, claim checks, approval, and publish-pack export. Ask about hosted access at biz@pulsenotes.xyz.',
-  buttonLink: 'mailto:biz@pulsenotes.xyz',
-  buttonText: 'Email biz@pulsenotes.xyz'
-}
 ---
 
 <Layout title={SEO.title} description={SEO.description}>
@@ -57,10 +49,4 @@ const ctaData = {
   <div id="faq">
     <Faq subtitle={faqData.subtitle} title={faqData.title} />
   </div>
-  <CTA
-    title={ctaData.title}
-    text={ctaData.text}
-    buttonLink={ctaData.buttonLink}
-    buttonText={ctaData.buttonText}
-  />
 </Layout>
