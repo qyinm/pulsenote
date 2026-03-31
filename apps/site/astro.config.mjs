@@ -5,7 +5,16 @@ import sitemap from "@astrojs/sitemap";
 
 export default defineConfig({
   site: "https://pulsenotes.xyz",
-  integrations: [icon(), sitemap()],
+  integrations: [
+    icon({
+      include: {
+        "simple-icons": ["linear"],
+        logos: ["slack-icon"],
+        mdi: ["github"],
+      },
+    }),
+    sitemap(),
+  ],
   vite: {
     plugins: [tailwindcss()],
   },
