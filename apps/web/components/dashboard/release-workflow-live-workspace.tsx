@@ -241,7 +241,7 @@ function buildDraftLinkedEvidenceItems(
     ]),
   )
 
-  return detail.currentDraft?.evidenceRefs.slice(0, 5).map((evidenceRef) => {
+  return detail.currentDraft?.evidenceRefs.map((evidenceRef) => {
     const linkedEvidence = detail.evidenceBlocks.find(
       (evidenceBlock) => evidenceBlock.id === evidenceRef.evidenceBlockId,
     )
@@ -251,9 +251,13 @@ function buildDraftLinkedEvidenceItems(
         ? singleVisibleLabel
         : evidenceRef.fieldKey.replaceAll("_", " "))
 
-    return linkedEvidence
-      ? `${linkedEvidence.title} -> ${targetLabel}`
-      : `Evidence ref ${evidenceRef.evidenceBlockId} -> ${targetLabel}`
+    const evidenceLabel = linkedEvidence
+      ? linkedEvidence.title
+      : `Evidence ref ${evidenceRef.evidenceBlockId}`
+    const contextParts = [evidenceRef.anchorText, evidenceRef.note].filter(Boolean)
+    const contextSuffix = contextParts.length > 0 ? ` (${contextParts.join(" · ")})` : ""
+
+    return `${evidenceLabel} -> ${targetLabel}${contextSuffix}`
   }) ?? []
 }
 
@@ -799,6 +803,7 @@ export function ReleaseWorkflowLiveWorkspace({
     draftEditorFieldSnapshots.some(
       (fieldSnapshot) => (draftFieldValues[fieldSnapshot.fieldKey] ?? "") !== fieldSnapshot.content,
     )
+  const hasPendingDraftEdits = isSavingDraft || hasDraftFieldChanges
   const selectedQueueItem = queueItems.find((item) => item.id === activeSelectedId) ?? queueItems[0] ?? null
   const selectedQueueSourceItem = selectedQueueItem
     ? getQueuedWorkflowItem(queueSourceById, selectedQueueItem.id)
@@ -1206,77 +1211,6 @@ export function ReleaseWorkflowLiveWorkspace({
               {selectedQueueItem ? <Badge variant="secondary">{selectedQueueItem.versionLabel}</Badge> : null}
               <Badge variant="outline">{selectedDraftTemplate.label}</Badge>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 bg-muted/20 p-4">
-              <p className="text-sm text-muted-foreground">
-                This page stays centered on the current draft. Scope and safety checks stay in the
-                workflow state, but they do not take over the main writing surface.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {canCreateDraft ? (
-                  <Button
-                    size="sm"
-                    disabled={isRunningAction}
-                    onClick={() => {
-                      void runWorkflowAction("create_draft")
-                    }}
-                  >
-                    {actionButtonLabels.create_draft}
-                  </Button>
-                ) : null}
-                {canRunClaimCheck ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={isRunningAction}
-                    onClick={() => {
-                      void runWorkflowAction("run_claim_check")
-                    }}
-                  >
-                    {actionButtonLabels.run_claim_check}
-                  </Button>
-                ) : null}
-                {canRequestApproval ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={
-                      isRunningAction ||
-                      (approvalRequiresReviewer &&
-                        (!approvalReviewerUserId || membersUnavailable || members.length === 0))
-                    }
-                    onClick={() => {
-                      void runWorkflowAction("request_approval")
-                    }}
-                  >
-                    {actionButtonLabels.request_approval}
-                  </Button>
-                ) : null}
-                {canApproveDraft ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={isRunningAction}
-                    onClick={() => {
-                      void runWorkflowAction("approve_draft")
-                    }}
-                  >
-                    {actionButtonLabels.approve_draft}
-                  </Button>
-                ) : null}
-                {canCreatePublishPack ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={isRunningAction}
-                    onClick={() => {
-                      void runWorkflowAction("create_publish_pack")
-                    }}
-                  >
-                    {actionButtonLabels.create_publish_pack}
-                  </Button>
-                ) : null}
-              </div>
-            </div>
             {actionError ? <p className="text-sm text-destructive">{actionError}</p> : null}
           </div>
         </SurfaceCard>
@@ -1311,20 +1245,7 @@ export function ReleaseWorkflowLiveWorkspace({
             <div id="draft" className={getDetailSectionCardClassName("draft")}>
               <SurfaceCard
                 title="Draft"
-                description="Compose the current release output here, then move it through approval and publish."
-                action={
-                  isDraftEditable ? (
-                    <Button
-                      size="sm"
-                      disabled={isSavingDraft || isRunningAction || !hasDraftFieldChanges}
-                      onClick={() => {
-                        void saveDraftFields()
-                      }}
-                    >
-                      {isSavingDraft ? "Saving…" : "Save draft"}
-                    </Button>
-                  ) : undefined
-                }
+                description="Compose the current release output here."
               >
                 {selectedWorkflow.currentDraft ? (
                   <div className="grid gap-4">
@@ -1339,6 +1260,99 @@ export function ReleaseWorkflowLiveWorkspace({
                       <span className="text-xs text-muted-foreground">
                         {formatHistoryTimestamp(selectedWorkflow.currentDraft.createdAt)}
                       </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {canCreateDraft ? (
+                        <Button
+                          size="sm"
+                          disabled={isRunningAction}
+                          onClick={() => {
+                            void runWorkflowAction("create_draft")
+                          }}
+                        >
+                          {actionButtonLabels.create_draft}
+                        </Button>
+                      ) : null}
+                      {isDraftEditable ? (
+                        <Button
+                          size="sm"
+                          disabled={isSavingDraft || isRunningAction || !hasDraftFieldChanges}
+                          onClick={() => {
+                            void saveDraftFields()
+                          }}
+                        >
+                          {isSavingDraft ? "Saving…" : "Save draft"}
+                        </Button>
+                      ) : null}
+                      {canRunClaimCheck ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={isRunningAction || hasPendingDraftEdits}
+                          onClick={() => {
+                            void runWorkflowAction("run_claim_check")
+                          }}
+                        >
+                          {actionButtonLabels.run_claim_check}
+                        </Button>
+                      ) : null}
+                      {canApproveDraft ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={isRunningAction || hasPendingDraftEdits}
+                          onClick={() => {
+                            void runWorkflowAction("approve_draft")
+                          }}
+                        >
+                          {actionButtonLabels.approve_draft}
+                        </Button>
+                      ) : null}
+                      {canCreatePublishPack ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={isRunningAction || hasPendingDraftEdits}
+                          onClick={() => {
+                            void runWorkflowAction("create_publish_pack")
+                          }}
+                        >
+                          {actionButtonLabels.create_publish_pack}
+                        </Button>
+                      ) : null}
+                      {canReopenDraft ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={isRunningAction || hasPendingDraftEdits}
+                          onClick={() => {
+                            void runWorkflowAction("reopen_draft")
+                          }}
+                        >
+                          {actionButtonLabels.reopen_draft}
+                        </Button>
+                      ) : null}
+                    </div>
+                    {actionError ? <p className="text-sm text-destructive">{actionError}</p> : null}
+                    <div className="grid gap-2 rounded-2xl border border-border/70 bg-muted/10 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-medium text-foreground">Linked evidence</p>
+                        <span className="text-xs text-muted-foreground">
+                          {selectedWorkflow.currentDraft.evidenceRefs.length} refs
+                        </span>
+                      </div>
+                      {selectedWorkflow.currentDraft.evidenceRefs.length > 0 ? (
+                        <BulletList
+                          items={buildDraftLinkedEvidenceItems(
+                            selectedWorkflow,
+                            draftEditorFieldSnapshots,
+                          )}
+                        />
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          No evidence is linked to this draft yet.
+                        </p>
+                      )}
                     </div>
                     <div className="grid gap-4">
                       {draftEditorFieldSnapshots.map((fieldSnapshot) => (
@@ -1391,6 +1405,142 @@ export function ReleaseWorkflowLiveWorkspace({
                         </div>
                       ))}
                     </div>
+                    {canRequestApproval ? (
+                      <div className="grid gap-3 rounded-2xl border border-border/70 bg-muted/15 p-4">
+                        <div className="grid gap-2">
+                          <Label htmlFor="detail-approval-reviewer" className="text-sm font-medium">
+                            {approvalRequiresReviewer ? "Assign reviewer" : "Assign reviewer (optional)"}
+                          </Label>
+                          <Select
+                            value={approvalReviewerUserId}
+                            onValueChange={(value) => {
+                              setApprovalReviewerUserId(value ?? "")
+                            }}
+                            disabled={members.length === 0 || membersUnavailable || isRunningAction}
+                          >
+                            <SelectTrigger id="detail-approval-reviewer">
+                              <SelectValue
+                                placeholder={
+                                  membersUnavailable
+                                    ? "Reviewer roster is unavailable"
+                                    : members.length === 0
+                                      ? "No workspace members available"
+                                      : "Choose a reviewer"
+                                }
+                              />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {members.map((member) => (
+                                <SelectItem key={member.user.id} value={member.user.id}>
+                                  {getWorkspaceMemberLabel(member)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground">
+                            {membersUnavailable
+                              ? approvalRequiresReviewer
+                                ? "Reload once the reviewer roster is available."
+                                : "Reviewer routing is optional here, so approval can still be requested without the roster."
+                              : members.length === 0
+                                ? approvalRequiresReviewer
+                                  ? "Add a workspace member before routing approval."
+                                  : "Reviewer routing is optional in this workspace, so approval can proceed without assigning one."
+                                : approvalRequiresReviewer
+                                  ? "Approval becomes a concrete handoff once a reviewer is assigned."
+                                  : "Assigning a reviewer keeps ownership explicit, but this workspace allows approval requests without one."}
+                          </p>
+                          {approvalRequiresReviewer &&
+                          !approvalReviewerUserId &&
+                          !membersUnavailable &&
+                          members.length > 0 ? (
+                            <p className="text-xs text-destructive">
+                              Choose a reviewer before requesting approval.
+                            </p>
+                          ) : null}
+                        </div>
+                        <div>
+                          <Button
+                            size="sm"
+                            disabled={
+                              isRunningAction ||
+                              hasPendingDraftEdits ||
+                              (approvalRequiresReviewer &&
+                                (!approvalReviewerUserId || membersUnavailable || members.length === 0))
+                            }
+                            onClick={() => {
+                              void runWorkflowAction("request_approval")
+                            }}
+                          >
+                            {actionButtonLabels.request_approval}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
+                    {hasPendingDraftEdits ? (
+                      <p className="text-sm text-muted-foreground">
+                        Save the draft before running claim check, approval, or publish actions so they use the current wording.
+                      </p>
+                    ) : null}
+                    <div className="grid gap-3 rounded-2xl border border-border/70 bg-muted/10 p-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {claimCheckBadge(selectedWorkflow.claimCheckSummary.state)}
+                        {approvalBadge(selectedWorkflow.approvalSummary.state)}
+                        {selectedOwnershipCue && selectedQueueSourceItem?.approvalSummary.state === "pending"
+                          ? ownershipCueBadge(selectedOwnershipCue)
+                          : null}
+                        {publishPackBadge(selectedWorkflow.latestPublishPackSummary.state)}
+                      </div>
+                      <InlineList
+                        items={[
+                          {
+                            label: "Claim checks",
+                            value:
+                              selectedQueueItem?.claimCheckLabel ??
+                              (selectedWorkflow.claimCheckSummary.totalClaims > 0
+                                ? `${selectedWorkflow.claimCheckSummary.flaggedClaims} flagged of ${selectedWorkflow.claimCheckSummary.totalClaims}`
+                                : "Not checked"),
+                          },
+                          {
+                            label: "Assigned reviewer",
+                            value:
+                              selectedWorkflow.approvalSummary.ownerName ??
+                              (selectedWorkflow.approvalSummary.ownerUserId
+                                ? "Unknown reviewer"
+                                : "Not assigned"),
+                          },
+                          {
+                            label: "Requested by",
+                            value:
+                              selectedWorkflow.approvalSummary.requestedByName ??
+                              (selectedWorkflow.approvalSummary.requestedByUserId
+                                ? "Unknown requester"
+                                : "Not requested"),
+                          },
+                          {
+                            label: "Publish pack",
+                            value:
+                              selectedWorkflow.latestPublishPackArtifact
+                                ? `Exported ${formatHistoryTimestamp(
+                                    selectedWorkflow.latestPublishPackArtifact.exportedAt,
+                                  )}`
+                                : selectedQueueItem?.publishPackLabel ?? "Not ready",
+                          },
+                        ]}
+                      />
+                      {recentHistory.length > 0 ? (
+                        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                          {recentHistory.slice(0, 3).map((entry) => (
+                            <span
+                              key={entry.id}
+                              className="rounded-full border border-border/70 bg-background px-3 py-1"
+                            >
+                              {entry.eventLabel} · {formatHistoryTimestamp(entry.createdAt)}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
                     {draftSaveError ? (
                       <p className="text-sm text-destructive">{draftSaveError}</p>
                     ) : null}
@@ -1398,14 +1548,6 @@ export function ReleaseWorkflowLiveWorkspace({
                       <p className="text-sm text-muted-foreground">
                         Reopen the draft to edit these fields after claim check or approval begins.
                       </p>
-                    ) : null}
-                    {selectedWorkflow.currentDraft.evidenceRefs.length > 0 ? (
-                      <div className="grid gap-2 rounded-2xl border border-border/70 bg-muted/20 p-4">
-                        <p className="text-sm font-medium text-foreground">Attached proof</p>
-                        <BulletList
-                          items={buildDraftLinkedEvidenceItems(selectedWorkflow, draftEditorFieldSnapshots)}
-                        />
-                      </div>
                     ) : null}
                   </div>
                 ) : (
@@ -1430,212 +1572,6 @@ export function ReleaseWorkflowLiveWorkspace({
                 )}
               </SurfaceCard>
             </div>
-
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-              <div id="approval" className={getDetailSectionCardClassName("approval")}>
-                <SurfaceCard
-                  title="Approval"
-                  description="Move the current draft into explicit reviewer sign-off."
-                >
-                  <div className="grid gap-4">
-                  <div className="flex flex-wrap gap-2">
-                    {approvalBadge(selectedWorkflow.approvalSummary.state)}
-                    {selectedOwnershipCue && selectedQueueSourceItem?.approvalSummary.state === "pending"
-                      ? ownershipCueBadge(selectedOwnershipCue)
-                      : null}
-                  </div>
-                  <InlineList
-                    items={[
-                      {
-                        label: "Assigned reviewer",
-                        value:
-                          selectedWorkflow.approvalSummary.ownerName ??
-                          (selectedWorkflow.approvalSummary.ownerUserId
-                            ? "Unknown reviewer"
-                            : "Not assigned"),
-                      },
-                      {
-                        label: "Requested by",
-                        value:
-                          selectedWorkflow.approvalSummary.requestedByName ??
-                          (selectedWorkflow.approvalSummary.requestedByUserId
-                            ? "Unknown requester"
-                            : "Not requested"),
-                      },
-                    ]}
-                  />
-                  {canRequestApproval ? (
-                    <div className="grid gap-2 rounded-xl border border-border/70 bg-muted/20 p-4">
-                      <Label htmlFor="detail-approval-reviewer" className="text-sm font-medium">
-                        {approvalRequiresReviewer ? "Assign reviewer" : "Assign reviewer (optional)"}
-                      </Label>
-                      <Select
-                        value={approvalReviewerUserId}
-                        onValueChange={(value) => {
-                          setApprovalReviewerUserId(value ?? "")
-                        }}
-                        disabled={members.length === 0 || membersUnavailable}
-                      >
-                        <SelectTrigger id="detail-approval-reviewer">
-                          <SelectValue
-                            placeholder={
-                              membersUnavailable
-                                ? "Reviewer roster is unavailable"
-                                : members.length === 0
-                                  ? "No workspace members available"
-                                  : "Choose a reviewer"
-                            }
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {members.map((member) => (
-                            <SelectItem key={member.user.id} value={member.user.id}>
-                              {getWorkspaceMemberLabel(member)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          size="sm"
-                          disabled={
-                            isRunningAction ||
-                            (approvalRequiresReviewer &&
-                              (!approvalReviewerUserId || membersUnavailable || members.length === 0))
-                          }
-                          onClick={() => {
-                            void runWorkflowAction("request_approval")
-                          }}
-                        >
-                          {actionButtonLabels.request_approval}
-                        </Button>
-                        {canApproveDraft ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={isRunningAction}
-                            onClick={() => {
-                              void runWorkflowAction("approve_draft")
-                            }}
-                          >
-                            {actionButtonLabels.approve_draft}
-                          </Button>
-                        ) : null}
-                        {canReopenDraft ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={isRunningAction}
-                            onClick={() => {
-                              void runWorkflowAction("reopen_draft")
-                            }}
-                          >
-                            {actionButtonLabels.reopen_draft}
-                          </Button>
-                        ) : null}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {canApproveDraft ? (
-                        <Button
-                          size="sm"
-                          disabled={isRunningAction}
-                          onClick={() => {
-                            void runWorkflowAction("approve_draft")
-                          }}
-                        >
-                          {actionButtonLabels.approve_draft}
-                        </Button>
-                      ) : null}
-                      {canReopenDraft ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={isRunningAction}
-                          onClick={() => {
-                            void runWorkflowAction("reopen_draft")
-                          }}
-                        >
-                          {actionButtonLabels.reopen_draft}
-                        </Button>
-                      ) : null}
-                    </div>
-                  )}
-                  <BulletList items={buildReleaseWorkflowApprovalNotes(selectedWorkflow)} />
-                  </div>
-                </SurfaceCard>
-              </div>
-
-              <div id="publish_pack" className={getDetailSectionCardClassName("publish_pack")}>
-                <SurfaceCard
-                  title="Publish pack"
-                  description="Freeze the approved draft into a publish-ready artifact."
-                  action={
-                    canCreatePublishPack ? (
-                      <Button
-                        size="sm"
-                        disabled={isRunningAction}
-                        onClick={() => {
-                          void runWorkflowAction("create_publish_pack")
-                        }}
-                      >
-                        {actionButtonLabels.create_publish_pack}
-                      </Button>
-                    ) : undefined
-                  }
-                >
-                  {selectedWorkflow.latestPublishPackArtifact ? (
-                    <div className="grid gap-4">
-                    <div className="flex flex-wrap gap-2">
-                      {publishPackBadge(selectedWorkflow.latestPublishPackSummary.state)}
-                      <Badge variant="outline">
-                        {getPublishPackArtifactCounts(selectedWorkflow).includedEvidenceCount} evidence
-                      </Badge>
-                      <Badge variant="outline">
-                        {getPublishPackArtifactCounts(selectedWorkflow).includedSourceLinkCount} sources
-                      </Badge>
-                    </div>
-                    <InlineList
-                      items={[
-                        {
-                          label: "Exported at",
-                          value: formatHistoryTimestamp(
-                            selectedWorkflow.latestPublishPackArtifact.exportedAt,
-                          ),
-                        },
-                        {
-                          label: "Exported by",
-                          value:
-                            selectedWorkflow.latestPublishPackArtifact.context.exportedByName ??
-                            "Unknown exporter",
-                        },
-                      ]}
-                    />
-                    <BulletList items={buildReleaseWorkflowPublishPackArtifactNotes(selectedWorkflow)} />
-                    </div>
-                  ) : (
-                    <BulletList items={buildReleaseWorkflowPublishPackNotes(selectedWorkflow)} />
-                  )}
-                </SurfaceCard>
-              </div>
-            </div>
-
-            {historyError ? (
-              <p className="text-sm text-destructive">{historyError}</p>
-            ) : isLoadingHistory && recentHistory.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Loading the recent workflow history for this release.
-              </p>
-            ) : recentHistory.length > 0 ? (
-              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                {recentHistory.map((entry) => (
-                  <span key={entry.id} className="rounded-full border border-border/70 bg-muted/20 px-3 py-1">
-                    {entry.eventLabel} · {formatHistoryTimestamp(entry.createdAt)}
-                  </span>
-                ))}
-              </div>
-            ) : null}
           </div>
         )}
       </>
