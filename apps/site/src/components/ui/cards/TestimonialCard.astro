@@ -19,11 +19,6 @@ import Card from './partials/CardContainer.astro'
 import CardBody from './partials/CardBody.astro'
 import CardFooter from './partials/CardFooter.astro'
 import CardHeader from './partials/CardHeader.astro'
-import { Image } from 'astro:assets'
-
-// Content
-// - Assets
-import quoteMark from '../../../assets/quotemark.webp'
 
 // - Props
 type Props = {
@@ -52,7 +47,7 @@ const {
 	classes={`${classes} flex flex-col bg-white/80! dark:bg-neutral-950/80!`}
 >
 	<CardHeader>
-		<Image src={quoteMark} alt="quotemark" height={48} />
+		<span class="text-5xl leading-none text-neutral-300">"</span>
 	</CardHeader>
 	<CardBody
 		decorationType="top bottom"

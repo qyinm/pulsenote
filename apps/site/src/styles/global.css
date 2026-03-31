@@ -163,12 +163,12 @@ html {
 	}
 }
 body {
-	@apply font-body bg-white bg-[url('/bgs/stripe-gray-light.svg')] bg-size-[38px] bg-fixed text-base leading-7 text-neutral-700 selection:bg-neutral-950 selection:text-neutral-50 in-[.dark]:text-neutral-200 in-[.light]:text-neutral-700 has-[.header\_\_menu--open]:overflow-hidden lg:has-[.header\_\_menu--open]:overflow-auto dark:bg-neutral-950 dark:bg-[url('/bgs/stripe-gray-dark.svg')] dark:text-neutral-200 dark:selection:bg-neutral-50 dark:selection:text-neutral-950;
+	@apply font-body bg-white bg-[url('/bgs/stripe-gray-light.svg')] bg-size-[38px] bg-fixed text-base leading-7 text-neutral-700 selection:bg-neutral-950 selection:text-neutral-50 has-[.menu--open]:overflow-hidden has-[.menu--open]:overscroll-none;
 }
 
 /* Main typography */
 p {
-	@apply mb-6 last:mb-0 in-[.dark]:text-neutral-200 in-[.light]:text-neutral-700;
+	@apply mb-6 last:mb-0;
 }
 .text-lead {
 	@apply text-[21px] leading-9 font-light;
@@ -185,7 +185,7 @@ h5,
 .h5,
 h6,
 .h6 {
-	@apply font-headings text-neutral-950 last:mb-0 in-[.dark]:text-white in-[.light]:text-neutral-950 dark:text-white;
+	@apply font-headings text-neutral-950 last:mb-0;
 }
 h1 strong,
 h2 strong,

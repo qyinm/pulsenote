@@ -12,8 +12,9 @@ import Col from '../../ui/Col.astro'
 // - UI
 import Header from '../../ui/Header.astro'
 import Link from '../../ui/Link.astro'
-import { Image } from 'astro:assets'
 import DecorationBorder from '../../ui/DecorationBorder.astro'
+import { Icon } from 'astro-icon/components'
+import { Image } from 'astro:assets'
 
 // - Types
 interface MediaImage {
@@ -83,8 +84,8 @@ const steps = data.steps.map((s) => ({
 		<Col span="12" classes="no-scroll-animation " style="transparent">
 			<div class="stepper__steps">
 				{
-					steps.map((step) => (
-						<div class="stepper__item scroll-animate group">
+					steps.map((step, index) => (
+						<div class="stepper__item scroll-animate group" class:list={[{ 'stepper__item--has-media': step.media || index === 0 }]}>
 							<div class="stepper__step scroll-animate" id={step.id}>
 								<Header
 									title={step.title}
@@ -96,18 +97,20 @@ const steps = data.steps.map((s) => ({
 									{step.body?.map((paragraph) => (
 										<p class="stepper__step-text">{paragraph}</p>
 									))}
-									<Link
-										link={step.cta?.href}
-										icon="arrow-turn-down-right"
-										classes="stepper__step-cta"
-									>
-										{step.cta?.label}
-									</Link>
+									{step.cta && (
+										<Link
+											link={step.cta.href}
+											icon="arrow-turn-down-right"
+											classes="stepper__step-cta"
+										>
+											{step.cta.label}
+										</Link>
+									)}
 								</div>
 								<DecorationBorder type="all" style="solid" />
 							</div>
 
-							{step.media && (
+							{step.media ? (
 								<figure class="stepper__media scroll-animate">
 									{/* Back image */}
 									{step.media.back &&
@@ -156,7 +159,30 @@ const steps = data.steps.map((s) => ({
 										))}
 									<DecorationBorder type="left right" style="solid" />
 								</figure>
-							)}
+							) : index === 0 ? (
+								<div class="stepper__orbit">
+									<div class="stepper__orbit-track">
+										<div class="stepper__orbit-source" style="--i: 0">
+											<div class="stepper__orbit-icon">
+												<Icon name="simple-icons:linear" width="20" height="20" />
+											</div>
+										</div>
+										<div class="stepper__orbit-source" style="--i: 1">
+											<div class="stepper__orbit-icon">
+												<Icon name="logos:slack-icon" width="20" height="20" />
+											</div>
+										</div>
+										<div class="stepper__orbit-source" style="--i: 2">
+											<div class="stepper__orbit-icon">
+												<Icon name="mdi:github" width="20" height="20" />
+											</div>
+										</div>
+									</div>
+									<div class="stepper__orbit-center">
+										<img src="/brand-mark.svg" alt="PulseNote" class="stepper__orbit-brand" />
+									</div>
+								</div>
+							) : null}
 							<DecorationBorder type="all" style="solid" />
 						</div>
 					))
@@ -170,24 +196,68 @@ const steps = data.steps.map((s) => ({
 	@reference '../../../styles/global.css';
 
 	.stepper__step {
-		@apply h-full bg-white py-16 lg:py-24 lg:group-even:order-2 lg:group-even:col-start-2 lg:group-even:row-start-1 dark:bg-neutral-950;
+		@apply h-full bg-white py-16 lg:py-24 lg:group-even:order-2 lg:group-even:col-start-2 lg:group-even:row-start-1;
 	}
 	.stepper__steps {
 		@apply relative flex flex-col gap-6 lg:gap-8;
 	}
 	.stepper__item {
-		@apply relative m-0 grid items-center bg-white/80 lg:grid-cols-2 lg:gap-x-8 dark:bg-neutral-950/80;
+		@apply relative m-0 grid items-center bg-white/80 lg:gap-x-8;
+	}
+	.stepper__item--has-media {
+		@apply lg:grid-cols-2;
 	}
 	.stepper__step-body {
 		@apply p-6 pb-0 lg:px-8 lg:py-12 lg:text-xl lg:leading-9;
 	}
 	.stepper__media {
-		@apply relative h-full bg-neutral-50 bg-[url('/bgs/dot-gray-light.svg')] bg-size-[18px] bg-fixed lg:group-even:col-start-1 dark:bg-neutral-900 dark:bg-[url('/bgs/dot-gray-dark.svg')];
+		@apply relative h-full bg-neutral-50 bg-[url('/bgs/dot-gray-light.svg')] bg-size-[18px] bg-fixed lg:group-even:col-start-1;
 	}
 	.stepper__media-front {
 		@apply absolute inset-0 z-10 h-full object-cover;
 	}
 	.stepper__media-back {
 		@apply h-full object-cover;
+	}
+
+	/* Orbit */
+	.stepper__orbit {
+		@apply relative flex h-full w-full items-center justify-center overflow-hidden bg-white;
+		min-height: 360px;
+	}
+	.stepper__orbit-track {
+		@apply absolute h-64 w-64 rounded-full border border-dashed border-neutral-200;
+	}
+	.stepper__orbit-center {
+		@apply absolute left-1/2 top-1/2 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white shadow-lg border border-neutral-200;
+		z-index: 2;
+	}
+	.stepper__orbit-brand {
+		@apply h-8 w-8;
+	}
+	.stepper__orbit-source {
+		@apply absolute left-1/2 top-1/2 -ml-5.5 -mt-5.5 flex h-11 w-11 items-center justify-center rounded-full border border-neutral-200 bg-white shadow-md text-neutral-700;
+		--start-angle: calc(360deg / var(--total-items, 3) * var(--i) - 90deg);
+		animation: orbit-path 20s linear infinite;
+		animation-delay: calc(var(--i) * (20s / var(--total-items, 3)) * -1);
+	}
+	.stepper__orbit-source svg {
+		@apply block;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.stepper__orbit-source {
+			animation: none;
+			transform: rotate(var(--start-angle)) translateX(108px) rotate(calc(-1 * var(--start-angle)));
+		}
+	}
+
+	@keyframes orbit-path {
+		0% {
+			transform: rotate(var(--start-angle)) translateX(108px) rotate(calc(-1 * var(--start-angle)));
+		}
+		100% {
+			transform: rotate(calc(var(--start-angle) + 360deg)) translateX(108px) rotate(calc(-1 * (var(--start-angle) + 360deg)));
+		}
 	}
 </style>
