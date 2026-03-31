@@ -160,27 +160,23 @@ const steps = data.steps.map((s) => ({
 								</figure>
 							) : index === 0 ? (
 								<div class="stepper__orbit">
-									<div class="stepper__orbit-track">
-										<div class="stepper__orbit-center">
-											<img src="/brand-mark.svg" alt="PulseNote" class="stepper__orbit-brand" />
+									<div class="stepper__orbit-track"></div>
+									<div class="stepper__orbit-center">
+										<img src="/brand-mark.svg" alt="PulseNote" class="stepper__orbit-brand" />
+									</div>
+									<div class="stepper__orbit-source" style="--i: 0">
+										<div class="stepper__orbit-icon">
+											<Icon name="simple-icons:linear" width="20" height="20" />
 										</div>
-										<div class="stepper__orbit-source" style="--i: 0">
-											<div class="stepper__orbit-icon">
-												<Icon name="simple-icons:linear" width="22" height="22" />
-											</div>
-											<span class="stepper__orbit-label">Linear</span>
+									</div>
+									<div class="stepper__orbit-source" style="--i: 1">
+										<div class="stepper__orbit-icon">
+											<Icon name="logos:slack-icon" width="20" height="20" />
 										</div>
-										<div class="stepper__orbit-source" style="--i: 1">
-											<div class="stepper__orbit-icon">
-												<Icon name="logos:slack-icon" width="22" height="22" />
-											</div>
-											<span class="stepper__orbit-label">Slack</span>
-										</div>
-										<div class="stepper__orbit-source" style="--i: 2">
-											<div class="stepper__orbit-icon">
-												<Icon name="mdi:github" width="22" height="22" />
-											</div>
-											<span class="stepper__orbit-label">GitHub</span>
+									</div>
+									<div class="stepper__orbit-source" style="--i: 2">
+										<div class="stepper__orbit-icon">
+											<Icon name="mdi:github" width="20" height="20" />
 										</div>
 									</div>
 								</div>
@@ -240,9 +236,13 @@ const steps = data.steps.map((s) => ({
 		@apply h-8 w-8;
 	}
 	.stepper__orbit-source {
-		@apply absolute flex flex-col items-center gap-1.5;
+		@apply absolute flex items-center justify-center;
 		left: 50%;
 		top: 50%;
+		width: 44px;
+		height: 44px;
+		margin-left: -22px;
+		margin-top: -22px;
 		--angle: calc(360deg / 3 * var(--i) - 90deg);
 		transform: rotate(var(--angle)) translateX(128px);
 	}
