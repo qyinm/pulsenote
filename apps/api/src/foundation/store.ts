@@ -77,7 +77,6 @@ type UpdateWorkspacePolicySettingsInput = Pick<WorkspacePolicySettings, "workspa
       WorkspacePolicySettings,
       | "includeEvidenceLinksInExport"
       | "includeSourceLinksInExport"
-      | "requireClaimCheckBeforeApproval"
       | "requireReviewerAssignment"
       | "showBlockedClaimsInInbox"
       | "showPendingApprovalsInInbox"

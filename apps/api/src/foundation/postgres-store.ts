@@ -818,8 +818,6 @@ export function createPostgresFoundationStore(
             input.includeEvidenceLinksInExport ?? existingSettings.includeEvidenceLinksInExport,
           includeSourceLinksInExport:
             input.includeSourceLinksInExport ?? existingSettings.includeSourceLinksInExport,
-          requireClaimCheckBeforeApproval:
-            input.requireClaimCheckBeforeApproval ?? existingSettings.requireClaimCheckBeforeApproval,
           requireReviewerAssignment:
             input.requireReviewerAssignment ?? existingSettings.requireReviewerAssignment,
           showBlockedClaimsInInbox:

@@ -10,7 +10,7 @@ export type IntegrationConnectionStatus = (typeof integrationConnectionStatuses)
 export const syncRunStatuses = ["queued", "running", "succeeded", "failed"] as const
 export type SyncRunStatus = (typeof syncRunStatuses)[number]
 
-export const reviewStages = ["intake", "draft", "claim_check", "approval", "publish_pack"] as const
+export const reviewStages = ["intake", "draft", "review", "publish_pack"] as const
 export type ReviewStage = (typeof reviewStages)[number]
 
 export const claimStatuses = ["pending", "flagged", "approved", "rejected"] as const
@@ -34,8 +34,7 @@ export type ReviewState = (typeof reviewStates)[number]
 export const workflowEventTypes = [
   "draft_created",
   "draft_updated",
-  "claim_check_completed",
-  "approval_requested",
+  "review_requested",
   "draft_approved",
   "draft_reopened",
   "publish_pack_created",
@@ -84,7 +83,6 @@ export type WorkspacePolicySettings = {
   createdAt: string
   includeEvidenceLinksInExport: boolean
   includeSourceLinksInExport: boolean
-  requireClaimCheckBeforeApproval: boolean
   requireReviewerAssignment: boolean
   showBlockedClaimsInInbox: boolean
   showPendingApprovalsInInbox: boolean
@@ -106,7 +104,6 @@ export function createDefaultWorkspacePolicySettings(
     createdAt: timestamp,
     includeEvidenceLinksInExport: true,
     includeSourceLinksInExport: true,
-    requireClaimCheckBeforeApproval: true,
     requireReviewerAssignment: true,
     showBlockedClaimsInInbox: true,
     showPendingApprovalsInInbox: true,
@@ -273,18 +270,6 @@ export type DraftRevision = {
   templateVersion: number
 }
 
-export type DraftClaimCheckResult = {
-  createdAt: string
-  draftRevisionId: string
-  evidenceBlockIds: string[]
-  id: string
-  note: string | null
-  releaseRecordId: string
-  sentence: string
-  status: ClaimStatus
-  updatedAt: string
-}
-
 export type WorkflowEvent = {
   actorUserId: string | null
   createdAt: string
@@ -327,7 +312,6 @@ export const foundationModelNames = [
   "source_link",
   "review_status",
   "draft_revision",
-  "draft_claim_check_result",
   "workflow_event",
   "publish_pack_export",
 ] as const

@@ -45,8 +45,8 @@ export const integrationConnectionStatusEnum = pgEnum(
 export const syncRunStatusEnum = pgEnum("sync_run_status", syncRunStatuses)
 export const reviewStageEnum = pgEnum("review_stage", reviewStages)
 export const evidenceStateEnum = pgEnum("evidence_state", evidenceStates)
-export const claimStatusEnum = pgEnum("claim_status", claimStatuses)
 export const evidenceSourceTypeEnum = pgEnum("evidence_source_type", evidenceSourceTypes)
+export const claimStatusEnum = pgEnum("claim_status", claimStatuses)
 export const reviewStateEnum = pgEnum("review_state", reviewStates)
 export const workflowEventTypeEnum = pgEnum("workflow_event_type", workflowEventTypes)
 
@@ -118,7 +118,6 @@ export const workspacePolicySettings = pgTable("workspace_policy_settings", {
   createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
   includeEvidenceLinksInExport: boolean("include_evidence_links_in_export").default(true).notNull(),
   includeSourceLinksInExport: boolean("include_source_links_in_export").default(true).notNull(),
-  requireClaimCheckBeforeApproval: boolean("require_claim_check_before_approval").default(true).notNull(),
   requireReviewerAssignment: boolean("require_reviewer_assignment").default(true).notNull(),
   showBlockedClaimsInInbox: boolean("show_blocked_claims_in_inbox").default(true).notNull(),
   showPendingApprovalsInInbox: boolean("show_pending_approvals_in_inbox").default(true).notNull(),
@@ -378,49 +377,6 @@ export const draftRevisions = pgTable(
   (table) => [
     unique("draft_revisions_release_record_id_version_unique").on(table.releaseRecordId, table.version),
     unique("draft_revisions_id_release_record_id_unique").on(table.id, table.releaseRecordId),
-  ],
-)
-
-export const draftClaimCheckResults = pgTable(
-  "draft_claim_check_results",
-  {
-    createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
-    draftRevisionId: uuid("draft_revision_id")
-      .notNull()
-      .references(() => draftRevisions.id, { onDelete: "cascade" }),
-    id: uuid("id").defaultRandom().primaryKey(),
-    note: text("note"),
-    releaseRecordId: uuid("release_record_id")
-      .notNull()
-      .references(() => releaseRecords.id, { onDelete: "cascade" }),
-    sentence: text("sentence").notNull(),
-    status: claimStatusEnum("status").notNull(),
-    updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => [
-    foreignKey({
-      columns: [table.draftRevisionId, table.releaseRecordId],
-      foreignColumns: [draftRevisions.id, draftRevisions.releaseRecordId],
-      name: "draft_claim_check_results_draft_revision_id_release_record_id_draft_revisions_fk",
-    }),
-  ],
-)
-
-export const draftClaimCheckResultEvidenceBlocks = pgTable(
-  "draft_claim_check_result_evidence_blocks",
-  {
-    draftClaimCheckResultId: uuid("draft_claim_check_result_id")
-      .notNull()
-      .references(() => draftClaimCheckResults.id, { onDelete: "cascade" }),
-    evidenceBlockId: uuid("evidence_block_id")
-      .notNull()
-      .references(() => evidenceBlocks.id, { onDelete: "cascade" }),
-  },
-  (table) => [
-    primaryKey({
-      columns: [table.draftClaimCheckResultId, table.evidenceBlockId],
-      name: "draft_claim_check_result_evidence_blocks_pk",
-    }),
   ],
 )
 

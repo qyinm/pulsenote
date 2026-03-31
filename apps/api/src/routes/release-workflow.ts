@@ -3,10 +3,7 @@ import { Hono, type Context } from "hono"
 import type { AppBindings } from "../types.js"
 import { draftContentFormats, type DraftContentFormat, type DraftEvidenceRef, type DraftFieldSnapshot } from "../domain/models.js"
 import {
-  ApprovalRequestRequiredError,
   ApprovedDraftRequiredError,
-  ClaimCheckBlockedError,
-  ClaimCheckRequiredError,
   DraftRevisionNotFoundError,
   InvalidStageTransitionError,
   InvalidDraftTemplateError,
@@ -14,6 +11,7 @@ import {
   ReviewerApprovalRequiredError,
   ReviewerAssignmentNotAllowedError,
   ReviewerAssignmentRequiredError,
+  ReviewRequestRequiredError,
   StaleDraftRevisionError,
   type ReleaseWorkflowService,
 } from "../release-workflow/service.js"
@@ -166,9 +164,7 @@ function mapWorkflowError(error: unknown) {
   }
 
   if (
-    error instanceof ClaimCheckRequiredError ||
-    error instanceof ClaimCheckBlockedError ||
-    error instanceof ApprovalRequestRequiredError ||
+    error instanceof ReviewRequestRequiredError ||
     error instanceof InvalidDraftTemplateError ||
     error instanceof ReviewerAssignmentRequiredError ||
     error instanceof ReviewerAssignmentNotAllowedError ||
@@ -384,10 +380,7 @@ export function createReleaseWorkflowRoute(releaseWorkflowService: ReleaseWorkfl
     }
   }
 
-  route.post("/:releaseRecordId/claim-check", async (context) =>
-    runDraftCommand(context, (input) => releaseWorkflowService.runClaimCheck(input)),
-  )
-  route.post("/:releaseRecordId/request-approval", async (context) =>
+  route.post("/:releaseRecordId/request-review", async (context) =>
     {
       const { error, payload } = await parseOptionalJsonRecord(context)
 
@@ -404,7 +397,7 @@ export function createReleaseWorkflowRoute(releaseWorkflowService: ReleaseWorkfl
       }
 
       try {
-        const response = await releaseWorkflowService.requestApproval({
+        const response = await releaseWorkflowService.requestReview({
           actorUserId: context.get("authUser")?.id ?? null,
           expectedDraftRevisionId,
           note: asOptionalString(payload?.note) ?? undefined,

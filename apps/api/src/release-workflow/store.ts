@@ -1,6 +1,4 @@
 import type {
-  ClaimStatus,
-  DraftClaimCheckResult,
   DraftEvidenceRef,
   DraftFieldSnapshot,
   DraftRevision,
@@ -33,19 +31,6 @@ export type CreateDraftRevisionInput = {
   version: number
 }
 
-export type CreateDraftClaimCheckResultInput = {
-  draftRevisionId: string
-  note: string | null
-  releaseRecordId: string
-  sentence: string
-  status: ClaimStatus
-}
-
-export type LinkDraftClaimCheckResultEvidenceBlockInput = {
-  draftClaimCheckResultId: string
-  evidenceBlockId: string
-}
-
 export type CreateWorkflowEventInput = {
   actorUserId: string | null
   draftRevisionId: string | null
@@ -76,23 +61,15 @@ export type UpdateReleaseReviewStatusInput = {
 }
 
 export type ReleaseWorkflowStore = {
-  createDraftClaimCheckResult(input: CreateDraftClaimCheckResultInput): Promise<DraftClaimCheckResult>
   createDraftRevision(input: CreateDraftRevisionInput): Promise<DraftRevision>
   createPublishPackExport(input: CreatePublishPackExportInput): Promise<PublishPackExport>
   createWorkflowEvent(input: CreateWorkflowEventInput): Promise<WorkflowEvent>
-  deleteDraftClaimCheckResultsByDraftRevisionId(draftRevisionId: string): Promise<void>
   findWorkspaceMembership(workspaceId: string, userId: string): Promise<WorkspaceMembership | null>
   getDraftRevision(draftRevisionId: string): Promise<DraftRevision | null>
   getLatestDraftRevision(releaseRecordId: string): Promise<DraftRevision | null>
   getReleaseRecord(releaseRecordId: string): Promise<ReleaseRecord | null>
   getReleaseSnapshot(workspaceId: string, releaseRecordId: string): Promise<ReleaseRecordSnapshot | null>
   getWorkspacePolicySettings(workspaceId: string): Promise<WorkspacePolicySettings | null>
-  linkDraftClaimCheckResultEvidenceBlock(
-    input: LinkDraftClaimCheckResultEvidenceBlockInput,
-  ): Promise<void>
-  listDraftClaimCheckResultsByDraftRevisionIds(
-    draftRevisionIds: string[],
-  ): Promise<DraftClaimCheckResult[]>
   listDraftRevisionsByReleaseRecordIds(releaseRecordIds: string[]): Promise<DraftRevision[]>
   listLatestDraftRevisionsByReleaseRecordIds(releaseRecordIds: string[]): Promise<DraftRevision[]>
   listPublishPackExportsByReleaseRecordIds(releaseRecordIds: string[]): Promise<PublishPackExport[]>

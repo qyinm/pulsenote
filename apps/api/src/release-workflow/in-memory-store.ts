@@ -1,5 +1,4 @@
 import type {
-  DraftClaimCheckResult,
   DraftRevision,
   PublishPackExport,
   PublishPackExportContextSnapshot,
@@ -12,23 +11,14 @@ import type {
 } from "../domain/models.js"
 import type { FoundationStore } from "../foundation/store.js"
 import type {
-  CreateDraftClaimCheckResultInput,
   CreateDraftRevisionInput,
   CreatePublishPackExportInput,
   CreateWorkflowEventInput,
-  LinkDraftClaimCheckResultEvidenceBlockInput,
   ReleaseWorkflowStore,
   UpdateReleaseReviewStatusInput,
 } from "./store.js"
 
-type DraftClaimCheckResultEvidenceLink = {
-  draftClaimCheckResultId: string
-  evidenceBlockId: string
-}
-
 type InMemoryReleaseWorkflowState = {
-  draftClaimCheckResultEvidenceLinks: DraftClaimCheckResultEvidenceLink[]
-  draftClaimCheckResults: Map<string, DraftClaimCheckResult>
   draftRevisions: Map<string, DraftRevision>
   publishPackExports: Map<string, PublishPackExport>
   workflowEvents: Map<string, WorkflowEvent>
@@ -88,8 +78,6 @@ export function createInMemoryReleaseWorkflowStore(
   foundationStore: FoundationStore,
 ): ReleaseWorkflowStore {
   let state: InMemoryReleaseWorkflowState = {
-    draftClaimCheckResultEvidenceLinks: [],
-    draftClaimCheckResults: new Map(),
     draftRevisions: new Map(),
     publishPackExports: new Map(),
     workflowEvents: new Map(),
@@ -97,10 +85,6 @@ export function createInMemoryReleaseWorkflowStore(
 
   function cloneState(): InMemoryReleaseWorkflowState {
     return {
-      draftClaimCheckResultEvidenceLinks: state.draftClaimCheckResultEvidenceLinks.map((link) => ({ ...link })),
-      draftClaimCheckResults: new Map(
-        Array.from(state.draftClaimCheckResults.entries()).map(([key, value]) => [key, { ...value }]),
-      ),
       draftRevisions: new Map(
         Array.from(state.draftRevisions.entries()).map(([key, value]) => [key, cloneDraftRevision(value)]),
       ),
@@ -120,47 +104,7 @@ export function createInMemoryReleaseWorkflowStore(
     state = snapshot
   }
 
-  function listDraftClaimCheckResultsWithEvidence(draftRevisionIds: string[]) {
-    if (draftRevisionIds.length === 0) {
-      return []
-    }
-
-    const draftRevisionIdSet = new Set(draftRevisionIds)
-    const evidenceBlockIdsByResultId = new Map<string, string[]>()
-
-    for (const link of state.draftClaimCheckResultEvidenceLinks) {
-      const evidenceBlockIds = evidenceBlockIdsByResultId.get(link.draftClaimCheckResultId) ?? []
-      evidenceBlockIds.push(link.evidenceBlockId)
-      evidenceBlockIdsByResultId.set(link.draftClaimCheckResultId, evidenceBlockIds)
-    }
-
-    return Array.from(state.draftClaimCheckResults.values())
-      .filter((result) => draftRevisionIdSet.has(result.draftRevisionId))
-      .map((result) => ({
-        ...result,
-        evidenceBlockIds: evidenceBlockIdsByResultId.get(result.id) ?? [],
-      }))
-      .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
-  }
-
   const store: ReleaseWorkflowStore = {
-    async createDraftClaimCheckResult(input: CreateDraftClaimCheckResultInput) {
-      const draftClaimCheckResult: DraftClaimCheckResult = {
-        createdAt: nowIso(),
-        draftRevisionId: input.draftRevisionId,
-        evidenceBlockIds: [],
-        id: createId(),
-        note: input.note,
-        releaseRecordId: input.releaseRecordId,
-        sentence: input.sentence,
-        status: input.status,
-        updatedAt: nowIso(),
-      }
-
-      state.draftClaimCheckResults.set(draftClaimCheckResult.id, draftClaimCheckResult)
-      return draftClaimCheckResult
-    },
-
     async createDraftRevision(input: CreateDraftRevisionInput) {
       const draftRevision: DraftRevision = {
         changelogBody: input.changelogBody,
@@ -216,22 +160,6 @@ export function createInMemoryReleaseWorkflowStore(
       return workflowEvent
     },
 
-    async deleteDraftClaimCheckResultsByDraftRevisionId(draftRevisionId: string) {
-      const resultIds = Array.from(state.draftClaimCheckResults.values())
-        .filter((draftClaimCheckResult) => draftClaimCheckResult.draftRevisionId === draftRevisionId)
-        .map((draftClaimCheckResult) => draftClaimCheckResult.id)
-      const resultIdSet = new Set(resultIds)
-
-      for (const resultId of resultIds) {
-        state.draftClaimCheckResults.delete(resultId)
-      }
-
-      state.draftClaimCheckResultEvidenceLinks = state.draftClaimCheckResultEvidenceLinks.filter(
-        (draftClaimCheckResultEvidenceLink) =>
-          !resultIdSet.has(draftClaimCheckResultEvidenceLink.draftClaimCheckResultId),
-      )
-    },
-
     async findWorkspaceMembership(workspaceId: string, userId: string) {
       return foundationStore.findWorkspaceMembership(workspaceId, userId)
     },
@@ -264,17 +192,6 @@ export function createInMemoryReleaseWorkflowStore(
 
     async getWorkspacePolicySettings(workspaceId: string) {
       return foundationStore.getWorkspacePolicySettings(workspaceId)
-    },
-
-    async linkDraftClaimCheckResultEvidenceBlock(input: LinkDraftClaimCheckResultEvidenceBlockInput) {
-      state.draftClaimCheckResultEvidenceLinks.push({
-        draftClaimCheckResultId: input.draftClaimCheckResultId,
-        evidenceBlockId: input.evidenceBlockId,
-      })
-    },
-
-    async listDraftClaimCheckResultsByDraftRevisionIds(draftRevisionIds: string[]) {
-      return listDraftClaimCheckResultsWithEvidence(draftRevisionIds)
     },
 
     async listDraftRevisionsByReleaseRecordIds(releaseRecordIds: string[]) {

@@ -378,7 +378,6 @@ export function createWorkspacesRoute(
     const payload = asRecord(body)
     const includeEvidenceLinksInExport = asBoolean(payload?.includeEvidenceLinksInExport)
     const includeSourceLinksInExport = asBoolean(payload?.includeSourceLinksInExport)
-    const requireClaimCheckBeforeApproval = asBoolean(payload?.requireClaimCheckBeforeApproval)
     const requireReviewerAssignment = asBoolean(payload?.requireReviewerAssignment)
     const showBlockedClaimsInInbox = asBoolean(payload?.showBlockedClaimsInInbox)
     const showPendingApprovalsInInbox = asBoolean(payload?.showPendingApprovalsInInbox)
@@ -388,7 +387,6 @@ export function createWorkspacesRoute(
       [
         includeEvidenceLinksInExport,
         includeSourceLinksInExport,
-        requireClaimCheckBeforeApproval,
         requireReviewerAssignment,
         showBlockedClaimsInInbox,
         showPendingApprovalsInInbox,
@@ -397,7 +395,7 @@ export function createWorkspacesRoute(
     ) {
       return context.json(
         badRequest(
-          "includeEvidenceLinksInExport, includeSourceLinksInExport, requireClaimCheckBeforeApproval, requireReviewerAssignment, showBlockedClaimsInInbox, showPendingApprovalsInInbox, and showReopenedDraftsInInbox are required",
+          "includeEvidenceLinksInExport, includeSourceLinksInExport, requireReviewerAssignment, showBlockedClaimsInInbox, showPendingApprovalsInInbox, and showReopenedDraftsInInbox are required",
         ),
         400,
       )
@@ -406,7 +404,6 @@ export function createWorkspacesRoute(
     const nextSettings = {
       includeEvidenceLinksInExport: includeEvidenceLinksInExport as boolean,
       includeSourceLinksInExport: includeSourceLinksInExport as boolean,
-      requireClaimCheckBeforeApproval: requireClaimCheckBeforeApproval as boolean,
       requireReviewerAssignment: requireReviewerAssignment as boolean,
       showBlockedClaimsInInbox: showBlockedClaimsInInbox as boolean,
       showPendingApprovalsInInbox: showPendingApprovalsInInbox as boolean,

@@ -1,6 +1,5 @@
 import type {
   ClaimCandidate,
-  DraftClaimCheckResult,
   DraftRevision,
   ReviewStatus,
   User,
@@ -19,8 +18,6 @@ import {
   resolveDraftTemplateFieldKey,
 } from "./draft-templates.js"
 import type {
-  ApprovalSummary,
-  ClaimCheckSummary,
   CreateDraftInput,
   DraftScopedCommandInput,
   PublishPackSummary,
@@ -28,7 +25,8 @@ import type {
   ReleaseWorkflowDetail,
   ReleaseWorkflowHistoryEntry,
   ReleaseWorkflowListItem,
-  RequestApprovalInput,
+  RequestReviewInput,
+  ReviewSummary,
   UpdateDraftInput,
   WorkflowAllowedAction,
   WorkflowReadiness,
@@ -40,19 +38,8 @@ type DraftComposerResult = {
   releaseNotesBody: string
 }
 
-type ClaimCheckCandidate = {
-  evidenceBlockIds: string[]
-  note: string | null
-  sentence: string
-  status: DraftClaimCheckResult["status"]
-}
-
 type ReleaseWorkflowServiceDependencies = {
   composeDraft?: (releaseSnapshot: ReleaseRecordSnapshot) => Promise<DraftComposerResult>
-  runClaimCheck?: (
-    releaseSnapshot: ReleaseRecordSnapshot,
-    draftRevision: DraftRevision,
-  ) => Promise<ClaimCheckCandidate[]>
 }
 
 export type ReleaseWorkflowService = ReturnType<typeof createReleaseWorkflowService>
@@ -85,30 +72,16 @@ export class InvalidStageTransitionError extends Error {
   }
 }
 
-export class ClaimCheckRequiredError extends Error {
+export class ReviewRequestRequiredError extends Error {
   constructor() {
-    super("Run claim check before requesting approval")
-    this.name = "ClaimCheckRequiredError"
-  }
-}
-
-export class ClaimCheckBlockedError extends Error {
-  constructor() {
-    super("Resolve flagged claim checks before requesting approval")
-    this.name = "ClaimCheckBlockedError"
-  }
-}
-
-export class ApprovalRequestRequiredError extends Error {
-  constructor() {
-    super("Approval must be requested before this draft can be approved")
-    this.name = "ApprovalRequestRequiredError"
+    super("Review must be requested before this draft can be approved")
+    this.name = "ReviewRequestRequiredError"
   }
 }
 
 export class ReviewerAssignmentRequiredError extends Error {
   constructor() {
-    super("Select a workspace reviewer before requesting approval")
+    super("Select a workspace reviewer before requesting review")
     this.name = "ReviewerAssignmentRequiredError"
   }
 }
@@ -139,47 +112,6 @@ export class InvalidDraftTemplateError extends Error {
     super(`Draft template ${templateId} is not supported`)
     this.name = "InvalidDraftTemplateError"
   }
-}
-
-function normalizeText(value: string) {
-  return value.trim().toLowerCase().replace(/\s+/g, " ")
-}
-
-function isHeadingLine(value: string) {
-  const trimmed = value.trim()
-
-  return (
-    trimmed.length === 0 ||
-    trimmed.startsWith("#") ||
-    trimmed.endsWith(":") ||
-    trimmed === "What changed" ||
-    trimmed === "Included changes"
-  )
-}
-
-function splitDraftSentences(text: string) {
-  return text
-    .split(/\n+/)
-    .flatMap((line) => line.split(/[.!?]\s+/))
-    .map((line) => line.replace(/^[*-]\s*/, "").trim())
-    .filter((line) => line.length > 0)
-    .filter((line) => !isHeadingLine(line))
-}
-
-function getDraftSentences(draftRevision: DraftRevision) {
-  const sentences = [...splitDraftSentences(draftRevision.releaseNotesBody), ...splitDraftSentences(draftRevision.changelogBody)]
-  const seen = new Set<string>()
-
-  return sentences.filter((sentence) => {
-    const normalizedSentence = normalizeText(sentence)
-
-    if (normalizedSentence.length === 0 || seen.has(normalizedSentence)) {
-      return false
-    }
-
-    seen.add(normalizedSentence)
-    return true
-  })
 }
 
 function buildDraftLines(releaseSnapshot: ReleaseRecordSnapshot) {
@@ -216,171 +148,18 @@ async function composeDraftFromReleaseSnapshot(releaseSnapshot: ReleaseRecordSna
   } satisfies DraftComposerResult
 }
 
-function buildClaimSupportIndex(releaseSnapshot: ReleaseRecordSnapshot) {
-  const supportIndex = new Map<string, string[]>()
-  const defaultEvidenceIds = releaseSnapshot.evidenceBlocks.map((evidenceBlock) => evidenceBlock.id)
-
-  for (const claimCandidate of releaseSnapshot.claimCandidates) {
-    supportIndex.set(normalizeText(claimCandidate.sentence), claimCandidate.evidenceBlockIds)
-  }
-
-  for (const evidenceBlock of releaseSnapshot.evidenceBlocks) {
-    supportIndex.set(normalizeText(evidenceBlock.title), [evidenceBlock.id])
-  }
-
-  if (releaseSnapshot.releaseRecord.summary) {
-    supportIndex.set(normalizeText(releaseSnapshot.releaseRecord.summary), defaultEvidenceIds)
-  }
-
-  supportIndex.set(normalizeText(releaseSnapshot.releaseRecord.title), defaultEvidenceIds)
-
-  return supportIndex
-}
-
-function shouldFlagSentence(sentence: string) {
-  return /\b(faster|instant|seamless|best|reliable|improved|fully|automatic|automatically|secure)\b/i.test(
-    sentence,
-  )
-}
-
-async function runClaimCheckAgainstReleaseSnapshot(
-  releaseSnapshot: ReleaseRecordSnapshot,
-  draftRevision: DraftRevision,
-) {
-  const supportIndex = buildClaimSupportIndex(releaseSnapshot)
-
-  return getDraftSentences(draftRevision).map((sentence) => {
-    const normalizedSentence = normalizeText(sentence)
-    const matchingEvidenceBlockIds = supportIndex.get(normalizedSentence) ?? []
-
-    if (matchingEvidenceBlockIds.length > 0) {
-      return {
-        evidenceBlockIds: matchingEvidenceBlockIds,
-        note: null,
-        sentence,
-        status: "approved",
-      } satisfies ClaimCheckCandidate
-    }
-
-    return {
-      evidenceBlockIds: [],
-      note: shouldFlagSentence(sentence)
-        ? "This sentence sounds customer-facing but could not be traced to release evidence."
-        : "Add evidence or rewrite this sentence before review.",
-      sentence,
-      status: "flagged",
-    } satisfies ClaimCheckCandidate
-  })
-}
-
 function getReviewStatusMap(reviewStatuses: ReviewStatus[]) {
   return Object.fromEntries(reviewStatuses.map((reviewStatus) => [reviewStatus.stage, reviewStatus])) as Partial<
     Record<ReviewStatus["stage"], ReviewStatus>
   >
 }
 
-function getLatestApprovalEventForDraft(workflowEvents: WorkflowEvent[], draftRevisionId: string | null) {
-  if (!draftRevisionId) {
-    return null
-  }
-
-  const approvalEventTypes = new Set(["approval_requested", "draft_approved", "draft_reopened"])
-  const getApprovalEventPriority = (workflowEvent: WorkflowEvent) => {
-    switch (workflowEvent.type) {
-      case "approval_requested":
-        return 1
-      case "draft_approved":
-        return 2
-      case "draft_reopened":
-        return 3
-      default:
-        return 0
-    }
-  }
-
-  return [...workflowEvents]
-    .filter(
-      (workflowEvent) =>
-        workflowEvent.draftRevisionId === draftRevisionId && approvalEventTypes.has(workflowEvent.type),
-    )
-    .sort((left, right) => {
-      const createdAtComparison = right.createdAt.localeCompare(left.createdAt)
-
-      if (createdAtComparison !== 0) {
-        return createdAtComparison
-      }
-
-      return getApprovalEventPriority(right) - getApprovalEventPriority(left)
-    })[0] ?? null
-}
-
-function getLatestApprovalRequestEventForDraft(
-  workflowEvents: WorkflowEvent[],
-  draftRevisionId: string | null,
-) {
-  if (!draftRevisionId) {
-    return null
-  }
-
-  let latestApprovalRequestEvent: WorkflowEvent | null = null
-
-  for (const workflowEvent of workflowEvents) {
-    if (workflowEvent.draftRevisionId !== draftRevisionId || workflowEvent.type !== "approval_requested") {
-      continue
-    }
-
-    if (
-      !latestApprovalRequestEvent ||
-      workflowEvent.createdAt > latestApprovalRequestEvent.createdAt ||
-      workflowEvent.createdAt === latestApprovalRequestEvent.createdAt
-    ) {
-      latestApprovalRequestEvent = workflowEvent
-    }
-  }
-
-  return latestApprovalRequestEvent
-}
-
-function buildClaimCheckSummary(
-  currentDraft: Pick<DraftRevision, "id"> | null,
-  claimCheckResults: DraftClaimCheckResult[],
-): ClaimCheckSummary {
-  const currentDraftResults =
-    currentDraft === null
-      ? []
-      : claimCheckResults.filter((claimCheckResult) => claimCheckResult.draftRevisionId === currentDraft.id)
-  const flaggedClaims = currentDraftResults.filter((claimCheckResult) => claimCheckResult.status === "flagged").length
-
-  if (!currentDraft || currentDraftResults.length === 0) {
-    return {
-      blockerNotes: [],
-      draftRevisionId: currentDraft?.id ?? null,
-      flaggedClaims: 0,
-      items: [],
-      state: "not_started",
-      totalClaims: 0,
-    }
-  }
-
-  return {
-    blockerNotes: currentDraftResults
-      .filter((claimCheckResult) => claimCheckResult.status === "flagged" && claimCheckResult.note)
-      .map((claimCheckResult) => claimCheckResult.note!)
-      .filter((note, index, collection) => collection.indexOf(note) === index),
-    draftRevisionId: currentDraft.id,
-    flaggedClaims,
-    items: currentDraftResults,
-    state: flaggedClaims > 0 ? "blocked" : "cleared",
-    totalClaims: currentDraftResults.length,
-  }
-}
-
-function buildApprovalSummary(
+function buildReviewSummary(
   currentDraft: Pick<DraftRevision, "id"> | null,
   reviewStatusesByStage: Partial<Record<ReviewStatus["stage"], ReviewStatus>>,
   workflowEvents: WorkflowEvent[],
   userById: Map<string, User>,
-): ApprovalSummary {
+): ReviewSummary {
   if (!currentDraft) {
     return {
       draftRevisionId: null,
@@ -394,15 +173,43 @@ function buildApprovalSummary(
     }
   }
 
-  const latestApprovalEvent = getLatestApprovalEventForDraft(workflowEvents, currentDraft.id)
-  const latestApprovalRequestEvent = getLatestApprovalRequestEventForDraft(workflowEvents, currentDraft.id)
-  const approvalReviewStatus = reviewStatusesByStage.approval ?? null
-  const ownerId = approvalReviewStatus?.ownerUserId
+  const reviewEventTypes = new Set(["review_requested", "draft_approved", "draft_reopened"])
+  const getReviewEventPriority = (workflowEvent: WorkflowEvent) => {
+    switch (workflowEvent.type) {
+      case "review_requested":
+        return 1
+      case "draft_approved":
+        return 2
+      case "draft_reopened":
+        return 3
+      default:
+        return 0
+    }
+  }
+
+  const latestReviewEvent = [...workflowEvents]
+    .filter(
+      (workflowEvent) =>
+        workflowEvent.draftRevisionId === currentDraft.id && reviewEventTypes.has(workflowEvent.type),
+    )
+    .sort((left, right) => {
+      const createdAtComparison = right.createdAt.localeCompare(left.createdAt)
+      if (createdAtComparison !== 0) return createdAtComparison
+      return getReviewEventPriority(right) - getReviewEventPriority(left)
+    })[0] ?? null
+
+  const latestReviewRequestEvent = workflowEvents.find(
+    (workflowEvent) =>
+      workflowEvent.draftRevisionId === currentDraft.id && workflowEvent.type === "review_requested",
+  ) ?? null
+
+  const reviewReviewStatus = reviewStatusesByStage.review ?? null
+  const ownerId = reviewReviewStatus?.ownerUserId
   const owner = ownerId ? userById.get(ownerId) ?? null : null
-  const requesterId = latestApprovalRequestEvent?.actorUserId
+  const requesterId = latestReviewRequestEvent?.actorUserId
   const requestedBy = requesterId ? userById.get(requesterId) ?? null : null
 
-  if (!latestApprovalEvent) {
+  if (!latestReviewEvent) {
     return {
       draftRevisionId: currentDraft.id,
       note: null,
@@ -415,48 +222,48 @@ function buildApprovalSummary(
     }
   }
 
-  if (latestApprovalEvent.type === "draft_reopened") {
+  if (latestReviewEvent.type === "draft_reopened") {
     return {
       draftRevisionId: currentDraft.id,
-      note: latestApprovalEvent.note,
+      note: latestReviewEvent.note,
       ownerName: buildHistoryActorName(owner),
-      ownerUserId: approvalReviewStatus?.ownerUserId ?? null,
+      ownerUserId: reviewReviewStatus?.ownerUserId ?? null,
       requestedByName: buildHistoryActorName(requestedBy),
-      requestedByUserId: latestApprovalRequestEvent?.actorUserId ?? null,
+      requestedByUserId: latestReviewRequestEvent?.actorUserId ?? null,
       state: "reopened",
-      updatedAt: latestApprovalEvent.createdAt,
+      updatedAt: latestReviewEvent.createdAt,
     }
   }
 
-  if (latestApprovalEvent.type === "draft_approved") {
+  if (latestReviewEvent.type === "draft_approved") {
     return {
       draftRevisionId: currentDraft.id,
-      note: approvalReviewStatus?.note ?? latestApprovalEvent.note,
+      note: reviewReviewStatus?.note ?? latestReviewEvent.note,
       ownerName: buildHistoryActorName(owner),
-      ownerUserId: approvalReviewStatus?.ownerUserId ?? null,
+      ownerUserId: reviewReviewStatus?.ownerUserId ?? null,
       requestedByName: buildHistoryActorName(requestedBy),
-      requestedByUserId: latestApprovalRequestEvent?.actorUserId ?? null,
+      requestedByUserId: latestReviewRequestEvent?.actorUserId ?? null,
       state: "approved",
-      updatedAt: approvalReviewStatus?.updatedAt ?? latestApprovalEvent.createdAt,
+      updatedAt: reviewReviewStatus?.updatedAt ?? latestReviewEvent.createdAt,
     }
   }
 
   return {
     draftRevisionId: currentDraft.id,
-    note: approvalReviewStatus?.note ?? latestApprovalEvent.note,
+    note: reviewReviewStatus?.note ?? latestReviewEvent.note,
     ownerName: buildHistoryActorName(owner),
-    ownerUserId: approvalReviewStatus?.ownerUserId ?? null,
+    ownerUserId: reviewReviewStatus?.ownerUserId ?? null,
     requestedByName: buildHistoryActorName(requestedBy),
-    requestedByUserId: latestApprovalRequestEvent?.actorUserId ?? null,
+    requestedByUserId: latestReviewRequestEvent?.actorUserId ?? null,
     state: "pending",
-    updatedAt: approvalReviewStatus?.updatedAt ?? latestApprovalEvent.createdAt,
+    updatedAt: reviewReviewStatus?.updatedAt ?? latestReviewEvent.createdAt,
   }
 }
 
 function buildPublishPackSummary(
   currentDraft: Pick<DraftRevision, "id"> | null,
   latestPublishPackExport: ReleaseWorkflowBaseRecord["latestPublishPackExport"],
-  approvalSummary: ApprovalSummary,
+  reviewSummary: ReviewSummary,
 ): PublishPackSummary {
   if (!currentDraft) {
     return {
@@ -488,7 +295,7 @@ function buildPublishPackSummary(
     }
   }
 
-  if (approvalSummary.state === "approved") {
+  if (reviewSummary.state === "approved") {
     return {
       draftRevisionId: currentDraft.id,
       exportedByName: null,
@@ -537,10 +344,8 @@ function buildPublishPackArtifact(
 }
 
 function buildAllowedActions(input: {
-  approvalSummary: ApprovalSummary
-  claimCheckSummary: ClaimCheckSummary
   currentDraft: Pick<DraftRevision, "id"> | null
-  policy: Pick<WorkspacePolicySettings, "requireClaimCheckBeforeApproval">
+  reviewSummary: ReviewSummary
   publishPackSummary: PublishPackSummary
   stage: ReleaseRecordSnapshot["releaseRecord"]["stage"]
 }): WorkflowAllowedAction[] {
@@ -551,28 +356,24 @@ function buildAllowedActions(input: {
   }
 
   if (input.stage === "draft" && input.currentDraft) {
-    allowedActions.push("run_claim_check")
-  }
-
-  if (canRequestApproval(input)) {
-    allowedActions.push("request_approval")
+    allowedActions.push("request_review")
   }
 
   if (
-    (input.stage === "claim_check" || input.stage === "approval" || input.stage === "publish_pack") &&
+    (input.stage === "review" || input.stage === "publish_pack") &&
     input.currentDraft
   ) {
     allowedActions.push("reopen_draft")
   }
 
-  if (input.stage === "approval" && input.currentDraft && input.approvalSummary.state === "pending") {
+  if (input.stage === "review" && input.currentDraft && input.reviewSummary.state === "pending") {
     allowedActions.push("approve_draft")
   }
 
   if (
     input.stage === "publish_pack" &&
     input.currentDraft &&
-    input.approvalSummary.state === "approved" &&
+    input.reviewSummary.state === "approved" &&
     input.publishPackSummary.state !== "exported"
   ) {
     allowedActions.push("create_publish_pack")
@@ -581,36 +382,10 @@ function buildAllowedActions(input: {
   return allowedActions
 }
 
-function canRequestApproval(input: {
-  claimCheckSummary: ClaimCheckSummary
-  currentDraft: Pick<DraftRevision, "id"> | null
-  policy: Pick<WorkspacePolicySettings, "requireClaimCheckBeforeApproval">
-  stage: ReleaseRecordSnapshot["releaseRecord"]["stage"]
-}) {
-  if (!input.currentDraft) {
-    return false
-  }
-
-  if (input.policy.requireClaimCheckBeforeApproval === false) {
-    if (input.stage === "draft") {
-      return input.claimCheckSummary.state !== "blocked"
-    }
-
-    return input.stage === "claim_check" && input.claimCheckSummary.state !== "blocked"
-  }
-
-  return input.stage === "claim_check" && input.claimCheckSummary.state === "cleared"
-}
-
 function buildReadiness(input: {
   allowedActions: WorkflowAllowedAction[]
-  claimCheckSummary: ClaimCheckSummary
   publishPackSummary: PublishPackSummary
 }): WorkflowReadiness {
-  if (input.claimCheckSummary.state === "blocked") {
-    return "blocked"
-  }
-
   if (input.publishPackSummary.state === "exported" || input.allowedActions.length > 0) {
     return "ready"
   }
@@ -633,15 +408,10 @@ function buildBaseRecord(input: {
 
 function buildWorkflowDetailFromBaseRecord(
   baseRecord: ReleaseWorkflowBaseRecord,
-  policy: WorkspacePolicySettings,
   workflowEvents: WorkflowEvent[],
   userById: Map<string, User>,
 ): ReleaseWorkflowDetail {
-  const claimCheckSummary = buildClaimCheckSummary(
-    baseRecord.currentDraft,
-    [],
-  )
-  const approvalSummary = buildApprovalSummary(
+  const reviewSummary = buildReviewSummary(
     baseRecord.currentDraft,
     baseRecord.reviewStatusesByStage,
     workflowEvents,
@@ -650,27 +420,22 @@ function buildWorkflowDetailFromBaseRecord(
   const publishPackSummary = buildPublishPackSummary(
     baseRecord.currentDraft,
     baseRecord.latestPublishPackExport,
-    approvalSummary,
+    reviewSummary,
   )
   const publishPackArtifact = buildPublishPackArtifact(baseRecord.latestPublishPackExport)
   const allowedActions = buildAllowedActions({
-    approvalSummary,
-    claimCheckSummary,
     currentDraft: baseRecord.currentDraft,
-    policy,
     publishPackSummary,
+    reviewSummary,
     stage: baseRecord.releaseSnapshot.releaseRecord.stage,
   })
   const readiness = buildReadiness({
     allowedActions,
-    claimCheckSummary,
     publishPackSummary,
   })
 
   return {
     allowedActions,
-    approvalSummary,
-    claimCheckSummary,
     currentDraft:
       baseRecord.currentDraft === null
         ? null
@@ -693,48 +458,14 @@ function buildWorkflowDetailFromBaseRecord(
     readiness,
     releaseRecord: baseRecord.releaseSnapshot.releaseRecord,
     reviewStatuses: baseRecord.releaseSnapshot.reviewStatuses,
+    reviewSummary,
     sourceLinks: baseRecord.releaseSnapshot.sourceLinks,
-  }
-}
-
-function withClaimCheckItems(
-  detail: ReleaseWorkflowDetail,
-  claimCheckResults: DraftClaimCheckResult[],
-  policy: WorkspacePolicySettings,
-): ReleaseWorkflowDetail {
-  const claimCheckSummary = buildClaimCheckSummary(detail.currentDraft, claimCheckResults)
-  const allowedActions = buildAllowedActions({
-    approvalSummary: detail.approvalSummary,
-    claimCheckSummary,
-    currentDraft: detail.currentDraft,
-    policy,
-    publishPackSummary: detail.latestPublishPackSummary,
-    stage: detail.releaseRecord.stage,
-  })
-
-  return {
-    ...detail,
-    allowedActions,
-    claimCheckSummary,
-    readiness: buildReadiness({
-      allowedActions,
-      claimCheckSummary,
-      publishPackSummary: detail.latestPublishPackSummary,
-    }),
   }
 }
 
 function detailToListItem(detail: ReleaseWorkflowDetail): ReleaseWorkflowListItem {
   return {
     allowedActions: detail.allowedActions,
-    approvalSummary: detail.approvalSummary,
-    claimCheckSummary: {
-      blockerNotes: detail.claimCheckSummary.blockerNotes,
-      draftRevisionId: detail.claimCheckSummary.draftRevisionId,
-      flaggedClaims: detail.claimCheckSummary.flaggedClaims,
-      state: detail.claimCheckSummary.state,
-      totalClaims: detail.claimCheckSummary.totalClaims,
-    },
     currentDraft:
       detail.currentDraft === null
         ? null
@@ -757,6 +488,7 @@ function detailToListItem(detail: ReleaseWorkflowDetail): ReleaseWorkflowListIte
       updatedAt: detail.releaseRecord.updatedAt,
       workspaceId: detail.releaseRecord.workspaceId,
     },
+    reviewSummary: detail.reviewSummary,
     sourceLinkCount: detail.sourceLinks.length,
   }
 }
@@ -767,10 +499,8 @@ function buildHistoryEventLabel(workflowEvent: WorkflowEvent): string {
       return "Draft created"
     case "draft_updated":
       return "Draft updated"
-    case "claim_check_completed":
-      return "Claim check completed"
-    case "approval_requested":
-      return "Approval requested"
+    case "review_requested":
+      return "Review requested"
     case "draft_approved":
       return "Draft approved"
     case "draft_reopened":
@@ -782,21 +512,12 @@ function buildHistoryEventLabel(workflowEvent: WorkflowEvent): string {
 
 function buildHistoryEventOutcome(
   workflowEvent: WorkflowEvent,
-  claimCheckSummaryByDraftRevisionId: Map<string, ClaimCheckSummary>,
 ): ReleaseWorkflowHistoryEntry["outcome"] {
   switch (workflowEvent.type) {
     case "draft_created":
     case "draft_updated":
       return "revision"
-    case "claim_check_completed": {
-      if (!workflowEvent.draftRevisionId) {
-        return "progressed"
-      }
-
-      const claimCheckSummary = claimCheckSummaryByDraftRevisionId.get(workflowEvent.draftRevisionId)
-      return claimCheckSummary?.state === "blocked" ? "blocked" : "progressed"
-    }
-    case "approval_requested":
+    case "review_requested":
       return "progressed"
     case "draft_approved":
       return "signed_off"
@@ -819,15 +540,15 @@ function buildHistoryActorName(user: User | null | undefined) {
 function buildPublishPackExportContextSnapshot(input: {
   actor: User | null
   actorUserId: string | null
-  approvalSummary: ApprovalSummary
+  reviewSummary: ReviewSummary
 }) {
   return {
-    approvalNote: input.approvalSummary.note,
-    approvalOwnerName: input.approvalSummary.ownerName,
-    approvalOwnerUserId: input.approvalSummary.ownerUserId,
-    approvalRequestedByName: input.approvalSummary.requestedByName,
-    approvalRequestedByUserId: input.approvalSummary.requestedByUserId,
-    approvalState: input.approvalSummary.state,
+    approvalNote: input.reviewSummary.note,
+    approvalOwnerName: input.reviewSummary.ownerName,
+    approvalOwnerUserId: input.reviewSummary.ownerUserId,
+    approvalRequestedByName: input.reviewSummary.requestedByName,
+    approvalRequestedByUserId: input.reviewSummary.requestedByUserId,
+    approvalState: input.reviewSummary.state,
     exportedByName: buildHistoryActorName(input.actor),
     exportedByUserId: input.actorUserId,
   }
@@ -914,26 +635,6 @@ function collectWorkflowUserIds(
   )
 }
 
-function buildClaimCheckSummaryByDraftRevisionId(
-  draftRevisions: DraftRevision[],
-  claimCheckResults: DraftClaimCheckResult[],
-) {
-  const claimCheckResultsByDraftRevisionId = new Map<string, DraftClaimCheckResult[]>()
-
-  for (const claimCheckResult of claimCheckResults) {
-    const items = claimCheckResultsByDraftRevisionId.get(claimCheckResult.draftRevisionId) ?? []
-    items.push(claimCheckResult)
-    claimCheckResultsByDraftRevisionId.set(claimCheckResult.draftRevisionId, items)
-  }
-
-  return new Map(
-    draftRevisions.map((draftRevision) => [
-      draftRevision.id,
-      buildClaimCheckSummary(draftRevision, claimCheckResultsByDraftRevisionId.get(draftRevision.id) ?? []),
-    ]),
-  )
-}
-
 function compareWorkflowHistoryEntries(
   left: ReleaseWorkflowHistoryEntry,
   right: ReleaseWorkflowHistoryEntry,
@@ -944,16 +645,14 @@ function compareWorkflowHistoryEntries(
         return 1
       case "draft_updated":
         return 2
-      case "claim_check_completed":
+      case "review_requested":
         return 3
-      case "approval_requested":
-        return 4
       case "draft_approved":
-        return 5
+        return 4
       case "draft_reopened":
-        return 6
+        return 5
       case "publish_pack_created":
-        return 7
+        return 6
     }
   }
   const createdAtComparison = right.createdAt.localeCompare(left.createdAt)
@@ -985,7 +684,6 @@ export function createReleaseWorkflowService(
   dependencies: ReleaseWorkflowServiceDependencies = {},
 ) {
   const composeDraft = dependencies.composeDraft ?? composeDraftFromReleaseSnapshot
-  const runClaimCheck = dependencies.runClaimCheck ?? runClaimCheckAgainstReleaseSnapshot
 
   async function getWorkflowResources(
     workflowStore: ReleaseWorkflowStore,
@@ -1002,10 +700,6 @@ export function createReleaseWorkflowService(
     const latestPublishPackExport = (
       await workflowStore.listLatestPublishPackExportsByReleaseRecordIds([releaseRecordId])
     )[0] ?? null
-    const claimCheckResults =
-      currentDraft === null
-        ? []
-        : await workflowStore.listDraftClaimCheckResultsByDraftRevisionIds([currentDraft.id])
     const workflowEvents = await workflowStore.listWorkflowEventsByReleaseRecordIds([releaseRecordId])
     const policy =
       (await workflowStore.getWorkspacePolicySettings(workspaceId)) ??
@@ -1017,7 +711,6 @@ export function createReleaseWorkflowService(
         latestPublishPackExport,
         releaseSnapshot,
       }),
-      claimCheckResults,
       currentDraft,
       policy,
       releaseSnapshot,
@@ -1045,20 +738,15 @@ export function createReleaseWorkflowService(
     }
 
     const draftRevisionIds = draftRevisions.map((draftRevision) => draftRevision.id)
-    const [claimCheckResults, users] = await Promise.all([
-      draftRevisionIds.length > 0
-        ? workflowStore.listDraftClaimCheckResultsByDraftRevisionIds(draftRevisionIds)
-        : Promise.resolve([]),
-      workflowStore.listUsersByIds(
-        Array.from(
-          new Set(
-            workflowEvents
-              .map((workflowEvent) => workflowEvent.actorUserId)
-              .filter((actorUserId): actorUserId is string => actorUserId !== null),
-          ),
+    const users = await workflowStore.listUsersByIds(
+      Array.from(
+        new Set(
+          workflowEvents
+            .map((workflowEvent) => workflowEvent.actorUserId)
+            .filter((actorUserId): actorUserId is string => actorUserId !== null),
         ),
       ),
-    ])
+    )
 
     const releaseSnapshotByReleaseRecordId = new Map(
       releaseSnapshots.map((releaseSnapshot) => [releaseSnapshot.releaseRecord.id, releaseSnapshot]),
@@ -1070,10 +758,6 @@ export function createReleaseWorkflowService(
       publishPackExports.map((publishPackExport) => [publishPackExport.draftRevisionId, publishPackExport]),
     )
     const userById = new Map(users.map((user) => [user.id, user]))
-    const claimCheckSummaryByDraftRevisionId = buildClaimCheckSummaryByDraftRevisionId(
-      draftRevisions,
-      claimCheckResults,
-    )
 
     return workflowEvents
       .map((workflowEvent) => {
@@ -1103,7 +787,7 @@ export function createReleaseWorkflowService(
           evidenceCount: releaseSnapshot.evidenceBlocks.length,
           id: workflowEvent.id,
           note: workflowEvent.note,
-          outcome: buildHistoryEventOutcome(workflowEvent, claimCheckSummaryByDraftRevisionId),
+          outcome: buildHistoryEventOutcome(workflowEvent),
           publishPackExportId:
             workflowEvent.type === "publish_pack_created" ? (publishPackExport?.id ?? null) : null,
           releaseRecordId: workflowEvent.releaseRecordId,
@@ -1152,20 +836,6 @@ export function createReleaseWorkflowService(
       }
       const userById = new Map(users.map((user) => [user.id, user]))
 
-      const currentDraftIds = latestDrafts.map((draftRevision) => draftRevision.id)
-      const claimCheckResults =
-        currentDraftIds.length > 0
-          ? await store.listDraftClaimCheckResultsByDraftRevisionIds(currentDraftIds)
-          : []
-      const claimCheckResultsByDraftRevisionId = new Map<string, DraftClaimCheckResult[]>()
-
-      for (const claimCheckResult of claimCheckResults) {
-        const draftClaimCheckResults =
-          claimCheckResultsByDraftRevisionId.get(claimCheckResult.draftRevisionId) ?? []
-        draftClaimCheckResults.push(claimCheckResult)
-        claimCheckResultsByDraftRevisionId.set(claimCheckResult.draftRevisionId, draftClaimCheckResults)
-      }
-
       return releaseSnapshots.map((releaseSnapshot) => {
         const currentDraft = latestDraftByReleaseRecordId.get(releaseSnapshot.releaseRecord.id) ?? null
         const detail = buildWorkflowDetailFromBaseRecord(
@@ -1175,18 +845,11 @@ export function createReleaseWorkflowService(
               latestPublishPackByReleaseRecordId.get(releaseSnapshot.releaseRecord.id) ?? null,
             releaseSnapshot,
           }),
-          policy,
           workflowEventsByReleaseRecordId.get(releaseSnapshot.releaseRecord.id) ?? [],
           userById,
         )
 
-        return detailToListItem(
-          withClaimCheckItems(
-            detail,
-            currentDraft ? claimCheckResultsByDraftRevisionId.get(currentDraft.id) ?? [] : [],
-            policy,
-          ),
-        )
+        return detailToListItem(detail)
       })
     },
 
@@ -1198,14 +861,11 @@ export function createReleaseWorkflowService(
       const users = await store.listUsersByIds(
         collectWorkflowUserIds([resources.releaseSnapshot], resources.workflowEvents),
       )
-      const detail = buildWorkflowDetailFromBaseRecord(
+      return buildWorkflowDetailFromBaseRecord(
         resources.baseRecord,
-        resources.policy,
         resources.workflowEvents,
         new Map(users.map((user) => [user.id, user])),
       )
-
-      return withClaimCheckItems(detail, resources.claimCheckResults, resources.policy)
     },
 
     async listReleaseWorkflowHistory(workspaceId: string): Promise<ReleaseWorkflowHistoryEntry[]> {
@@ -1342,66 +1002,7 @@ export function createReleaseWorkflowService(
       return service.getReleaseWorkflowDetail(input.workspaceId, input.releaseRecordId)
     },
 
-    async runClaimCheck(input: DraftScopedCommandInput): Promise<ReleaseWorkflowDetail> {
-      const resources = await getWorkflowResources(store, input.workspaceId, input.releaseRecordId)
-
-      if (resources.releaseSnapshot.releaseRecord.stage !== "draft") {
-        throw new InvalidStageTransitionError(resources.releaseSnapshot.releaseRecord.stage, "run claim check")
-      }
-
-      assertExpectedDraftRevision(resources.currentDraft, input.expectedDraftRevisionId)
-
-      if (!resources.currentDraft) {
-        throw new DraftRevisionNotFoundError(input.expectedDraftRevisionId)
-      }
-
-      const claimCheckCandidates = await runClaimCheck(resources.releaseSnapshot, resources.currentDraft)
-      const hasFlaggedClaims = claimCheckCandidates.some((claimCheckCandidate) => claimCheckCandidate.status === "flagged")
-
-      await store.transaction(async (transactionStore) => {
-        await transactionStore.deleteDraftClaimCheckResultsByDraftRevisionId(resources.currentDraft!.id)
-
-        for (const claimCheckCandidate of claimCheckCandidates) {
-          const claimCheckResult = await transactionStore.createDraftClaimCheckResult({
-            draftRevisionId: resources.currentDraft!.id,
-            note: claimCheckCandidate.note,
-            releaseRecordId: input.releaseRecordId,
-            sentence: claimCheckCandidate.sentence,
-            status: claimCheckCandidate.status,
-          })
-
-          for (const evidenceBlockId of claimCheckCandidate.evidenceBlockIds) {
-            await transactionStore.linkDraftClaimCheckResultEvidenceBlock({
-              draftClaimCheckResultId: claimCheckResult.id,
-              evidenceBlockId,
-            })
-          }
-        }
-
-        await transactionStore.upsertReviewStatus({
-          note: hasFlaggedClaims
-            ? "Resolve flagged claims before requesting approval"
-            : "Claim check is clear for this draft",
-          ownerUserId: input.actorUserId,
-          releaseRecordId: input.releaseRecordId,
-          stage: "claim_check",
-          state: hasFlaggedClaims ? "blocked" : "approved",
-        })
-        await transactionStore.updateReleaseRecordStage(input.releaseRecordId, "claim_check")
-        await transactionStore.createWorkflowEvent({
-          actorUserId: input.actorUserId,
-          draftRevisionId: resources.currentDraft!.id,
-          note: input.note ?? null,
-          releaseRecordId: input.releaseRecordId,
-          stage: "claim_check",
-          type: "claim_check_completed",
-        })
-      })
-
-      return service.getReleaseWorkflowDetail(input.workspaceId, input.releaseRecordId)
-    },
-
-    async requestApproval(input: RequestApprovalInput): Promise<ReleaseWorkflowDetail> {
+    async requestReview(input: RequestReviewInput): Promise<ReleaseWorkflowDetail> {
       const resources = await getWorkflowResources(store, input.workspaceId, input.releaseRecordId)
       const reviewerUserId = input.reviewerUserId?.trim() ?? ""
 
@@ -1417,21 +1018,8 @@ export function createReleaseWorkflowService(
         }
       }
 
-      if (resources.policy.requireClaimCheckBeforeApproval && resources.releaseSnapshot.releaseRecord.stage === "draft") {
-        assertExpectedDraftRevision(resources.currentDraft, input.expectedDraftRevisionId)
-
-        if (resources.currentDraft) {
-          throw new ClaimCheckRequiredError()
-        }
-      }
-
-      const isClaimCheckStage = resources.releaseSnapshot.releaseRecord.stage === "claim_check"
-      const isDraftStageWithOptionalClaimCheck =
-        resources.releaseSnapshot.releaseRecord.stage === "draft" &&
-        resources.policy.requireClaimCheckBeforeApproval === false
-
-      if (!isClaimCheckStage && !isDraftStageWithOptionalClaimCheck) {
-        throw new InvalidStageTransitionError(resources.releaseSnapshot.releaseRecord.stage, "request approval")
+      if (resources.releaseSnapshot.releaseRecord.stage !== "draft") {
+        throw new InvalidStageTransitionError(resources.releaseSnapshot.releaseRecord.stage, "request review")
       }
 
       assertExpectedDraftRevision(resources.currentDraft, input.expectedDraftRevisionId)
@@ -1440,32 +1028,22 @@ export function createReleaseWorkflowService(
         throw new DraftRevisionNotFoundError(input.expectedDraftRevisionId)
       }
 
-      const claimCheckSummary = buildClaimCheckSummary(resources.currentDraft, resources.claimCheckResults)
-
-      if (resources.policy.requireClaimCheckBeforeApproval && claimCheckSummary.state === "not_started") {
-        throw new ClaimCheckRequiredError()
-      }
-
-      if (claimCheckSummary.state === "blocked") {
-        throw new ClaimCheckBlockedError()
-      }
-
       await store.transaction(async (transactionStore) => {
         await transactionStore.upsertReviewStatus({
-          note: input.note ?? "Approval requested for the current draft",
+          note: input.note ?? "Review requested for the current draft",
           ownerUserId: reviewerUserId.length > 0 ? reviewerUserId : null,
           releaseRecordId: input.releaseRecordId,
-          stage: "approval",
+          stage: "review",
           state: "pending",
         })
-        await transactionStore.updateReleaseRecordStage(input.releaseRecordId, "approval")
+        await transactionStore.updateReleaseRecordStage(input.releaseRecordId, "review")
         await transactionStore.createWorkflowEvent({
           actorUserId: input.actorUserId,
           draftRevisionId: resources.currentDraft!.id,
           note: input.note ?? null,
           releaseRecordId: input.releaseRecordId,
-          stage: "approval",
-          type: "approval_requested",
+          stage: "review",
+          type: "review_requested",
         })
       })
 
@@ -1475,7 +1053,7 @@ export function createReleaseWorkflowService(
     async approveDraft(input: DraftScopedCommandInput): Promise<ReleaseWorkflowDetail> {
       const resources = await getWorkflowResources(store, input.workspaceId, input.releaseRecordId)
 
-      if (resources.releaseSnapshot.releaseRecord.stage !== "approval") {
+      if (resources.releaseSnapshot.releaseRecord.stage !== "review") {
         throw new InvalidStageTransitionError(resources.releaseSnapshot.releaseRecord.stage, "approve the draft")
       }
 
@@ -1485,18 +1063,18 @@ export function createReleaseWorkflowService(
         throw new DraftRevisionNotFoundError(input.expectedDraftRevisionId)
       }
 
-      const approvalSummary = buildApprovalSummary(
+      const reviewSummary = buildReviewSummary(
         resources.currentDraft,
         resources.baseRecord.reviewStatusesByStage,
         resources.workflowEvents,
         new Map(),
       )
 
-      if (approvalSummary.state !== "pending") {
-        throw new ApprovalRequestRequiredError()
+      if (reviewSummary.state !== "pending") {
+        throw new ReviewRequestRequiredError()
       }
 
-      if (!input.actorUserId || (approvalSummary.ownerUserId && approvalSummary.ownerUserId !== input.actorUserId)) {
+      if (!input.actorUserId || (reviewSummary.ownerUserId && reviewSummary.ownerUserId !== input.actorUserId)) {
         throw new ReviewerApprovalRequiredError()
       }
 
@@ -1505,7 +1083,7 @@ export function createReleaseWorkflowService(
           note: input.note ?? "Draft approved and ready for publish pack export",
           ownerUserId: input.actorUserId,
           releaseRecordId: input.releaseRecordId,
-          stage: "approval",
+          stage: "review",
           state: "approved",
         })
         await transactionStore.updateReleaseRecordStage(input.releaseRecordId, "publish_pack")
@@ -1514,7 +1092,7 @@ export function createReleaseWorkflowService(
           draftRevisionId: resources.currentDraft!.id,
           note: input.note ?? null,
           releaseRecordId: input.releaseRecordId,
-          stage: "approval",
+          stage: "review",
           type: "draft_approved",
         })
       })
@@ -1526,8 +1104,7 @@ export function createReleaseWorkflowService(
       const resources = await getWorkflowResources(store, input.workspaceId, input.releaseRecordId)
 
       if (
-        resources.releaseSnapshot.releaseRecord.stage !== "claim_check" &&
-        resources.releaseSnapshot.releaseRecord.stage !== "approval" &&
+        resources.releaseSnapshot.releaseRecord.stage !== "review" &&
         resources.releaseSnapshot.releaseRecord.stage !== "publish_pack"
       ) {
         throw new InvalidStageTransitionError(resources.releaseSnapshot.releaseRecord.stage, "reopen the draft")
@@ -1544,7 +1121,7 @@ export function createReleaseWorkflowService(
           note: input.note ?? "Draft reopened for edits",
           ownerUserId: input.actorUserId,
           releaseRecordId: input.releaseRecordId,
-          stage: "approval",
+          stage: "review",
           state: "blocked",
         })
         await transactionStore.updateReleaseRecordStage(input.releaseRecordId, "draft")
@@ -1585,7 +1162,7 @@ export function createReleaseWorkflowService(
         ),
       )
       const userById = new Map(users.map((user) => [user.id, user]))
-      const approvalSummary = buildApprovalSummary(
+      const reviewSummary = buildReviewSummary(
         resources.currentDraft,
         resources.baseRecord.reviewStatusesByStage,
         resources.workflowEvents,
@@ -1594,7 +1171,7 @@ export function createReleaseWorkflowService(
       const actor =
         input.actorUserId === null ? null : userById.get(input.actorUserId) ?? null
 
-      if (approvalSummary.state !== "approved") {
+      if (reviewSummary.state !== "approved") {
         throw new ApprovedDraftRequiredError()
       }
 
@@ -1614,7 +1191,7 @@ export function createReleaseWorkflowService(
           contextSnapshot: buildPublishPackExportContextSnapshot({
             actor,
             actorUserId: input.actorUserId,
-            approvalSummary,
+            reviewSummary,
           }),
           createdByUserId: input.actorUserId,
           draftRevisionId: resources.currentDraft!.id,
