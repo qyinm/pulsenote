@@ -13,6 +13,7 @@ import Col from '../../ui/Col.astro'
 import Header from '../../ui/Header.astro'
 import Link from '../../ui/Link.astro'
 import DecorationBorder from '../../ui/DecorationBorder.astro'
+import { Icon } from 'astro-icon/components'
 
 // - Types
 interface MediaImage {
@@ -66,11 +67,6 @@ const steps = data.steps.map((s) => ({
 	_frontAsset: resolveAsset(s.media?.front?.src),
 	_backAsset: resolveAsset(s.media?.back?.src)
 }))
-
-// Icons for orbit
-import linearIcon from '../../../icons/linear-icon.svg'
-import slackIcon from '../../../icons/slack-icon.svg'
-import githubIcon from '../../../icons/github-icon.svg'
 ---
 
 <Section classes="stepper overflow-visible!">
@@ -164,25 +160,25 @@ import githubIcon from '../../../icons/github-icon.svg'
 								</figure>
 							) : index === 0 ? (
 								<div class="stepper__orbit">
-									<div class="stepper__orbit-ring">
+									<div class="stepper__orbit-track">
 										<div class="stepper__orbit-center">
-											<span class="stepper__orbit-logo">PN</span>
+											<img src="/brand-mark.svg" alt="PulseNote" class="stepper__orbit-brand" />
 										</div>
-										<div class="stepper__orbit-item" style="--index: 0">
+										<div class="stepper__orbit-source" style="--i: 0">
 											<div class="stepper__orbit-icon">
-												<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+												<Icon name="si:linear" width="22" height="22" />
 											</div>
 											<span class="stepper__orbit-label">Linear</span>
 										</div>
-										<div class="stepper__orbit-item" style="--index: 1">
+										<div class="stepper__orbit-source" style="--i: 1">
 											<div class="stepper__orbit-icon">
-												<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zm-1.271 0a2.528 2.528 0 0 1-2.521 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.164 0a2.528 2.528 0 0 1 2.521 2.522v6.312zM15.164 18.956a2.528 2.528 0 0 1 2.521 2.522A2.528 2.528 0 0 1 15.164 24a2.528 2.528 0 0 1-2.52-2.522v-2.522h2.52zm0-1.271a2.528 2.528 0 0 1-2.52-2.521 2.527 2.527 0 0 1 2.52-2.521h6.314A2.527 2.527 0 0 1 24 15.164a2.528 2.528 0 0 1-2.522 2.521h-6.314z"/></svg>
+												<Icon name="logos:slack-icon" width="22" height="22" />
 											</div>
 											<span class="stepper__orbit-label">Slack</span>
 										</div>
-										<div class="stepper__orbit-item" style="--index: 2">
+										<div class="stepper__orbit-source" style="--i: 2">
 											<div class="stepper__orbit-icon">
-												<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.605-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+												<Icon name="mdi:github" width="22" height="22" />
 											</div>
 											<span class="stepper__orbit-label">GitHub</span>
 										</div>
@@ -202,19 +198,19 @@ import githubIcon from '../../../icons/github-icon.svg'
 	@reference '../../../styles/global.css';
 
 	.stepper__step {
-		@apply h-full bg-white py-16 lg:py-24 lg:group-even:order-2 lg:group-even:col-start-2 lg:group-even:row-start-1 dark:bg-neutral-950;
+		@apply h-full bg-white py-16 lg:py-24 lg:group-even:order-2 lg:group-even:col-start-2 lg:group-even:row-start-1;
 	}
 	.stepper__steps {
 		@apply relative flex flex-col gap-6 lg:gap-8;
 	}
 	.stepper__item {
-		@apply relative m-0 grid items-center bg-white/80 lg:grid-cols-2 lg:gap-x-8 dark:bg-neutral-950/80;
+		@apply relative m-0 grid items-center bg-white/80 lg:grid-cols-2 lg:gap-x-8;
 	}
 	.stepper__step-body {
 		@apply p-6 pb-0 lg:px-8 lg:py-12 lg:text-xl lg:leading-9;
 	}
 	.stepper__media {
-		@apply relative h-full bg-neutral-50 bg-[url('/bgs/dot-gray-light.svg')] bg-size-[18px] bg-fixed lg:group-even:col-start-1 dark:bg-neutral-900 dark:bg-[url('/bgs/dot-gray-dark.svg')];
+		@apply relative h-full bg-neutral-50 bg-[url('/bgs/dot-gray-light.svg')] bg-size-[18px] bg-fixed lg:group-even:col-start-1;
 	}
 	.stepper__media-front {
 		@apply absolute inset-0 z-10 h-full object-cover;
@@ -222,43 +218,46 @@ import githubIcon from '../../../icons/github-icon.svg'
 	.stepper__media-back {
 		@apply h-full object-cover;
 	}
+
+	/* Orbit */
 	.stepper__orbit {
 		@apply relative flex h-full w-full items-center justify-center overflow-hidden bg-white;
 		min-height: 360px;
-		padding: 2rem;
 	}
-	.stepper__orbit-ring {
-		@apply relative flex h-60 w-60 items-center justify-center rounded-full border-2 border-dashed border-neutral-200;
-		animation: orbit-spin 24s linear infinite;
+	.stepper__orbit-track {
+		@apply relative h-64 w-64;
+		animation: orbit-rotate 20s linear infinite;
+	}
+	.stepper__orbit-track::before {
+		content: '';
+		@apply absolute inset-0 rounded-full border border-dashed border-neutral-200;
 	}
 	.stepper__orbit-center {
-		@apply absolute flex h-16 w-16 items-center justify-center rounded-full bg-neutral-950 shadow-lg;
+		@apply absolute left-1/2 top-1/2 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-neutral-950 shadow-lg;
 		z-index: 2;
 	}
-	.stepper__orbit-logo {
-		@apply font-headings text-lg font-bold text-white;
+	.stepper__orbit-brand {
+		@apply h-8 w-8;
 	}
-	.stepper__orbit-item {
+	.stepper__orbit-source {
 		@apply absolute flex flex-col items-center gap-1.5;
-		--angle: calc(360deg / 3 * var(--index) - 90deg);
-		transform: rotate(var(--angle)) translateX(120px) rotate(calc(-1 * var(--angle)));
-		animation: orbit-counter 24s linear infinite;
+		left: 50%;
+		top: 50%;
+		--angle: calc(360deg / 3 * var(--i) - 90deg);
+		transform: rotate(var(--angle)) translateX(128px);
+		animation: orbit-counter 20s linear infinite;
 	}
 	.stepper__orbit-icon {
-		@apply flex h-11 w-11 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-700 shadow-md;
-	}
-	.stepper__orbit-icon svg {
-		@apply h-5 w-5;
+		@apply flex h-11 w-11 items-center justify-center rounded-full border border-neutral-200 bg-white shadow-md text-neutral-700;
 	}
 	.stepper__orbit-label {
-		@apply font-body text-xs font-medium text-neutral-500;
+		@apply font-body text-xs font-medium text-neutral-500 whitespace-nowrap;
 	}
-	@keyframes orbit-spin {
-		from { transform: rotate(0deg); }
+
+	@keyframes orbit-rotate {
 		to { transform: rotate(360deg); }
 	}
 	@keyframes orbit-counter {
-		from { transform: rotate(var(--angle)) translateX(128px) rotate(calc(-1 * var(--angle))); }
-		to { transform: rotate(calc(var(--angle) + 360deg)) translateX(128px) rotate(calc(-1 * (var(--angle) + 360deg))); }
+		to { transform: rotate(calc(var(--angle) + 360deg)) translateX(128px) rotate(-360deg); }
 	}
 </style>
