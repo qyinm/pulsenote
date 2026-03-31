@@ -19,11 +19,6 @@ import Col from '../../ui/Col.astro'
 import Button from '../../ui/Button.astro'
 // - UI
 import Header from '../../ui/Header.astro'
-import { Image } from 'astro:assets'
-
-// Content
-// - Assets
-import screenshot from '../../../assets/hero/screenshot.svg'
 
 // - Props
 type Props = {
@@ -61,24 +56,9 @@ const {
 			/>
 		</Col>
 
-		<Col
-			span="12"
-			classes=" bg-[url('/bgs/dot-gray-light.svg')] bg-size-[18px] bg-fixed dark:bg-[url('/bgs/dot-gray-dark.svg')] "
-		>
+		<Col span="12">
 			<div class="my-10 flex justify-center">
 				<Button classes={buttonClasses} link={buttonLink}>{buttonText}</Button>
-			</div>
-			<div data-parallax-offset="80" class="parallax">
-				<Image
-					src={screenshot}
-					alt="Mizu Light"
-					class="mx-auto block"
-					layout="constrained"
-					decoding="async"
-					loading="eager"
-					fetchpriority="high"
-					width={1280}
-				/>
 			</div>
 		</Col>
 	</Row>
