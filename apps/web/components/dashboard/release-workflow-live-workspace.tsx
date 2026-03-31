@@ -1427,65 +1427,6 @@ export function ReleaseWorkflowLiveWorkspace({
                         Save the draft before running claim check, approval, or publish actions so they use the current wording.
                       </p>
                     ) : null}
-                    <div className="grid gap-3 rounded-2xl border border-border/70 bg-muted/10 p-4">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {claimCheckBadge(selectedWorkflow.claimCheckSummary.state)}
-                        {approvalBadge(selectedWorkflow.approvalSummary.state)}
-                        {selectedOwnershipCue && selectedQueueSourceItem?.approvalSummary.state === "pending"
-                          ? ownershipCueBadge(selectedOwnershipCue)
-                          : null}
-                        {publishPackBadge(selectedWorkflow.latestPublishPackSummary.state)}
-                      </div>
-                      <InlineList
-                        items={[
-                          {
-                            label: "Claim checks",
-                            value:
-                              selectedQueueItem?.claimCheckLabel ??
-                              (selectedWorkflow.claimCheckSummary.totalClaims > 0
-                                ? `${selectedWorkflow.claimCheckSummary.flaggedClaims} flagged of ${selectedWorkflow.claimCheckSummary.totalClaims}`
-                                : "Not checked"),
-                          },
-                          {
-                            label: "Assigned reviewer",
-                            value:
-                              selectedWorkflow.approvalSummary.ownerName ??
-                              (selectedWorkflow.approvalSummary.ownerUserId
-                                ? "Unknown reviewer"
-                                : "Not assigned"),
-                          },
-                          {
-                            label: "Requested by",
-                            value:
-                              selectedWorkflow.approvalSummary.requestedByName ??
-                              (selectedWorkflow.approvalSummary.requestedByUserId
-                                ? "Unknown requester"
-                                : "Not requested"),
-                          },
-                          {
-                            label: "Publish pack",
-                            value:
-                              selectedWorkflow.latestPublishPackArtifact
-                                ? `Exported ${formatHistoryTimestamp(
-                                    selectedWorkflow.latestPublishPackArtifact.exportedAt,
-                                  )}`
-                                : selectedQueueItem?.publishPackLabel ?? "Not ready",
-                          },
-                        ]}
-                      />
-                      {recentHistory.length > 0 ? (
-                        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                          {recentHistory.slice(0, 3).map((entry) => (
-                            <span
-                              key={entry.id}
-                              className="rounded-full border border-border/70 bg-background px-3 py-1"
-                            >
-                              {entry.eventLabel} · {formatHistoryTimestamp(entry.createdAt)}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
                     {draftSaveError ? (
                       <p className="text-sm text-destructive">{draftSaveError}</p>
                     ) : null}

@@ -1,9 +1,12 @@
 # build output
 dist/
+.next/
+tsconfig.tsbuildinfo
 
 # generated types
 .astro/
 .vercel/
+next-env.d.ts
 # dependencies
 node_modules/
 
