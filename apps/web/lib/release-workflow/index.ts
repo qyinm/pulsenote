@@ -46,6 +46,7 @@ export type ReleaseWorkflowWorkspaceFocus =
   | "scope"
 export type ReleaseWorkflowBoardStage =
   | "exported"
+  | "draft"
   | "intake"
   | "publish_pack"
   | "review"
@@ -131,6 +132,9 @@ const workflowActionLabels = {
 const releaseWorkflowBoardColumnMeta = {
   intake: {
     title: "Intake",
+  },
+  draft: {
+    title: "Draft",
   },
   review: {
     title: "Review",
@@ -524,8 +528,12 @@ export function getReleaseWorkflowBoardStage(
     return "publish_pack"
   }
 
-  if (item.releaseRecord.stage === "review" || item.releaseRecord.stage === "draft") {
+  if (item.releaseRecord.stage === "review") {
     return "review"
+  }
+
+  if (item.releaseRecord.stage === "draft") {
+    return "draft"
   }
 
   return "intake"
