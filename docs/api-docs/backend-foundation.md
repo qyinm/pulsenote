@@ -121,12 +121,11 @@ Persist a normalized model that the review workflow can trust.
 - `source_link`
   The exact pointer back to the original evidence source.
 - `review_status`
-  The current workflow state for claim check, approval, and publish readiness.
+  The current workflow state for the unified review lifecycle and publish readiness.
 
 ### Why normalization matters
 
-- claim check should read stable facts, not provider-shaped payloads,
-- approval should reference release records and evidence blocks, not ad hoc API calls,
+- review should read stable facts from release records and evidence blocks, not provider-shaped payloads,
 - publish pack generation should work from one consistent record,
 - later enrichment from Linear should attach cleanly to the same record shape.
 

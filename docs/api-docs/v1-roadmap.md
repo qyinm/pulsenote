@@ -83,21 +83,20 @@ The current sample dashboard becomes a real workflow surface backed by stored re
 ### Deliverables
 
 - release context page reads synced records,
-- claim check reads claim candidates and evidence blocks,
-- approval reads stored review state,
+- review reads claim candidates, evidence blocks, and stored review state,
 - inbox reads actual queue pressure from persisted workflow state,
 - publish pack reflects stored release data instead of sample fixtures.
 
-## Milestone 6. Add agent draft and claim check on stored records
+## Milestone 6. Add agent draft and review on stored records
 
 ### Outcome
 
-Drafting and claim checks operate on stable, reviewable inputs.
+Drafting and review operate on stable, reviewable inputs.
 
 ### Deliverables
 
 - draft generation input contract,
-- claim check input contract,
+- review input contract,
 - record-backed prompt context,
 - persisted outputs tied to release records,
 - visible source trace from generated output back to evidence.

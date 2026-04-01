@@ -8,11 +8,11 @@
 
 - [ ] PR 2: Review Ownership Filters And Inbox Cues
   Scope:
-  Add queue views such as `assigned to me`, `requested by me`, and `unassigned`, then surface lightweight in-product ownership cues so reviewers can see which approval records need their attention first.
+  Add queue views such as `assigned to me`, `requested by me`, and `unassigned`, then surface lightweight in-product ownership cues so reviewers can see which review records need their attention first.
 
 - [ ] PR 3: In-Product Review Notifications
   Scope:
-  Add notification events for approval requested, draft reopened, and blocked claim checks so PulseNote can surface the next reviewer action inside the product before adding email or Slack delivery.
+  Add notification events for review requested, draft reopened, and review blockers so PulseNote can surface the next reviewer action inside the product before adding email or Slack delivery.
 
 What:
 Add explicit reviewer assignment to the `request approval` step so PulseNote can show who requested approval, who now owns the review, and which release record is waiting on that handoff.
