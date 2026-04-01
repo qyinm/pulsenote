@@ -80,7 +80,7 @@ function buildBlockedClaimItems(
     .filter((item) => item.readiness === "blocked")
     .map((item) => {
       const historyEntry = latestHistoryByKey.get(`${item.releaseRecord.id}:review_requested`)
-      const blockerNote = "Review is still blocked."
+      const blockerNote = historyEntry?.note?.trim() || "Review is still blocked."
       const timestamp = historyEntry?.createdAt ?? item.releaseRecord.updatedAt
 
       return {
