@@ -198,10 +198,12 @@ function buildReviewSummary(
       return getReviewEventPriority(right) - getReviewEventPriority(left)
     })[0] ?? null
 
-  const latestReviewRequestEvent = workflowEvents.find(
-    (workflowEvent) =>
-      workflowEvent.draftRevisionId === currentDraft.id && workflowEvent.type === "review_requested",
-  ) ?? null
+  const latestReviewRequestEvent = [...workflowEvents]
+    .filter(
+      (workflowEvent) =>
+        workflowEvent.draftRevisionId === currentDraft.id && workflowEvent.type === "review_requested",
+    )
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0] ?? null
 
   const reviewReviewStatus = reviewStatusesByStage.review ?? null
   const ownerId = reviewReviewStatus?.ownerUserId
