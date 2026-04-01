@@ -349,39 +349,44 @@ function buildModeMetricCards(
   const selectedReviewState = selectedWorkflow?.reviewSummary.state ?? "not_requested"
   const selectedEvidenceCount = selectedWorkflow?.evidenceBlocks.length ?? 0
 
-  if (mode === "review") {
-    return [
-      {
-        badge: "Queue",
-        description: "Blocked reviews stay visible before they can move into export.",
-        detail: `State: ${selectedReviewState}`,
-        icon: ShieldAlertIcon,
-        title: "Current review",
-        value: selectedReviewState === "pending" ? "Pending" : selectedReviewState === "approved" ? "Approved" : "Not requested",
-      },
-      {
-        description: "Workspace-wide blocked records are visible so risky wording never hides in another queue.",
-        detail: "Workspace view",
-        icon: FileSearchIcon,
-        title: "Blocked records",
-        value: String(metrics.blockedRecords),
-      },
-      {
-        description: "Source evidence stays attached while you tighten wording.",
-        detail: "Selected release",
-        icon: FolderKanbanIcon,
-        title: "Evidence blocks",
-        value: String(selectedEvidenceCount),
-      },
-      {
-        description: "Only clean drafts should move forward into review.",
-        detail: "Ready for sign-off",
-        icon: BadgeCheckIcon,
-        title: "Review-ready records",
-        value: String(workflow.filter((item) => item.allowedActions.includes("request_review")).length),
-      },
-    ]
-  }
+  return [
+    {
+      badge: "Ownership",
+      description: "Keep the drafts you personally need to review visible before they stall the release window.",
+      detail: "Current reviewer",
+      icon: TimerResetIcon,
+      title: "Assigned to you",
+      value: String(reviewFilterCounts.assigned_to_me),
+    },
+    {
+      description: "Requests you routed should stay visible until another reviewer closes the loop.",
+      detail: "Requester queue",
+      icon: FolderKanbanIcon,
+      title: "Requested by you",
+      value: String(reviewFilterCounts.requested_by_me),
+    },
+    {
+      description: "Pending reviews without a reviewer are an explicit handoff gap, not background noise.",
+      detail: "Needs routing",
+      icon: ShieldAlertIcon,
+      title: "Unassigned reviews",
+      value: String(reviewFilterCounts.unassigned),
+    },
+    {
+      description: "The selected release keeps one explicit review state at a time.",
+      detail: "Selected release",
+      icon: BadgeCheckIcon,
+      title: "Current review state",
+      value:
+        selectedWorkflow?.reviewSummary.state === "approved"
+          ? "Signed off"
+          : selectedWorkflow?.reviewSummary.state === "pending"
+            ? "Pending"
+            : selectedWorkflow?.reviewSummary.state === "reopened"
+              ? "Reopened"
+              : "Not requested",
+    },
+  ]
 
   if (mode === "publish_pack") {
     return [
@@ -505,7 +510,7 @@ function buildModeFocus(detail: ReleaseWorkflowDetail | null, mode: ReleaseWorkf
     }
   }
 
-  if (mode === "review") {
+  if (mode === "overview") {
     return {
       description: "Review stays revision-bound so the team always knows what wording was reviewed.",
       notes: buildReleaseWorkflowReviewNotes(detail),
@@ -1024,12 +1029,8 @@ export function ReleaseWorkflowLiveWorkspace({
         })}
         selectedRowKey={activeSelectedId}
         onRowSelect={handleSelectQueueItem}
-        emptyTitle={mode === "review" ? "No reviews in this view" : "No workflow records yet"}
-        emptyDescription={
-          mode === "review"
-            ? "Pending reviews will appear here once a release is routed into explicit reviewer handoff."
-            : "Once release context is ingested, workflow records will appear here."
-        }
+        emptyTitle="No workflow records yet"
+        emptyDescription="Once release context is ingested, workflow records will appear here."
       />
     )
   }
@@ -1464,31 +1465,6 @@ export function ReleaseWorkflowLiveWorkspace({
               title="Release workspace"
               description="Each release stays grounded in one workflow state machine instead of separate operational tabs."
             >
-              {mode === "review" ? (
-                <div className="mb-4 grid gap-3">
-                  <div className="grid gap-1">
-                    <p className="text-sm font-medium text-foreground">Ownership filters</p>
-                    <p className="text-sm text-muted-foreground">
-                      Keep the sign-off queue sorted by reviewer ownership before review goes stale.
-                    </p>
-                  </div>
-                  <Tabs
-                    value={reviewOwnershipFilter}
-                    onValueChange={(value) =>
-                      setReviewOwnershipFilter(value as ReleaseWorkflowReviewOwnershipFilter)
-                    }
-                    className="gap-3"
-                  >
-                    <TabsList variant="line" className="w-full justify-start">
-                      {reviewOwnershipFilters.map((filter) => (
-                        <TabsTrigger key={filter.value} value={filter.value}>
-                          {filter.label}
-                        </TabsTrigger>
-                      ))}
-                    </TabsList>
-                  </Tabs>
-                </div>
-              ) : null}
               {renderQueueTable()}
             </SurfaceCard>
 
@@ -1555,30 +1531,6 @@ export function ReleaseWorkflowLiveWorkspace({
                 ]}
               />
             </SurfaceCard>
-
-            {mode === "review" && selectedOwnershipCue ? (
-              <SurfaceCard
-                title="Ownership cue"
-                description="Reviewer handoff stays visible so pending reviews do not turn into silent queue drift."
-              >
-                <div className="grid gap-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    {ownershipCueBadge(selectedOwnershipCue)}
-                    {selectedWorkflow?.reviewSummary.ownerName ? (
-                      <Badge variant="secondary">
-                        Reviewer · {selectedWorkflow.reviewSummary.ownerName}
-                      </Badge>
-                    ) : null}
-                    {selectedWorkflow?.reviewSummary.requestedByName ? (
-                      <Badge variant="secondary">
-                        Requested by · {selectedWorkflow.reviewSummary.requestedByName}
-                      </Badge>
-                    ) : null}
-                  </div>
-                  <p className="text-sm text-muted-foreground">{selectedOwnershipCue.description}</p>
-                </div>
-              </SurfaceCard>
-            ) : null}
 
             <SurfaceCard
               title="Workflow actions"

@@ -22,7 +22,7 @@ import {
   buildReleaseWorkflowQueueItem,
   createReleaseWorkflowDetailCache,
   filterReleaseWorkflowQueueByMode,
-  filterReleaseWorkflowApprovalQueue,
+  filterReleaseWorkflowReviewQueue,
   getReleaseWorkflowActionLabel,
   getReleaseWorkflowDisplayTitle,
   getReleaseWorkflowBoardStage,
@@ -34,7 +34,6 @@ import {
 
 type ReleaseWorkflowListItemOverrides = {
   allowedActions?: ReleaseWorkflowListItem["allowedActions"]
-  reviewSummary?: Partial<ReleaseWorkflowListItem["reviewSummary"]>
   reviewSummary?: Partial<ReleaseWorkflowListItem["reviewSummary"]>
   currentDraft?: Partial<NonNullable<ReleaseWorkflowListItem["currentDraft"]>> | null
   evidenceCount?: number
@@ -98,7 +97,6 @@ function createReleaseWorkflowListItem(
 
 type ReleaseWorkflowDetailOverrides = {
   allowedActions?: ReleaseWorkflowDetail["allowedActions"]
-  reviewSummary?: Partial<ReleaseWorkflowDetail["reviewSummary"]>
   reviewSummary?: Partial<ReleaseWorkflowDetail["reviewSummary"]>
   currentDraft?: Partial<NonNullable<ReleaseWorkflowDetail["currentDraft"]>> | null
   evidenceBlocks?: ReleaseWorkflowDetail["evidenceBlocks"]
@@ -255,7 +253,6 @@ function createWorkspacePolicySettings(
     createdAt: overrides.createdAt ?? "2026-03-20T00:00:00.000Z",
     includeEvidenceLinksInExport: overrides.includeEvidenceLinksInExport ?? true,
     includeSourceLinksInExport: overrides.includeSourceLinksInExport ?? true,
-    requireReviewerAssignment: overrides.requireReviewerAssignment ?? true,
     requireReviewerAssignment: overrides.requireReviewerAssignment ?? true,
     showBlockedClaimsInInbox: overrides.showBlockedClaimsInInbox ?? true,
     showPendingApprovalsInInbox: overrides.showPendingApprovalsInInbox ?? true,
@@ -685,7 +682,7 @@ test("filterReleaseWorkflowQueueByMode keeps claim-check records scoped to draft
   const queue = filterReleaseWorkflowQueueByMode(
     [draftedRelease, intakeOnlyRelease],
     "user_1",
-    "review",
+    "overview",
     "all",
   )
 
@@ -843,12 +840,12 @@ test("buildReleaseWorkflowPublishPackNotes and artifact notes keep frozen handof
     latestPublishPackArtifact: {
       changelogBody: "## Changelog\n\n- Frozen change summary",
       context: {
-        reviewNote: "Approved for export",
-        reviewOwnerName: "Reviewer User",
-        reviewOwnerUserId: "user_2",
-        reviewRequestedByName: "Owner User",
-        reviewRequestedByUserId: "user_1",
-        reviewState: "approved",
+        approvalNote: "Approved for export",
+        approvalOwnerName: "Reviewer User",
+        approvalOwnerUserId: "user_2",
+        approvalRequestedByName: "Owner User",
+        approvalRequestedByUserId: "user_1",
+        approvalState: "approved",
         exportedByName: "Owner User",
         exportedByUserId: "user_1",
       },
@@ -947,23 +944,23 @@ test("review queue filters keep ownership handoff explicit", () => {
   ]
 
   assert.deepEqual(
-    filterReleaseWorkflowApprovalQueue(workflow, "user_1", "all").map((item) => item.releaseRecord.id),
+    filterReleaseWorkflowReviewQueue(workflow, "user_1", "all").map((item) => item.releaseRecord.id),
     ["release_assigned_to_me", "release_requested_by_me", "release_unassigned"],
   )
   assert.deepEqual(
-    filterReleaseWorkflowApprovalQueue(workflow, "user_1", "assigned_to_me").map(
+    filterReleaseWorkflowReviewQueue(workflow, "user_1", "assigned_to_me").map(
       (item) => item.releaseRecord.id,
     ),
     ["release_assigned_to_me"],
   )
   assert.deepEqual(
-    filterReleaseWorkflowApprovalQueue(workflow, "user_1", "requested_by_me").map(
+    filterReleaseWorkflowReviewQueue(workflow, "user_1", "requested_by_me").map(
       (item) => item.releaseRecord.id,
     ),
     ["release_requested_by_me", "release_unassigned"],
   )
   assert.deepEqual(
-    filterReleaseWorkflowApprovalQueue(workflow, "user_1", "unassigned").map(
+    filterReleaseWorkflowReviewQueue(workflow, "user_1", "unassigned").map(
       (item) => item.releaseRecord.id,
     ),
     ["release_unassigned"],
@@ -1049,7 +1046,6 @@ test("buildReleaseWorkflowQueueItem surfaces workflow labels and next actions", 
     createReleaseWorkflowListItem({
       allowedActions: ["request_review"],
       reviewSummary: { state: "not_requested" },
-      reviewSummary: { blockerNotes: [], state: "cleared" },
       currentDraft: { version: 3 },
       latestPublishPackSummary: { state: "not_ready" },
       readiness: "ready",
@@ -1063,7 +1059,6 @@ test("buildReleaseWorkflowQueueItem surfaces workflow labels and next actions", 
   assert.deepEqual(queueItem, {
     allowedActions: ["request_review"],
     reviewLabel: "Not requested",
-    reviewLabel: "Clear",
     evidenceCount: 3,
     id: "release_1",
     nextAction: "Request review on the current checked draft.",

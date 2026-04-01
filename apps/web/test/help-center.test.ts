@@ -12,8 +12,7 @@ import {
   getServerHelpCenterData,
 } from "../lib/help-center.js"
 
-type WorkflowApprovalSummary = ReleaseWorkflowListItem["reviewSummary"]
-type WorkflowClaimCheckSummary = ReleaseWorkflowListItem["reviewSummary"]
+type WorkflowReviewSummary = ReleaseWorkflowListItem["reviewSummary"]
 type WorkflowCurrentDraft = NonNullable<ReleaseWorkflowListItem["currentDraft"]>
 type WorkflowPublishPackSummary = ReleaseWorkflowListItem["latestPublishPackSummary"]
 type WorkflowReleaseRecord = ReleaseWorkflowListItem["releaseRecord"]
@@ -64,21 +63,18 @@ function createWorkflowItem(
   overrides: Omit<
     Partial<ReleaseWorkflowListItem>,
     | "reviewSummary"
-    | "reviewSummary"
     | "currentDraft"
     | "latestPublishPackSummary"
     | "releaseRecord"
   > & {
-    reviewSummary?: Partial<WorkflowApprovalSummary>
-    reviewSummary?: Partial<WorkflowClaimCheckSummary>
+    reviewSummary?: Partial<WorkflowReviewSummary>
     currentDraft?: Partial<WorkflowCurrentDraft> | null
     latestPublishPackSummary?: Partial<WorkflowPublishPackSummary>
     releaseRecord?: Partial<WorkflowReleaseRecord>
   } = {},
 ): ReleaseWorkflowListItem {
   const {
-    reviewSummary = {} as Partial<WorkflowApprovalSummary>,
-    reviewSummary = {} as Partial<WorkflowClaimCheckSummary>,
+    reviewSummary = {} as Partial<WorkflowReviewSummary>,
     currentDraft = {},
     latestPublishPackSummary = {} as Partial<WorkflowPublishPackSummary>,
     releaseRecord = {} as Partial<WorkflowReleaseRecord>,
@@ -114,13 +110,6 @@ function createWorkflowItem(
         reviewSummary.updatedAt === undefined
           ? "2026-03-20T01:00:00.000Z"
           : reviewSummary.updatedAt,
-    },
-    reviewSummary: {
-      blockerNotes: reviewSummary.blockerNotes ?? ["Proof is still blocked."],
-      draftRevisionId: reviewSummary.draftRevisionId ?? "draft_1",
-      flaggedClaims: reviewSummary.flaggedClaims ?? 1,
-      state: reviewSummary.state ?? "blocked",
-      totalClaims: reviewSummary.totalClaims ?? 2,
     },
     currentDraft:
       currentDraft === null
@@ -189,7 +178,6 @@ function createWorkspacePolicySettings(
     includeEvidenceLinksInExport: overrides.includeEvidenceLinksInExport ?? true,
     includeSourceLinksInExport: overrides.includeSourceLinksInExport ?? true,
     requireReviewerAssignment: overrides.requireReviewerAssignment ?? true,
-    requireReviewerAssignment: overrides.requireReviewerAssignment ?? true,
     showBlockedClaimsInInbox: overrides.showBlockedClaimsInInbox ?? true,
     showPendingApprovalsInInbox: overrides.showPendingApprovalsInInbox ?? true,
     showReopenedDraftsInInbox: overrides.showReopenedDraftsInInbox ?? true,
@@ -208,10 +196,6 @@ test("buildLiveHelpData reflects live workflow blockers and guidance", () => {
           ownerUserId: null,
           state: "pending",
         },
-        reviewSummary: {
-          blockerNotes: ["Attach rollout proof before review."],
-          state: "blocked",
-        },
         latestPublishPackSummary: {
           state: "not_ready",
         },
@@ -221,12 +205,6 @@ test("buildLiveHelpData reflects live workflow blockers and guidance", () => {
           ownerName: "Noah Lim",
           ownerUserId: "user_3",
           state: "approved",
-        },
-        reviewSummary: {
-          blockerNotes: [],
-          flaggedClaims: 0,
-          state: "cleared",
-          totalClaims: 0,
         },
         latestPublishPackSummary: {
           draftRevisionId: "draft_2",
@@ -252,9 +230,8 @@ test("buildLiveHelpData reflects live workflow blockers and guidance", () => {
   assert.equal(data.metrics.activeStages, 2)
   assert.ok(data.metrics.knownLimits >= 3)
   assert.ok(data.metrics.openSignals >= 1)
-  assert.equal(data.modules[1]?.status, "1 blocked")
-  assert.equal(data.modules[2]?.status, "1 unassigned")
-  assert.equal(data.modules[3]?.status, "1 ready")
+  assert.equal(data.modules[1]?.status, "1 unassigned")
+  assert.equal(data.modules[2]?.status, "1 ready")
   assert.match(data.checklist.join(" "), /Assign the pending review request/)
   assert.match(data.issues.map((issue) => issue.title).join(" "), /Approval handoff is missing an owner/)
 })
@@ -266,12 +243,6 @@ test("buildLiveHelpData does not mark unstarted claim checks as clear", () => {
       createWorkflowItem({
         reviewSummary: {
           state: "not_requested",
-        },
-        reviewSummary: {
-          blockerNotes: [],
-          flaggedClaims: 0,
-          state: "not_started",
-          totalClaims: 0,
         },
         latestPublishPackSummary: {
           state: "not_ready",
@@ -290,7 +261,7 @@ test("buildLiveHelpData does not mark unstarted claim checks as clear", () => {
   )
 
   assert.equal(data.modules[1]?.status, "1 not started")
-  assert.match(data.checklist.join(" "), /Run claim check/)
+  assert.match(data.checklist.join(" "), /Request review/)
 })
 
 test("getServerHelpCenterData forwards auth headers and returns live help data", async () => {

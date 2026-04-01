@@ -38,7 +38,7 @@ export type ReleaseWorkflowApprovalOwnershipFilter =
 
 export type ReleaseWorkflowReviewOwnershipFilter = ReleaseWorkflowApprovalOwnershipFilter
 
-export type ReleaseWorkflowMode = "overview" | "publish_pack" | "review"
+export type ReleaseWorkflowMode = "overview" | "publish_pack"
 export type ReleaseWorkflowWorkspaceFocus =
   | "draft"
   | "publish_pack"
@@ -376,10 +376,6 @@ export function filterReleaseWorkflowQueueByMode(
   mode: ReleaseWorkflowMode,
   reviewFilter: ReleaseWorkflowReviewOwnershipFilter,
 ) {
-  if (mode === "review") {
-    return filterReleaseWorkflowReviewQueue(workflow, currentUserId, reviewFilter)
-  }
-
   if (mode === "publish_pack") {
     return workflow.filter(
       (item) =>

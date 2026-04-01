@@ -190,7 +190,6 @@ function createWorkspacePolicySettingsPayload() {
     includeEvidenceLinksInExport: true,
     includeSourceLinksInExport: true,
     requireReviewerAssignment: true,
-    requireReviewerAssignment: true,
     showBlockedClaimsInInbox: true,
     showPendingApprovalsInInbox: true,
     showReopenedDraftsInInbox: true,

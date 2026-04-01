@@ -12,8 +12,7 @@ import {
   getServerSettingsData,
 } from "../lib/dashboard/settings.js"
 
-type WorkflowApprovalSummary = ReleaseWorkflowListItem["reviewSummary"]
-type WorkflowClaimCheckSummary = ReleaseWorkflowListItem["reviewSummary"]
+type WorkflowReviewSummary = ReleaseWorkflowListItem["reviewSummary"]
 type WorkflowPublishPackSummary = ReleaseWorkflowListItem["latestPublishPackSummary"]
 type WorkflowReleaseRecord = ReleaseWorkflowListItem["releaseRecord"]
 
@@ -73,17 +72,15 @@ function createWorkspaceSnapshot(): WorkspaceSnapshot {
 function createWorkflowItem(
   overrides: Omit<
     Partial<ReleaseWorkflowListItem>,
-    "reviewSummary" | "reviewSummary" | "latestPublishPackSummary" | "releaseRecord"
+    "reviewSummary" | "latestPublishPackSummary" | "releaseRecord"
   > & {
-    reviewSummary?: Partial<WorkflowApprovalSummary>
-    reviewSummary?: Partial<WorkflowClaimCheckSummary>
+    reviewSummary?: Partial<WorkflowReviewSummary>
     latestPublishPackSummary?: Partial<WorkflowPublishPackSummary>
     releaseRecord?: Partial<WorkflowReleaseRecord>
   } = {},
 ): ReleaseWorkflowListItem {
   const {
-    reviewSummary = {} as Partial<WorkflowApprovalSummary>,
-    reviewSummary = {} as Partial<WorkflowClaimCheckSummary>,
+    reviewSummary = {} as Partial<WorkflowReviewSummary>,
     latestPublishPackSummary = {} as Partial<WorkflowPublishPackSummary>,
     releaseRecord = {} as Partial<WorkflowReleaseRecord>,
     ...itemOverrides
@@ -118,16 +115,6 @@ function createWorkflowItem(
         reviewSummary.updatedAt === undefined
           ? "2026-03-20T01:00:00.000Z"
           : reviewSummary.updatedAt,
-    },
-    reviewSummary: {
-      blockerNotes: reviewSummary.blockerNotes ?? ["Scope still needs support."],
-      draftRevisionId:
-        reviewSummary.draftRevisionId === undefined
-          ? "draft_1"
-          : reviewSummary.draftRevisionId,
-      flaggedClaims: reviewSummary.flaggedClaims ?? 1,
-      state: reviewSummary.state ?? "blocked",
-      totalClaims: reviewSummary.totalClaims ?? 2,
     },
     currentDraft: itemOverrides.currentDraft ?? {
       createdAt: "2026-03-20T00:00:00.000Z",
@@ -208,7 +195,6 @@ function createWorkspacePolicySettings(
     includeEvidenceLinksInExport: overrides.includeEvidenceLinksInExport ?? true,
     includeSourceLinksInExport: overrides.includeSourceLinksInExport ?? true,
     requireReviewerAssignment: overrides.requireReviewerAssignment ?? true,
-    requireReviewerAssignment: overrides.requireReviewerAssignment ?? true,
     showBlockedClaimsInInbox: overrides.showBlockedClaimsInInbox ?? true,
     showPendingApprovalsInInbox: overrides.showPendingApprovalsInInbox ?? true,
     showReopenedDraftsInInbox: overrides.showReopenedDraftsInInbox ?? true,
@@ -229,12 +215,6 @@ test("buildLiveSettingsData summarizes live workspace settings coverage", () => 
       reviewSummary: {
         ownerName: null,
         ownerUserId: null,
-      },
-      reviewSummary: {
-        blockerNotes: [],
-        flaggedClaims: 0,
-        state: "cleared",
-        totalClaims: 0,
       },
       evidenceCount: 0,
       latestPublishPackSummary: {

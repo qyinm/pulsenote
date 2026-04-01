@@ -12,8 +12,7 @@ import {
   getServerLiveSearchData,
 } from "../lib/search.js"
 
-type WorkflowApprovalSummary = ReleaseWorkflowListItem["reviewSummary"]
-type WorkflowClaimCheckSummary = ReleaseWorkflowListItem["reviewSummary"]
+type WorkflowReviewSummary = ReleaseWorkflowListItem["reviewSummary"]
 type WorkflowCurrentDraft = NonNullable<ReleaseWorkflowListItem["currentDraft"]>
 type WorkflowPublishPackSummary = ReleaseWorkflowListItem["latestPublishPackSummary"]
 type WorkflowReleaseRecord = ReleaseWorkflowListItem["releaseRecord"]
@@ -22,21 +21,18 @@ function createWorkflowItem(
   overrides: Omit<
     Partial<ReleaseWorkflowListItem>,
     | "reviewSummary"
-    | "reviewSummary"
     | "currentDraft"
     | "latestPublishPackSummary"
     | "releaseRecord"
   > & {
-    reviewSummary?: Partial<WorkflowApprovalSummary>
-    reviewSummary?: Partial<WorkflowClaimCheckSummary>
+    reviewSummary?: Partial<WorkflowReviewSummary>
     currentDraft?: Partial<WorkflowCurrentDraft> | null
     latestPublishPackSummary?: Partial<WorkflowPublishPackSummary>
     releaseRecord?: Partial<WorkflowReleaseRecord>
   } = {},
 ): ReleaseWorkflowListItem {
   const {
-    reviewSummary = {} as Partial<WorkflowApprovalSummary>,
-    reviewSummary = {} as Partial<WorkflowClaimCheckSummary>,
+    reviewSummary = {} as Partial<WorkflowReviewSummary>,
     currentDraft = null,
     latestPublishPackSummary = {} as Partial<WorkflowPublishPackSummary>,
     releaseRecord = {} as Partial<WorkflowReleaseRecord>,
@@ -72,13 +68,6 @@ function createWorkflowItem(
         reviewSummary.updatedAt === undefined
           ? "2026-03-20T01:00:00.000Z"
           : reviewSummary.updatedAt,
-    },
-    reviewSummary: {
-      blockerNotes: reviewSummary.blockerNotes ?? ["Proof is still blocked."],
-      draftRevisionId: reviewSummary.draftRevisionId ?? "draft_1",
-      flaggedClaims: reviewSummary.flaggedClaims ?? 1,
-      state: reviewSummary.state ?? "blocked",
-      totalClaims: reviewSummary.totalClaims ?? 2,
     },
     currentDraft:
       currentDraft === null
@@ -175,7 +164,6 @@ function createWorkspacePolicySettings(
     includeEvidenceLinksInExport: overrides.includeEvidenceLinksInExport ?? true,
     includeSourceLinksInExport: overrides.includeSourceLinksInExport ?? true,
     requireReviewerAssignment: overrides.requireReviewerAssignment ?? true,
-    requireReviewerAssignment: overrides.requireReviewerAssignment ?? true,
     showBlockedClaimsInInbox: overrides.showBlockedClaimsInInbox ?? true,
     showPendingApprovalsInInbox: overrides.showPendingApprovalsInInbox ?? true,
     showReopenedDraftsInInbox: overrides.showReopenedDraftsInInbox ?? true,
@@ -195,12 +183,6 @@ test("buildLiveSearchData indexes workflow, evidence, history, and review signal
         requestedByUserId: "user_2",
         state: "pending",
         updatedAt: "2026-03-20T01:20:00.000Z",
-      },
-      reviewSummary: {
-        blockerNotes: [],
-        flaggedClaims: 0,
-        state: "cleared",
-        totalClaims: 0,
       },
       currentDraft: {
         id: "draft_2",
@@ -279,13 +261,6 @@ test("buildLiveSearchData omits the blocked shortcut when blocked state is not s
           requestedByUserId: "user_2",
           state: "pending",
           updatedAt: "2026-03-20T01:20:00.000Z",
-        },
-        reviewSummary: {
-          blockerNotes: [],
-          draftRevisionId: "draft_2",
-          flaggedClaims: 0,
-          state: "cleared",
-          totalClaims: 0,
         },
         currentDraft: {
           createdAt: "2026-03-20T01:00:00.000Z",

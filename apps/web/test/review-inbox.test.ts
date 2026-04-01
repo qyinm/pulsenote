@@ -15,12 +15,10 @@ function createReleaseWorkflowListItem(
   overrides: Omit<
     Partial<ReleaseWorkflowListItem>,
     | "reviewSummary"
-    | "reviewSummary"
     | "currentDraft"
     | "latestPublishPackSummary"
     | "releaseRecord"
   > & {
-    reviewSummary?: Partial<ReleaseWorkflowListItem["reviewSummary"]>
     reviewSummary?: Partial<ReleaseWorkflowListItem["reviewSummary"]>
     currentDraft?: Partial<NonNullable<ReleaseWorkflowListItem["currentDraft"]>> | null
     latestPublishPackSummary?: Partial<ReleaseWorkflowListItem["latestPublishPackSummary"]>
@@ -38,13 +36,6 @@ function createReleaseWorkflowListItem(
       requestedByUserId: overrides.reviewSummary?.requestedByUserId ?? null,
       state: overrides.reviewSummary?.state ?? "not_requested",
       updatedAt: overrides.reviewSummary?.updatedAt ?? "2026-03-20T01:00:00.000Z",
-    },
-    reviewSummary: {
-      blockerNotes: overrides.reviewSummary?.blockerNotes ?? [],
-      draftRevisionId: overrides.reviewSummary?.draftRevisionId ?? "draft_1",
-      flaggedClaims: overrides.reviewSummary?.flaggedClaims ?? 0,
-      state: overrides.reviewSummary?.state ?? "not_started",
-      totalClaims: overrides.reviewSummary?.totalClaims ?? 0,
     },
     currentDraft:
       overrides.currentDraft === null
@@ -113,7 +104,6 @@ function createWorkspacePolicySettings(
     includeEvidenceLinksInExport: overrides.includeEvidenceLinksInExport ?? true,
     includeSourceLinksInExport: overrides.includeSourceLinksInExport ?? true,
     requireReviewerAssignment: overrides.requireReviewerAssignment ?? true,
-    requireReviewerAssignment: overrides.requireReviewerAssignment ?? true,
     showBlockedClaimsInInbox: overrides.showBlockedClaimsInInbox ?? true,
     showPendingApprovalsInInbox: overrides.showPendingApprovalsInInbox ?? true,
     showReopenedDraftsInInbox: overrides.showReopenedDraftsInInbox ?? true,
@@ -141,12 +131,6 @@ test("buildReviewInboxItems surfaces review, blocked claim, and reopened notific
       allowedActions: ["request_review"],
       reviewSummary: {
         state: "not_requested",
-      },
-      reviewSummary: {
-        blockerNotes: ["Availability claim is still unsupported."],
-        flaggedClaims: 2,
-        state: "blocked",
-        totalClaims: 4,
       },
       releaseRecord: {
         id: "release_claim",
@@ -180,7 +164,8 @@ test("buildReviewInboxItems surfaces review, blocked claim, and reopened notific
     }),
     createReleaseWorkflowHistoryEntry({
       createdAt: "2026-03-20T02:00:00.000Z",
-      eventType: "review_completed",
+      eventLabel: "Draft reopened",
+      eventType: "draft_reopened",
       id: "history_claim",
       note: "Availability claim is still unsupported.",
       releaseRecordId: "release_claim",
@@ -199,7 +184,7 @@ test("buildReviewInboxItems surfaces review, blocked claim, and reopened notific
 
   const items = buildReviewInboxItems(workflow, history, "user_2")
 
-  assert.equal(items.length, 3)
+  assert.equal(items.length, 2)
   assert.deepEqual(
     items.map((item) => ({
       id: item.id,
@@ -215,12 +200,6 @@ test("buildReviewInboxItems surfaces review, blocked claim, and reopened notific
         title: "Reopened release",
       },
       {
-        id: "claim:release_claim",
-        source: "claim",
-        status: "Blocked",
-        title: "Blocked claim release",
-      },
-      {
         id: "review:release_review",
         source: "review",
         status: "Pending",
@@ -228,8 +207,7 @@ test("buildReviewInboxItems surfaces review, blocked claim, and reopened notific
       },
     ],
   )
-  assert.equal(items[2]?.meta, "Assigned to you")
-  assert.equal(items[1]?.preview, "Availability claim is still unsupported.")
+  assert.equal(items[1]?.meta, "Assigned to you")
 })
 
 test("buildReviewInboxItems excludes reopened history when the workflow is no longer reopened", () => {
@@ -272,12 +250,6 @@ test("buildReviewInboxItems respects workspace inbox visibility policy", () => {
         ownerName: "Reviewer User",
         ownerUserId: "user_2",
         state: "pending",
-      },
-      reviewSummary: {
-        blockerNotes: ["Availability claim is still unsupported."],
-        flaggedClaims: 2,
-        state: "blocked",
-        totalClaims: 4,
       },
       releaseRecord: {
         id: "release_policy",
