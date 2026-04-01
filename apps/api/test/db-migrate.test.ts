@@ -217,3 +217,20 @@ test("0007 migration creates draft revision composite uniqueness before dependen
   assert.ok(uniqueConstraintIndex < publishPackConstraintIndex)
   assert.ok(uniqueConstraintIndex < workflowEventConstraintIndex)
 })
+
+test("0016 migration deduplicates review_statuses before merging claim_check and approval into review", () => {
+  const migrationSql = readFileSync(
+    new URL("../drizzle/0016_unified_review.sql", import.meta.url),
+    "utf8",
+  )
+
+  const dedupeIndex = migrationSql.indexOf('WITH ranked_review_statuses AS (')
+  const reviewStatusesAlterIndex = migrationSql.indexOf(
+    'ALTER TABLE "review_statuses"\nALTER COLUMN "stage" TYPE "public"."review_stage_v2"',
+  )
+
+  assert.notEqual(dedupeIndex, -1)
+  assert.notEqual(reviewStatusesAlterIndex, -1)
+  assert.ok(dedupeIndex < reviewStatusesAlterIndex)
+  assert.match(migrationSql, /ROW_NUMBER\(\) OVER \(\s*PARTITION BY "release_record_id"/)
+})

@@ -9,6 +9,34 @@ USING (
 	END::"public"."review_stage_v2"
 );
 --> statement-breakpoint
+WITH ranked_review_statuses AS (
+	SELECT
+		"id",
+		ROW_NUMBER() OVER (
+			PARTITION BY "release_record_id"
+			ORDER BY
+				CASE "state"
+					WHEN 'blocked' THEN 0
+					WHEN 'pending' THEN 1
+					ELSE 2
+				END ASC,
+				"updated_at" DESC,
+				CASE "stage"
+					WHEN 'approval' THEN 0
+					ELSE 1
+				END ASC,
+				"id" DESC
+		) AS "row_num"
+	FROM "review_statuses"
+	WHERE "stage" IN ('claim_check', 'approval')
+)
+DELETE FROM "review_statuses"
+WHERE "id" IN (
+	SELECT "id"
+	FROM ranked_review_statuses
+	WHERE "row_num" > 1
+);
+--> statement-breakpoint
 ALTER TABLE "review_statuses"
 ALTER COLUMN "stage" TYPE "public"."review_stage_v2"
 USING (
