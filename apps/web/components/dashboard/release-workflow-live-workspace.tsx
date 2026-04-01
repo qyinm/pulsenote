@@ -24,21 +24,20 @@ import type {
 } from "@/lib/api/client"
 import { createApiClient } from "@/lib/api/client"
 import {
-  type ReleaseWorkflowApprovalOwnershipFilter,
+  type ReleaseWorkflowReviewOwnershipFilter,
   type ReleaseWorkflowBoardColumn,
   buildReleaseWorkflowBoardColumns,
   buildReleaseWorkspaceHref,
   type ReleaseWorkflowMode,
   type ReleaseWorkflowQueueItem,
   type ReleaseWorkflowWorkspaceFocus,
-  buildReleaseWorkflowApprovalFilterCounts,
-  buildReleaseWorkflowApprovalNotes,
-  buildReleaseWorkflowClaimCheckNotes,
+  buildReleaseWorkflowReviewFilterCounts,
   buildReleaseWorkflowEvidenceNotes,
   buildReleaseWorkflowMetrics,
   buildReleaseWorkflowPublishPackArtifactNotes,
   buildReleaseWorkflowPublishPackNotes,
   buildReleaseWorkflowQueueItem,
+  buildReleaseWorkflowReviewNotes,
   detailToReleaseWorkflowListItem,
   filterReleaseWorkflowQueueByMode,
   getReleaseWorkflowActionLabel,
@@ -75,9 +74,9 @@ import {
 } from "@/lib/draft-templates"
 import { cn } from "@/lib/utils"
 
-const approvalOwnershipFilters: Array<{
+const reviewOwnershipFilters: Array<{
   label: string
-  value: ReleaseWorkflowApprovalOwnershipFilter
+  value: ReleaseWorkflowReviewOwnershipFilter
 }> = [
   { label: "All pending", value: "all" },
   { label: "Assigned to me", value: "assigned_to_me" },
@@ -117,8 +116,7 @@ const actionButtonLabels = {
   create_draft: "Create draft",
   create_publish_pack: "Create publish pack",
   reopen_draft: "Reopen draft",
-  request_approval: "Request approval",
-  run_claim_check: "Run claim check",
+  request_review: "Request review",
 } satisfies Record<WorkflowAllowedAction, string>
 
 function statusBadge(tone: "attention" | "blocked" | "ready", label: string) {
@@ -133,7 +131,7 @@ function statusBadge(tone: "attention" | "blocked" | "ready", label: string) {
   return <Badge variant="outline">{label}</Badge>
 }
 
-function approvalBadge(state: ReleaseWorkflowDetail["approvalSummary"]["state"]) {
+function reviewBadge(state: ReleaseWorkflowDetail["reviewSummary"]["state"]) {
   if (state === "approved") {
     return <Badge variant="outline">Signed off</Badge>
   }
@@ -159,18 +157,6 @@ function publishPackBadge(state: ReleaseWorkflowDetail["latestPublishPackSummary
   }
 
   return <Badge variant="destructive">Not ready</Badge>
-}
-
-function claimCheckBadge(state: ReleaseWorkflowDetail["claimCheckSummary"]["state"]) {
-  if (state === "cleared") {
-    return <Badge variant="outline">Clear</Badge>
-  }
-
-  if (state === "blocked") {
-    return <Badge variant="destructive">Blocked</Badge>
-  }
-
-  return <Badge variant="secondary">Not started</Badge>
 }
 
 function historyOutcomeBadge(outcome: ReleaseWorkflowHistoryEntry["outcome"]) {
@@ -210,7 +196,7 @@ function getDefaultReviewerUserId(
   members: WorkspaceMember[],
   selectedWorkflow: ReleaseWorkflowDetail | null,
 ) {
-  const currentOwnerUserId = selectedWorkflow?.approvalSummary.ownerUserId
+  const currentOwnerUserId = selectedWorkflow?.reviewSummary.ownerUserId
 
   if (currentOwnerUserId && members.some((member) => member.user.id === currentOwnerUserId)) {
     return currentOwnerUserId
@@ -359,20 +345,19 @@ function buildModeMetricCards(
   currentUserId: string,
 ) {
   const metrics = buildReleaseWorkflowMetrics(workflow)
-  const approvalFilterCounts = buildReleaseWorkflowApprovalFilterCounts(workflow, currentUserId)
-  const selectedClaimCount = selectedWorkflow?.claimCheckSummary.totalClaims ?? 0
-  const selectedFlaggedClaims = selectedWorkflow?.claimCheckSummary.flaggedClaims ?? 0
+  const reviewFilterCounts = buildReleaseWorkflowReviewFilterCounts(workflow, currentUserId)
+  const selectedReviewState = selectedWorkflow?.reviewSummary.state ?? "not_requested"
   const selectedEvidenceCount = selectedWorkflow?.evidenceBlocks.length ?? 0
 
-  if (mode === "claim_check") {
+  if (mode === "review") {
     return [
       {
         badge: "Queue",
-        description: "Blocked claim checks stay visible before they can move into approval.",
-        detail: `${selectedFlaggedClaims} flagged`,
+        description: "Blocked reviews stay visible before they can move into export.",
+        detail: `State: ${selectedReviewState}`,
         icon: ShieldAlertIcon,
-        title: "Current claim review",
-        value: String(selectedClaimCount),
+        title: "Current review",
+        value: selectedReviewState === "pending" ? "Pending" : selectedReviewState === "approved" ? "Approved" : "Not requested",
       },
       {
         description: "Workspace-wide blocked records are visible so risky wording never hides in another queue.",
@@ -389,16 +374,16 @@ function buildModeMetricCards(
         value: String(selectedEvidenceCount),
       },
       {
-        description: "Only clean drafts should move forward into approval.",
+        description: "Only clean drafts should move forward into review.",
         detail: "Ready for sign-off",
         icon: BadgeCheckIcon,
-        title: "Approval-ready records",
-        value: String(workflow.filter((item) => item.allowedActions.includes("request_approval")).length),
+        title: "Review-ready records",
+        value: String(workflow.filter((item) => item.allowedActions.includes("request_review")).length),
       },
     ]
   }
 
-  if (mode === "approval") {
+  if (mode === "publish_pack") {
     return [
       {
         badge: "Ownership",
@@ -406,33 +391,33 @@ function buildModeMetricCards(
         detail: "Current reviewer",
         icon: TimerResetIcon,
         title: "Assigned to you",
-        value: String(approvalFilterCounts.assigned_to_me),
+        value: String(reviewFilterCounts.assigned_to_me),
       },
       {
         description: "Requests you routed should stay visible until another reviewer closes the loop.",
         detail: "Requester queue",
         icon: FolderKanbanIcon,
         title: "Requested by you",
-        value: String(approvalFilterCounts.requested_by_me),
+        value: String(reviewFilterCounts.requested_by_me),
       },
       {
-        description: "Pending approvals without a reviewer are an explicit handoff gap, not background noise.",
+        description: "Pending reviews without a reviewer are an explicit handoff gap, not background noise.",
         detail: "Needs routing",
         icon: ShieldAlertIcon,
-        title: "Unassigned approvals",
-        value: String(approvalFilterCounts.unassigned),
+        title: "Unassigned reviews",
+        value: String(reviewFilterCounts.unassigned),
       },
       {
-        description: "The selected release keeps one explicit approval state at a time.",
+        description: "The selected release keeps one explicit review state at a time.",
         detail: "Selected release",
         icon: BadgeCheckIcon,
-        title: "Current approval state",
+        title: "Current review state",
         value:
-          selectedWorkflow?.approvalSummary.state === "approved"
+          selectedWorkflow?.reviewSummary.state === "approved"
             ? "Signed off"
-            : selectedWorkflow?.approvalSummary.state === "pending"
+            : selectedWorkflow?.reviewSummary.state === "pending"
               ? "Pending"
-              : selectedWorkflow?.approvalSummary.state === "reopened"
+              : selectedWorkflow?.reviewSummary.state === "reopened"
                 ? "Reopened"
                 : "Not requested",
       },
@@ -488,7 +473,7 @@ function buildModeMetricCards(
       value: String(metrics.recordsInQueue),
     },
     {
-      description: "Blocked claim checks stay visible before they can leak into approval or export.",
+      description: "Blocked claim checks stay visible before they can leak into review or export.",
       detail: "Needs wording or evidence",
       icon: ShieldAlertIcon,
       title: "Blocked records",
@@ -498,8 +483,8 @@ function buildModeMetricCards(
       description: "Approval is bound to an exact draft revision instead of a vague release state.",
       detail: "Human sign-off",
       icon: BadgeCheckIcon,
-      title: "Pending approvals",
-      value: String(metrics.pendingApprovalRecords),
+      title: "Pending reviews",
+      value: String(metrics.pendingReviewRecords),
     },
     {
       description: "Approved drafts can freeze into publish packs without recomputing from scratch.",
@@ -520,19 +505,11 @@ function buildModeFocus(detail: ReleaseWorkflowDetail | null, mode: ReleaseWorkf
     }
   }
 
-  if (mode === "claim_check") {
+  if (mode === "review") {
     return {
-      description: "Claim check stays explicit before any draft can move into approval.",
-      notes: buildReleaseWorkflowClaimCheckNotes(detail),
-      title: "Claim check notes",
-    }
-  }
-
-  if (mode === "approval") {
-    return {
-      description: "Approval stays revision-bound so the team always knows what wording was reviewed.",
-      notes: buildReleaseWorkflowApprovalNotes(detail),
-      title: "Approval notes",
+      description: "Review stays revision-bound so the team always knows what wording was reviewed.",
+      notes: buildReleaseWorkflowReviewNotes(detail),
+      title: "Review notes",
     }
   }
 
@@ -548,7 +525,7 @@ function buildModeFocus(detail: ReleaseWorkflowDetail | null, mode: ReleaseWorkf
     description: "Evidence, review state, and export readiness stay connected in one workflow view.",
     notes: [
       ...buildReleaseWorkflowEvidenceNotes(detail).slice(0, 3),
-      ...buildReleaseWorkflowClaimCheckNotes(detail).slice(0, 2),
+      ...buildReleaseWorkflowReviewNotes(detail).slice(0, 2),
     ],
     title: "Workflow evidence trail",
   }
@@ -603,7 +580,7 @@ function OverviewBoardCard({
         <span className="rounded-full bg-muted/70 px-2.5 py-1">
           {item.sourceLinkCount} sources
         </span>
-        {queuedWorkflowItem?.approvalSummary.state === "pending" && ownershipCue ? (
+        {queuedWorkflowItem?.reviewSummary.state === "pending" && ownershipCue ? (
           <span className="rounded-full bg-muted/70 px-2.5 py-1">
             {ownershipCue.label}
           </span>
@@ -696,10 +673,10 @@ export function ReleaseWorkflowLiveWorkspace({
   const [selectedId, setSelectedId] = useState(initialSelectedId)
   const [workflow, setWorkflow] = useState(initialWorkflow)
   const [workspaceView, setWorkspaceView] = useState<ReleaseWorkflowWorkspaceView>("board")
-  const [approvalOwnershipFilter, setApprovalOwnershipFilter] =
-    useState<ReleaseWorkflowApprovalOwnershipFilter>("all")
+  const [reviewOwnershipFilter, setReviewOwnershipFilter] =
+    useState<ReleaseWorkflowReviewOwnershipFilter>("all")
   const [actionError, setActionError] = useState<string | null>(null)
-  const [approvalReviewerUserId, setApprovalReviewerUserId] = useState("")
+  const [reviewReviewerUserId, setApprovalReviewerUserId] = useState("")
   const [draftFieldValues, setDraftFieldValues] = useState<Record<string, string>>(
     buildDraftFieldValues(buildDraftEditorFieldSnapshots(initialSelectedWorkflow.currentDraft)),
   )
@@ -712,7 +689,7 @@ export function ReleaseWorkflowLiveWorkspace({
     workflow,
     currentUserId,
     mode,
-    approvalOwnershipFilter,
+    reviewOwnershipFilter,
   )
   const queueSourceById = new Map(queueSource.map((item) => [item.releaseRecord.id, item]))
   const queueItems = queueSource.map(buildReleaseWorkflowQueueItem)
@@ -762,7 +739,7 @@ export function ReleaseWorkflowLiveWorkspace({
   const selectedWorkflow = getSelectedReleaseWorkflowDetail(detailById, activeSelectedId)
   const selectedHistory = activeSelectedId ? historyById[activeSelectedId] ?? [] : []
   const recentHistory = selectedHistory.slice(0, 5)
-  const approvalRequiresReviewer = initialPolicy.requireReviewerAssignment
+  const reviewRequiresReviewer = initialPolicy.requireReviewerAssignment
   const currentDraft = selectedWorkflow?.currentDraft ?? null
   const draftEditorFieldSnapshots = buildDraftEditorFieldSnapshots(currentDraft)
   const selectedDraftRevisionId = currentDraft?.id ?? null
@@ -783,14 +760,14 @@ export function ReleaseWorkflowLiveWorkspace({
   const allowedActions = selectedWorkflow?.allowedActions ?? []
   const hasDraftRevision = selectedDraftRevisionId !== null
   const canCreateDraft = allowedActions.includes("create_draft")
-  const canRunClaimCheck = hasDraftRevision && allowedActions.includes("run_claim_check")
+  const canRunClaimCheck = hasDraftRevision && allowedActions.includes("request_review")
   const canRequestApproval =
-    hasDraftRevision && allowedActions.includes("request_approval")
+    hasDraftRevision && allowedActions.includes("request_review")
   const canApproveDraft = hasDraftRevision && allowedActions.includes("approve_draft")
   const canCreatePublishPack = hasDraftRevision && allowedActions.includes("create_publish_pack")
   const canReopenDraft = hasDraftRevision && allowedActions.includes("reopen_draft")
   const otherActions = allowedActions.filter((action) => {
-    if (action === "request_approval") {
+    if (action === "request_review") {
       return false
     }
 
@@ -830,12 +807,12 @@ export function ReleaseWorkflowLiveWorkspace({
     }
   }
 
-  const detailFocusSection: "approval" | "draft" | "publish_pack" =
-    preferredFocusSection === "approval" || preferredFocusSection === "publish_pack"
+  const detailFocusSection: "review" | "draft" | "publish_pack" =
+    preferredFocusSection === "review" || preferredFocusSection === "publish_pack"
       ? preferredFocusSection
       : "draft"
 
-  function getDetailSectionCardClassName(section: "approval" | "draft" | "publish_pack") {
+  function getDetailSectionCardClassName(section: "review" | "draft" | "publish_pack") {
     return cn(
       "scroll-mt-24",
       detailFocusSection === section && "ring-2 ring-foreground/15 ring-offset-0",
@@ -882,19 +859,19 @@ export function ReleaseWorkflowLiveWorkspace({
         }
 
         switch (action) {
-          case "run_claim_check":
-            nextDetail = await apiClient.runReleaseWorkflowClaimCheck(workspaceId, activeSelectedId, {
+          case "request_review":
+            nextDetail = await apiClient.requestReleaseWorkflowReview(workspaceId, activeSelectedId, {
               expectedDraftRevisionId: selectedDraftRevisionId,
             })
             break
-          case "request_approval":
-            if (approvalRequiresReviewer && !approvalReviewerUserId) {
-              throw new Error("Select a reviewer before requesting approval.")
+          case "request_review":
+            if (reviewRequiresReviewer && !reviewReviewerUserId) {
+              throw new Error("Select a reviewer before requesting review.")
             }
 
-            nextDetail = await apiClient.requestReleaseWorkflowApproval(workspaceId, activeSelectedId, {
+            nextDetail = await apiClient.requestReleaseWorkflowReview(workspaceId, activeSelectedId, {
               expectedDraftRevisionId: selectedDraftRevisionId,
-              ...(approvalReviewerUserId ? { reviewerUserId: approvalReviewerUserId } : {}),
+              ...(reviewReviewerUserId ? { reviewerUserId: reviewReviewerUserId } : {}),
             })
             break
           case "approve_draft":
@@ -1034,7 +1011,7 @@ export function ReleaseWorkflowLiveWorkspace({
                 <div className="grid gap-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-foreground">{item.title}</span>
-                    {queuedWorkflowItem?.approvalSummary.state === "pending" && ownershipCue
+                    {queuedWorkflowItem?.reviewSummary.state === "pending" && ownershipCue
                       ? ownershipCueBadge(ownershipCue)
                       : null}
                   </div>
@@ -1047,10 +1024,10 @@ export function ReleaseWorkflowLiveWorkspace({
         })}
         selectedRowKey={activeSelectedId}
         onRowSelect={handleSelectQueueItem}
-        emptyTitle={mode === "approval" ? "No approvals in this view" : "No workflow records yet"}
+        emptyTitle={mode === "review" ? "No reviews in this view" : "No workflow records yet"}
         emptyDescription={
-          mode === "approval"
-            ? "Pending approvals will appear here once a release is routed into explicit reviewer handoff."
+          mode === "review"
+            ? "Pending reviews will appear here once a release is routed into explicit reviewer handoff."
             : "Once release context is ingested, workflow records will appear here."
         }
       />
@@ -1156,7 +1133,7 @@ export function ReleaseWorkflowLiveWorkspace({
           title={selectedQueueItem?.title ?? "Release workflow"}
           description={
             selectedQueueItem?.summary ??
-            "Open one release as an editable draft and move it through approval and publish."
+            "Open one release as an editable draft and move it through review and publish."
           }
           action={
             <Link
@@ -1173,7 +1150,7 @@ export function ReleaseWorkflowLiveWorkspace({
                 ? statusBadge(selectedQueueItem.readinessTone, selectedQueueItem.readinessLabel)
                 : null}
               {selectedQueueItem ? <Badge variant="outline">{selectedQueueItem.stageLabel}</Badge> : null}
-              {selectedQueueSourceItem?.approvalSummary.state === "pending" && selectedOwnershipCue
+              {selectedQueueSourceItem?.reviewSummary.state === "pending" && selectedOwnershipCue
                 ? ownershipCueBadge(selectedOwnershipCue)
                 : null}
               {selectedQueueItem ? <Badge variant="secondary">{selectedQueueItem.versionLabel}</Badge> : null}
@@ -1255,10 +1232,10 @@ export function ReleaseWorkflowLiveWorkspace({
                           variant="outline"
                           disabled={isRunningAction || hasPendingDraftEdits}
                           onClick={() => {
-                            void runWorkflowAction("run_claim_check")
+                            void runWorkflowAction("request_review")
                           }}
                         >
-                          {actionButtonLabels.run_claim_check}
+                          {actionButtonLabels.request_review}
                         </Button>
                       ) : null}
                       {canApproveDraft ? (
@@ -1353,17 +1330,17 @@ export function ReleaseWorkflowLiveWorkspace({
                     {canRequestApproval ? (
                       <div className="grid gap-3 rounded-2xl border border-border/70 bg-muted/15 p-4">
                         <div className="grid gap-2">
-                          <Label htmlFor="detail-approval-reviewer" className="text-sm font-medium">
-                            {approvalRequiresReviewer ? "Assign reviewer" : "Assign reviewer (optional)"}
+                          <Label htmlFor="detail-review-reviewer" className="text-sm font-medium">
+                            {reviewRequiresReviewer ? "Assign reviewer" : "Assign reviewer (optional)"}
                           </Label>
                           <Select
-                            value={approvalReviewerUserId}
+                            value={reviewReviewerUserId}
                             onValueChange={(value) => {
                               setApprovalReviewerUserId(value ?? "")
                             }}
                             disabled={members.length === 0 || membersUnavailable || isRunningAction}
                           >
-                            <SelectTrigger id="detail-approval-reviewer">
+                            <SelectTrigger id="detail-review-reviewer">
                               <SelectValue
                                 placeholder={
                                   membersUnavailable
@@ -1384,23 +1361,23 @@ export function ReleaseWorkflowLiveWorkspace({
                           </Select>
                           <p className="text-xs text-muted-foreground">
                             {membersUnavailable
-                              ? approvalRequiresReviewer
+                              ? reviewRequiresReviewer
                                 ? "Reload once the reviewer roster is available."
-                                : "Reviewer routing is optional here, so approval can still be requested without the roster."
+                                : "Reviewer routing is optional here, so review can still be requested without the roster."
                               : members.length === 0
-                                ? approvalRequiresReviewer
-                                  ? "Add a workspace member before routing approval."
-                                  : "Reviewer routing is optional in this workspace, so approval can proceed without assigning one."
-                                : approvalRequiresReviewer
+                                ? reviewRequiresReviewer
+                                  ? "Add a workspace member before routing review."
+                                  : "Reviewer routing is optional in this workspace, so review can proceed without assigning one."
+                                : reviewRequiresReviewer
                                   ? "Approval becomes a concrete handoff once a reviewer is assigned."
-                                  : "Assigning a reviewer keeps ownership explicit, but this workspace allows approval requests without one."}
+                                  : "Assigning a reviewer keeps ownership explicit, but this workspace allows review requests without one."}
                           </p>
-                          {approvalRequiresReviewer &&
-                          !approvalReviewerUserId &&
+                          {reviewRequiresReviewer &&
+                          !reviewReviewerUserId &&
                           !membersUnavailable &&
                           members.length > 0 ? (
                             <p className="text-xs text-destructive">
-                              Choose a reviewer before requesting approval.
+                              Choose a reviewer before requesting review.
                             </p>
                           ) : null}
                         </div>
@@ -1410,21 +1387,21 @@ export function ReleaseWorkflowLiveWorkspace({
                             disabled={
                               isRunningAction ||
                               hasPendingDraftEdits ||
-                              (approvalRequiresReviewer &&
-                                (!approvalReviewerUserId || membersUnavailable || members.length === 0))
+                              (reviewRequiresReviewer &&
+                                (!reviewReviewerUserId || membersUnavailable || members.length === 0))
                             }
                             onClick={() => {
-                              void runWorkflowAction("request_approval")
+                              void runWorkflowAction("request_review")
                             }}
                           >
-                            {actionButtonLabels.request_approval}
+                            {actionButtonLabels.request_review}
                           </Button>
                         </div>
                       </div>
                     ) : null}
                     {hasPendingDraftEdits ? (
                       <p className="text-sm text-muted-foreground">
-                        Save the draft before running claim check, approval, or publish actions so they use the current wording.
+                        Save the draft before running claim check, review, or publish actions so they use the current wording.
                       </p>
                     ) : null}
                     {draftSaveError ? (
@@ -1432,7 +1409,7 @@ export function ReleaseWorkflowLiveWorkspace({
                     ) : null}
                     {!isDraftEditable ? (
                       <p className="text-sm text-muted-foreground">
-                        Reopen the draft to edit these fields after claim check or approval begins.
+                        Reopen the draft to edit these fields after claim check or review begins.
                       </p>
                     ) : null}
                   </div>
@@ -1487,23 +1464,23 @@ export function ReleaseWorkflowLiveWorkspace({
               title="Release workspace"
               description="Each release stays grounded in one workflow state machine instead of separate operational tabs."
             >
-              {mode === "approval" ? (
+              {mode === "review" ? (
                 <div className="mb-4 grid gap-3">
                   <div className="grid gap-1">
                     <p className="text-sm font-medium text-foreground">Ownership filters</p>
                     <p className="text-sm text-muted-foreground">
-                      Keep the sign-off queue sorted by reviewer ownership before approval goes stale.
+                      Keep the sign-off queue sorted by reviewer ownership before review goes stale.
                     </p>
                   </div>
                   <Tabs
-                    value={approvalOwnershipFilter}
+                    value={reviewOwnershipFilter}
                     onValueChange={(value) =>
-                      setApprovalOwnershipFilter(value as ReleaseWorkflowApprovalOwnershipFilter)
+                      setReviewOwnershipFilter(value as ReleaseWorkflowReviewOwnershipFilter)
                     }
                     className="gap-3"
                   >
                     <TabsList variant="line" className="w-full justify-start">
-                      {approvalOwnershipFilters.map((filter) => (
+                      {reviewOwnershipFilters.map((filter) => (
                         <TabsTrigger key={filter.value} value={filter.value}>
                           {filter.label}
                         </TabsTrigger>
@@ -1549,23 +1526,23 @@ export function ReleaseWorkflowLiveWorkspace({
                   },
                   {
                     label: "Claim check",
-                    value: selectedQueueItem?.claimCheckLabel ?? "Unknown",
+                    value: selectedQueueItem?.reviewLabel ?? "Unknown",
                   },
                   {
                     label: "Approval",
-                    value: selectedQueueItem?.approvalLabel ?? "Unknown",
+                    value: selectedQueueItem?.reviewLabel ?? "Unknown",
                   },
                   {
                     label: "Assigned reviewer",
                     value:
-                      selectedWorkflow?.approvalSummary.ownerName ??
-                      (selectedWorkflow?.approvalSummary.ownerUserId ? "Unknown reviewer" : "Not assigned"),
+                      selectedWorkflow?.reviewSummary.ownerName ??
+                      (selectedWorkflow?.reviewSummary.ownerUserId ? "Unknown reviewer" : "Not assigned"),
                   },
                   {
                     label: "Requested by",
                     value:
-                      selectedWorkflow?.approvalSummary.requestedByName ??
-                      (selectedWorkflow?.approvalSummary.requestedByUserId ? "Unknown requester" : "Not requested"),
+                      selectedWorkflow?.reviewSummary.requestedByName ??
+                      (selectedWorkflow?.reviewSummary.requestedByUserId ? "Unknown requester" : "Not requested"),
                   },
                   {
                     label: "Ownership cue",
@@ -1579,22 +1556,22 @@ export function ReleaseWorkflowLiveWorkspace({
               />
             </SurfaceCard>
 
-            {mode === "approval" && selectedOwnershipCue ? (
+            {mode === "review" && selectedOwnershipCue ? (
               <SurfaceCard
                 title="Ownership cue"
-                description="Reviewer handoff stays visible so pending approvals do not turn into silent queue drift."
+                description="Reviewer handoff stays visible so pending reviews do not turn into silent queue drift."
               >
                 <div className="grid gap-3">
                   <div className="flex flex-wrap items-center gap-2">
                     {ownershipCueBadge(selectedOwnershipCue)}
-                    {selectedWorkflow?.approvalSummary.ownerName ? (
+                    {selectedWorkflow?.reviewSummary.ownerName ? (
                       <Badge variant="secondary">
-                        Reviewer · {selectedWorkflow.approvalSummary.ownerName}
+                        Reviewer · {selectedWorkflow.reviewSummary.ownerName}
                       </Badge>
                     ) : null}
-                    {selectedWorkflow?.approvalSummary.requestedByName ? (
+                    {selectedWorkflow?.reviewSummary.requestedByName ? (
                       <Badge variant="secondary">
-                        Requested by · {selectedWorkflow.approvalSummary.requestedByName}
+                        Requested by · {selectedWorkflow.reviewSummary.requestedByName}
                       </Badge>
                     ) : null}
                   </div>
@@ -1613,17 +1590,17 @@ export function ReleaseWorkflowLiveWorkspace({
               <div className="grid gap-3">
                 {canRequestApproval ? (
                   <div className="grid gap-2 rounded-xl border border-border/70 bg-muted/20 p-3">
-                    <Label htmlFor="approval-reviewer" className="text-sm font-medium">
-                      {approvalRequiresReviewer ? "Assign reviewer" : "Assign reviewer (optional)"}
+                    <Label htmlFor="review-reviewer" className="text-sm font-medium">
+                      {reviewRequiresReviewer ? "Assign reviewer" : "Assign reviewer (optional)"}
                     </Label>
                     <Select
-                      value={approvalReviewerUserId}
+                      value={reviewReviewerUserId}
                       onValueChange={(value) => {
                         setApprovalReviewerUserId(value ?? "")
                       }}
                       disabled={members.length === 0 || membersUnavailable}
                     >
-                      <SelectTrigger id="approval-reviewer">
+                      <SelectTrigger id="review-reviewer">
                         <SelectValue
                           placeholder={
                             membersUnavailable
@@ -1645,29 +1622,29 @@ export function ReleaseWorkflowLiveWorkspace({
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-xs text-muted-foreground">
                         {membersUnavailable
-                          ? approvalRequiresReviewer
+                          ? reviewRequiresReviewer
                             ? "Reload the release workflow once the reviewer roster is available."
-                            : "Reviewer routing is optional here, so approval can still be requested without loading the roster."
+                            : "Reviewer routing is optional here, so review can still be requested without loading the roster."
                           : members.length === 0
-                            ? approvalRequiresReviewer
-                              ? "Add a workspace member before routing approval."
-                              : "Reviewer routing is optional in this workspace, so approval can proceed without assigning one."
-                            : approvalRequiresReviewer
+                            ? reviewRequiresReviewer
+                              ? "Add a workspace member before routing review."
+                              : "Reviewer routing is optional in this workspace, so review can proceed without assigning one."
+                            : reviewRequiresReviewer
                               ? "Approval becomes a concrete handoff once a reviewer is assigned."
-                              : "Assigning a reviewer keeps ownership explicit, but this workspace allows approval requests without one."}
+                              : "Assigning a reviewer keeps ownership explicit, but this workspace allows review requests without one."}
                       </p>
                       <Button
                         size="sm"
                         disabled={
                           isRunningAction ||
-                          (approvalRequiresReviewer &&
-                            (!approvalReviewerUserId || membersUnavailable || members.length === 0))
+                          (reviewRequiresReviewer &&
+                            (!reviewReviewerUserId || membersUnavailable || members.length === 0))
                         }
                         onClick={() => {
-                          void runWorkflowAction("request_approval")
+                          void runWorkflowAction("request_review")
                         }}
                       >
-                        {actionButtonLabels.request_approval}
+                        {actionButtonLabels.request_review}
                       </Button>
                     </div>
                   </div>
@@ -1701,13 +1678,12 @@ export function ReleaseWorkflowLiveWorkspace({
 
             <SurfaceCard
               title="Current release signals"
-              description="Evidence, approval, and export state stay visible while the selected record changes."
+              description="Evidence, review, and export state stay visible while the selected record changes."
             >
               {selectedWorkflow ? (
                 <div className="grid gap-4">
                   <div className="flex flex-wrap gap-2">
-                    {claimCheckBadge(selectedWorkflow.claimCheckSummary.state)}
-                    {approvalBadge(selectedWorkflow.approvalSummary.state)}
+                    {reviewBadge(selectedWorkflow.reviewSummary.state)}
                     {publishPackBadge(selectedWorkflow.latestPublishPackSummary.state)}
                   </div>
                   <BulletList items={buildReleaseWorkflowEvidenceNotes(selectedWorkflow).slice(0, 4)} />

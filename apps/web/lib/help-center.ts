@@ -49,32 +49,31 @@ export type LiveHelpData = {
 
 type HelpCenterStats = {
   activeIntegrations: number
-  blockedClaimChecks: number
+  blockedReviews: number
   exportedPacks: number
   inboxSignals: number
-  pendingApprovals: number
+  pendingReviews: number
   readyToExport: number
   releasesMissingEvidence: number
-  unassignedApprovals: number
-  unstartedClaimChecks: number
+  unassignedReviews: number
 }
 
 function buildHelpModules(
   workflowCount: number,
   stats: HelpCenterStats,
 ): LiveHelpModule[] {
-  const claimCheckStatus =
-    stats.blockedClaimChecks > 0
-      ? `${stats.blockedClaimChecks} blocked`
-      : stats.unstartedClaimChecks > 0
-        ? `${stats.unstartedClaimChecks} not started`
+  const reviewStatus =
+    stats.blockedReviews > 0
+      ? `${stats.blockedReviews} blocked`
+      : stats.pendingReviews > 0
+        ? `${stats.pendingReviews} pending`
         : "Clear now"
-  const claimCheckDescription =
-    stats.blockedClaimChecks > 0
-      ? "Blocked claim checks are visible here so risky wording is corrected while evidence is still in view."
-      : stats.unstartedClaimChecks > 0
-        ? "Claim check has not run on every live release yet, so wording should not skip ahead as if the safety step were already clear."
-        : "Claim check is the first place to confirm wording stays within the captured release evidence."
+  const reviewDescription =
+    stats.blockedReviews > 0
+      ? "Blocked reviews are visible here so risky wording is corrected while evidence is still in view."
+      : stats.pendingReviews > 0
+        ? "Review is active and should stay explicit until the reviewer records a decision."
+        : "Review is the first place to confirm wording stays within the captured release evidence."
 
   return [
     {
@@ -95,32 +94,13 @@ function buildHelpModules(
       title: "Create release scope",
     },
     {
-      description: claimCheckDescription,
+      description: reviewDescription,
       href: buildReleaseWorkspaceHref({
-        focus: "claim_check",
+        focus: "review",
       }),
-      id: "claim-check",
-      status: claimCheckStatus,
-      title: "Run claim check",
-    },
-    {
-      description:
-        stats.unassignedApprovals > 0
-          ? "Some approval requests still lack an owner, so review responsibility can drift unless it is assigned."
-          : stats.pendingApprovals > 0
-            ? "Approval handoff is active and should stay explicit until the reviewer records a decision."
-            : "Approval guidance stays here when the queue needs a named reviewer and a visible decision trail.",
-      href: buildReleaseWorkspaceHref({
-        focus: "approval",
-      }),
-      id: "approval",
-      status:
-        stats.unassignedApprovals > 0
-          ? `${stats.unassignedApprovals} unassigned`
-          : stats.pendingApprovals > 0
-            ? `${stats.pendingApprovals} pending`
-            : "Stable",
-      title: "Collect approval",
+      id: "review",
+      status: reviewStatus,
+      title: "Run review",
     },
     {
       description:
@@ -128,7 +108,7 @@ function buildHelpModules(
           ? "Approved drafts can freeze into publish packs without recomputing from a moving target."
           : stats.exportedPacks > 0
             ? "Frozen publish packs stay visible so downstream handoff does not drift away from the approved draft."
-            : "Publish-pack export should happen only after evidence, wording, and approval all agree.",
+            : "Publish-pack export should happen only after evidence, wording, and review all agree.",
       href: buildReleaseWorkspaceHref({
         focus: "publish_pack",
       }),
@@ -163,34 +143,34 @@ function buildHelpIssues(
   if (workflowCount === 0) {
     issues.push({
       description:
-        "The workflow is empty right now. Ingest a release record before expecting draft, approval, or export guidance.",
+        "The workflow is empty right now. Ingest a release record before expecting draft, review, or export guidance.",
       id: "no-release-records",
       severity: "default",
       title: "No release records are in scope",
     })
   }
 
-  if (stats.blockedClaimChecks > 0) {
+  if (stats.blockedReviews > 0) {
     issues.push({
       description:
-        stats.blockedClaimChecks === 1
-          ? "One release is still blocked in claim check, so public wording should not move into approval yet."
-          : `${stats.blockedClaimChecks} releases are still blocked in claim check, so approval and export should stay paused on those records.`,
-      id: "blocked-claim-checks",
+        stats.blockedReviews === 1
+          ? "One release is still blocked in review, so public wording should not move forward yet."
+          : `${stats.blockedReviews} releases are still blocked in review, so export should stay paused on those records.`,
+      id: "blocked-reviews",
       severity: "destructive",
-      title: "Blocked claim checks are still active",
+      title: "Blocked reviews are still active",
     })
   }
 
-  if (stats.unassignedApprovals > 0) {
+  if (stats.unassignedReviews > 0) {
     issues.push({
       description:
-        stats.unassignedApprovals === 1
-          ? "One approval request still has no assigned reviewer."
-          : `${stats.unassignedApprovals} approval requests still have no assigned reviewer.`,
-      id: "unassigned-approvals",
+        stats.unassignedReviews === 1
+          ? "One review request still has no assigned reviewer."
+          : `${stats.unassignedReviews} review requests still have no assigned reviewer.`,
+      id: "unassigned-reviews",
       severity: "destructive",
-      title: "Approval handoff is missing an owner",
+      title: "Review handoff is missing an owner",
     })
   }
 
@@ -228,30 +208,24 @@ function buildHelpChecklist(
   const checklist: string[] = []
 
   if (stats.activeIntegrations === 0) {
-    checklist.push("Connect GitHub before expecting release context, claim check, approval, or export guidance.")
+    checklist.push("Connect GitHub before expecting release context, review, or export guidance.")
   } else if (workflowCount === 0) {
     checklist.push("Ingest the first release record so the workspace has a real workflow to guide.")
   }
 
-  if (stats.blockedClaimChecks > 0) {
+  if (stats.blockedReviews > 0) {
     checklist.push(
-      stats.blockedClaimChecks === 1
-        ? "Resolve the blocked claim check before the draft moves into approval."
-        : `Resolve ${stats.blockedClaimChecks} blocked claim checks before those drafts move into approval.`,
-    )
-  } else if (stats.unstartedClaimChecks > 0) {
-    checklist.push(
-      stats.unstartedClaimChecks === 1
-        ? "Run claim check on the release that has not started its safety review yet."
-        : `Run claim check on the ${stats.unstartedClaimChecks} releases that have not started safety review yet.`,
+      stats.blockedReviews === 1
+        ? "Resolve the blocked review before the draft moves forward."
+        : `Resolve ${stats.blockedReviews} blocked reviews before those drafts move forward.`,
     )
   }
 
-  if (stats.unassignedApprovals > 0) {
+  if (stats.unassignedReviews > 0) {
     checklist.push(
-      stats.unassignedApprovals === 1
-        ? "Assign the pending approval request to a reviewer so the handoff stays attributable."
-        : `Assign all ${stats.unassignedApprovals} unowned approval requests so review responsibility stays visible.`,
+      stats.unassignedReviews === 1
+        ? "Assign the pending review request to a reviewer so the handoff stays attributable."
+        : `Assign all ${stats.unassignedReviews} unowned review requests so review responsibility stays visible.`,
     )
   }
 
@@ -269,7 +243,7 @@ function buildHelpChecklist(
 
   return [
     "Start with evidence and source freshness before drafting anything customer-facing.",
-    "Keep approval notes explicit so the final publish pack stays attributable and reviewable.",
+    "Keep review notes explicit so the final publish pack stays attributable and reviewable.",
     "Use the review log when you need to understand what changed before the next handoff step.",
   ]
 }
@@ -288,27 +262,24 @@ export function buildLiveHelpData(
     activeIntegrations: workspace.integrations.filter(
       (integration) => integration.status === "active",
     ).length,
-    blockedClaimChecks: workflow.filter(
-      (item) => item.claimCheckSummary.state === "blocked",
+    blockedReviews: workflow.filter(
+      (item) => item.readiness === "blocked",
     ).length,
     exportedPacks: workflow.filter(
       (item) => item.latestPublishPackSummary.state === "exported",
     ).length,
     inboxSignals: buildReviewInboxItems(workflow, history, currentUserId, policy).length,
-    pendingApprovals: workflow.filter(
-      (item) => item.approvalSummary.state === "pending",
+    pendingReviews: workflow.filter(
+      (item) => item.reviewSummary.state === "pending",
     ).length,
     readyToExport: workflow.filter(
       (item) => item.latestPublishPackSummary.state === "ready",
     ).length,
     releasesMissingEvidence: workflow.filter((item) => item.evidenceCount === 0).length,
-    unassignedApprovals: workflow.filter(
+    unassignedReviews: workflow.filter(
       (item) =>
-        item.approvalSummary.state === "pending" &&
-        item.approvalSummary.ownerUserId === null,
-    ).length,
-    unstartedClaimChecks: workflow.filter(
-      (item) => item.claimCheckSummary.state === "not_started",
+        item.reviewSummary.state === "pending" &&
+        item.reviewSummary.ownerUserId === null,
     ).length,
   } satisfies HelpCenterStats
   const workflowCount = workflow.length

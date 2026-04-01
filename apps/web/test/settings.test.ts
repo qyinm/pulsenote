@@ -12,8 +12,8 @@ import {
   getServerSettingsData,
 } from "../lib/dashboard/settings.js"
 
-type WorkflowApprovalSummary = ReleaseWorkflowListItem["approvalSummary"]
-type WorkflowClaimCheckSummary = ReleaseWorkflowListItem["claimCheckSummary"]
+type WorkflowApprovalSummary = ReleaseWorkflowListItem["reviewSummary"]
+type WorkflowClaimCheckSummary = ReleaseWorkflowListItem["reviewSummary"]
 type WorkflowPublishPackSummary = ReleaseWorkflowListItem["latestPublishPackSummary"]
 type WorkflowReleaseRecord = ReleaseWorkflowListItem["releaseRecord"]
 
@@ -73,61 +73,61 @@ function createWorkspaceSnapshot(): WorkspaceSnapshot {
 function createWorkflowItem(
   overrides: Omit<
     Partial<ReleaseWorkflowListItem>,
-    "approvalSummary" | "claimCheckSummary" | "latestPublishPackSummary" | "releaseRecord"
+    "reviewSummary" | "reviewSummary" | "latestPublishPackSummary" | "releaseRecord"
   > & {
-    approvalSummary?: Partial<WorkflowApprovalSummary>
-    claimCheckSummary?: Partial<WorkflowClaimCheckSummary>
+    reviewSummary?: Partial<WorkflowApprovalSummary>
+    reviewSummary?: Partial<WorkflowClaimCheckSummary>
     latestPublishPackSummary?: Partial<WorkflowPublishPackSummary>
     releaseRecord?: Partial<WorkflowReleaseRecord>
   } = {},
 ): ReleaseWorkflowListItem {
   const {
-    approvalSummary = {} as Partial<WorkflowApprovalSummary>,
-    claimCheckSummary = {} as Partial<WorkflowClaimCheckSummary>,
+    reviewSummary = {} as Partial<WorkflowApprovalSummary>,
+    reviewSummary = {} as Partial<WorkflowClaimCheckSummary>,
     latestPublishPackSummary = {} as Partial<WorkflowPublishPackSummary>,
     releaseRecord = {} as Partial<WorkflowReleaseRecord>,
     ...itemOverrides
   } = overrides
 
   return {
-    allowedActions: itemOverrides.allowedActions ?? ["request_approval"],
-    approvalSummary: {
+    allowedActions: itemOverrides.allowedActions ?? ["request_review"],
+    reviewSummary: {
       draftRevisionId:
-        approvalSummary.draftRevisionId === undefined
+        reviewSummary.draftRevisionId === undefined
           ? "draft_1"
-          : approvalSummary.draftRevisionId,
-      note: approvalSummary.note === undefined ? null : approvalSummary.note,
+          : reviewSummary.draftRevisionId,
+      note: reviewSummary.note === undefined ? null : reviewSummary.note,
       ownerName:
-        approvalSummary.ownerName === undefined
+        reviewSummary.ownerName === undefined
           ? "Mina Park"
-          : approvalSummary.ownerName,
+          : reviewSummary.ownerName,
       ownerUserId:
-        approvalSummary.ownerUserId === undefined
+        reviewSummary.ownerUserId === undefined
           ? "user_1"
-          : approvalSummary.ownerUserId,
+          : reviewSummary.ownerUserId,
       requestedByName:
-        approvalSummary.requestedByName === undefined
+        reviewSummary.requestedByName === undefined
           ? "Grace Lee"
-          : approvalSummary.requestedByName,
+          : reviewSummary.requestedByName,
       requestedByUserId:
-        approvalSummary.requestedByUserId === undefined
+        reviewSummary.requestedByUserId === undefined
           ? "user_2"
-          : approvalSummary.requestedByUserId,
-      state: approvalSummary.state ?? "pending",
+          : reviewSummary.requestedByUserId,
+      state: reviewSummary.state ?? "pending",
       updatedAt:
-        approvalSummary.updatedAt === undefined
+        reviewSummary.updatedAt === undefined
           ? "2026-03-20T01:00:00.000Z"
-          : approvalSummary.updatedAt,
+          : reviewSummary.updatedAt,
     },
-    claimCheckSummary: {
-      blockerNotes: claimCheckSummary.blockerNotes ?? ["Scope still needs support."],
+    reviewSummary: {
+      blockerNotes: reviewSummary.blockerNotes ?? ["Scope still needs support."],
       draftRevisionId:
-        claimCheckSummary.draftRevisionId === undefined
+        reviewSummary.draftRevisionId === undefined
           ? "draft_1"
-          : claimCheckSummary.draftRevisionId,
-      flaggedClaims: claimCheckSummary.flaggedClaims ?? 1,
-      state: claimCheckSummary.state ?? "blocked",
-      totalClaims: claimCheckSummary.totalClaims ?? 2,
+          : reviewSummary.draftRevisionId,
+      flaggedClaims: reviewSummary.flaggedClaims ?? 1,
+      state: reviewSummary.state ?? "blocked",
+      totalClaims: reviewSummary.totalClaims ?? 2,
     },
     currentDraft: itemOverrides.currentDraft ?? {
       createdAt: "2026-03-20T00:00:00.000Z",
@@ -167,7 +167,7 @@ function createWorkflowItem(
       compareRange: releaseRecord.compareRange ?? "main...feature/settings",
       createdAt: releaseRecord.createdAt ?? "2026-03-20T00:00:00.000Z",
       id: releaseRecord.id ?? "release_1",
-      stage: releaseRecord.stage ?? "approval",
+      stage: releaseRecord.stage ?? "review",
       summary: releaseRecord.summary ?? "Retry rollout wording still needs support.",
       title: releaseRecord.title ?? "SDK rollout v2.4",
       updatedAt: releaseRecord.updatedAt ?? "2026-03-20T01:00:00.000Z",
@@ -207,7 +207,7 @@ function createWorkspacePolicySettings(
     createdAt: overrides.createdAt ?? "2026-03-20T00:00:00.000Z",
     includeEvidenceLinksInExport: overrides.includeEvidenceLinksInExport ?? true,
     includeSourceLinksInExport: overrides.includeSourceLinksInExport ?? true,
-    requireClaimCheckBeforeApproval: overrides.requireClaimCheckBeforeApproval ?? true,
+    requireReviewerAssignment: overrides.requireReviewerAssignment ?? true,
     requireReviewerAssignment: overrides.requireReviewerAssignment ?? true,
     showBlockedClaimsInInbox: overrides.showBlockedClaimsInInbox ?? true,
     showPendingApprovalsInInbox: overrides.showPendingApprovalsInInbox ?? true,
@@ -226,11 +226,11 @@ test("buildLiveSettingsData summarizes live workspace settings coverage", () => 
       },
     }),
     createWorkflowItem({
-      approvalSummary: {
+      reviewSummary: {
         ownerName: null,
         ownerUserId: null,
       },
-      claimCheckSummary: {
+      reviewSummary: {
         blockerNotes: [],
         flaggedClaims: 0,
         state: "cleared",
@@ -246,7 +246,7 @@ test("buildLiveSettingsData summarizes live workspace settings coverage", () => 
       readiness: "attention",
       releaseRecord: {
         id: "release_2",
-        stage: "approval",
+        stage: "review",
         title: "Billing migration notes",
         updatedAt: "2026-03-20T01:30:00.000Z",
       },
@@ -263,7 +263,7 @@ test("buildLiveSettingsData summarizes live workspace settings coverage", () => 
       publishPackExportId: null,
       releaseRecordId: "release_2",
       releaseTitle: "Billing migration notes",
-      stage: "approval",
+      stage: "review",
     }),
   ]
   const policy = createWorkspacePolicySettings({
@@ -288,7 +288,7 @@ test("buildLiveSettingsData summarizes live workspace settings coverage", () => 
   )
   assert.ok(
     data.notifications.items.some(
-      (item) => item.label === "Pending approvals in inbox" && item.value === "Disabled",
+      (item) => item.label === "Pending reviews in inbox" && item.value === "Disabled",
     ),
   )
   assert.ok(

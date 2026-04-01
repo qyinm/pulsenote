@@ -11,8 +11,7 @@ import {
   getServerLiveExportFramesData,
 } from "../lib/export-frames.js"
 
-type WorkflowApprovalSummary = ReleaseWorkflowListItem["approvalSummary"]
-type WorkflowClaimCheckSummary = ReleaseWorkflowListItem["claimCheckSummary"]
+type WorkflowReviewSummary = ReleaseWorkflowListItem["reviewSummary"]
 type WorkflowCurrentDraft = NonNullable<ReleaseWorkflowListItem["currentDraft"]>
 type WorkflowPublishPackSummary = ReleaseWorkflowListItem["latestPublishPackSummary"]
 type WorkflowReleaseRecord = ReleaseWorkflowListItem["releaseRecord"]
@@ -20,22 +19,19 @@ type WorkflowReleaseRecord = ReleaseWorkflowListItem["releaseRecord"]
 function createWorkflowItem(
   overrides: Omit<
     Partial<ReleaseWorkflowListItem>,
-    | "approvalSummary"
-    | "claimCheckSummary"
+    | "reviewSummary"
     | "currentDraft"
     | "latestPublishPackSummary"
     | "releaseRecord"
   > & {
-    approvalSummary?: Partial<WorkflowApprovalSummary>
-    claimCheckSummary?: Partial<WorkflowClaimCheckSummary>
+    reviewSummary?: Partial<WorkflowReviewSummary>
     currentDraft?: Partial<WorkflowCurrentDraft> | null
     latestPublishPackSummary?: Partial<WorkflowPublishPackSummary>
     releaseRecord?: Partial<WorkflowReleaseRecord>
   } = {},
 ): ReleaseWorkflowListItem {
   const {
-    approvalSummary = {} as Partial<WorkflowApprovalSummary>,
-    claimCheckSummary = {} as Partial<WorkflowClaimCheckSummary>,
+    reviewSummary = {} as Partial<WorkflowReviewSummary>,
     currentDraft = {},
     latestPublishPackSummary = {} as Partial<WorkflowPublishPackSummary>,
     releaseRecord = {} as Partial<WorkflowReleaseRecord>,
@@ -43,41 +39,34 @@ function createWorkflowItem(
   } = overrides
 
   return {
-    allowedActions: itemOverrides.allowedActions ?? ["request_approval"],
-    approvalSummary: {
+    allowedActions: itemOverrides.allowedActions ?? ["request_review"],
+    reviewSummary: {
       draftRevisionId:
-        approvalSummary.draftRevisionId === undefined
+        reviewSummary.draftRevisionId === undefined
           ? "draft_1"
-          : approvalSummary.draftRevisionId,
-      note: approvalSummary.note === undefined ? null : approvalSummary.note,
+          : reviewSummary.draftRevisionId,
+      note: reviewSummary.note === undefined ? null : reviewSummary.note,
       ownerName:
-        approvalSummary.ownerName === undefined
+        reviewSummary.ownerName === undefined
           ? "Mina Park"
-          : approvalSummary.ownerName,
+          : reviewSummary.ownerName,
       ownerUserId:
-        approvalSummary.ownerUserId === undefined
+        reviewSummary.ownerUserId === undefined
           ? "user_1"
-          : approvalSummary.ownerUserId,
+          : reviewSummary.ownerUserId,
       requestedByName:
-        approvalSummary.requestedByName === undefined
+        reviewSummary.requestedByName === undefined
           ? "Grace Lee"
-          : approvalSummary.requestedByName,
+          : reviewSummary.requestedByName,
       requestedByUserId:
-        approvalSummary.requestedByUserId === undefined
+        reviewSummary.requestedByUserId === undefined
           ? "user_2"
-          : approvalSummary.requestedByUserId,
-      state: approvalSummary.state ?? "approved",
+          : reviewSummary.requestedByUserId,
+      state: reviewSummary.state ?? "approved",
       updatedAt:
-        approvalSummary.updatedAt === undefined
+        reviewSummary.updatedAt === undefined
           ? "2026-03-20T01:00:00.000Z"
-          : approvalSummary.updatedAt,
-    },
-    claimCheckSummary: {
-      blockerNotes: claimCheckSummary.blockerNotes ?? [],
-      draftRevisionId: claimCheckSummary.draftRevisionId ?? "draft_1",
-      flaggedClaims: claimCheckSummary.flaggedClaims ?? 0,
-      state: claimCheckSummary.state ?? "cleared",
-      totalClaims: claimCheckSummary.totalClaims ?? 0,
+          : reviewSummary.updatedAt,
     },
     currentDraft:
       currentDraft === null
@@ -145,7 +134,6 @@ function createWorkspacePolicySettings(
     createdAt: overrides.createdAt ?? "2026-03-20T00:00:00.000Z",
     includeEvidenceLinksInExport: overrides.includeEvidenceLinksInExport ?? true,
     includeSourceLinksInExport: overrides.includeSourceLinksInExport ?? true,
-    requireClaimCheckBeforeApproval: overrides.requireClaimCheckBeforeApproval ?? true,
     requireReviewerAssignment: overrides.requireReviewerAssignment ?? true,
     showBlockedClaimsInInbox: overrides.showBlockedClaimsInInbox ?? true,
     showPendingApprovalsInInbox: overrides.showPendingApprovalsInInbox ?? true,
@@ -171,16 +159,12 @@ test("buildLiveExportFramesData reflects live export readiness instead of templa
         },
       }),
       createWorkflowItem({
-        approvalSummary: {
+        reviewSummary: {
           ownerName: null,
           ownerUserId: null,
           requestedByName: "Grace Lee",
           requestedByUserId: "user_2",
           state: "pending",
-        },
-        claimCheckSummary: {
-          blockerNotes: ["Attach rollout evidence before export."],
-          state: "blocked",
         },
         latestPublishPackSummary: {
           draftRevisionId: null,
@@ -191,7 +175,7 @@ test("buildLiveExportFramesData reflects live export readiness instead of templa
         readiness: "blocked",
         releaseRecord: {
           id: "release_2",
-          stage: "approval",
+          stage: "review",
           summary: "Still blocked before export.",
           title: "Billing migration notes",
           updatedAt: "2026-03-20T03:00:00.000Z",
@@ -206,15 +190,15 @@ test("buildLiveExportFramesData reflects live export readiness instead of templa
       }),
       createHistoryEntry({
         createdAt: "2026-03-20T03:10:00.000Z",
-        eventLabel: "Approval requested",
-        eventType: "approval_requested",
+        eventLabel: "Review requested",
+        eventType: "review_requested",
         id: "history_2",
         note: "Route this to support review.",
         outcome: "progressed",
         publishPackExportId: null,
         releaseRecordId: "release_2",
         releaseTitle: "Billing migration notes",
-        stage: "approval",
+        stage: "review",
       }),
     ],
     createWorkspacePolicySettings(),
@@ -226,7 +210,6 @@ test("buildLiveExportFramesData reflects live export readiness instead of templa
   assert.equal(data.metrics.needsReviewFrames, 1)
   assert.equal(data.priorityFrame?.title, "Billing migration notes")
   assert.equal(data.priorityFrame?.state, "Needs review")
-  assert.match(data.priorityFrame?.guardrails.join(" ") ?? "", /Attach rollout evidence/)
   assert.match(data.priorityFrame?.guardrails.join(" ") ?? "", /Assign a reviewer/)
   assert.match(data.entries[1]?.recentActivity[0] ?? "", /Publish pack created/)
 })

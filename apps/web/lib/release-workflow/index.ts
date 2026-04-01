@@ -36,24 +36,22 @@ export type ReleaseWorkflowApprovalOwnershipFilter =
   | "requested_by_me"
   | "unassigned"
 
-export type ReleaseWorkflowMode = "approval" | "claim_check" | "overview" | "publish_pack"
+export type ReleaseWorkflowReviewOwnershipFilter = ReleaseWorkflowApprovalOwnershipFilter
+
+export type ReleaseWorkflowMode = "overview" | "publish_pack" | "review"
 export type ReleaseWorkflowWorkspaceFocus =
-  | "approval"
-  | "claim_check"
   | "draft"
   | "publish_pack"
+  | "review"
   | "scope"
 export type ReleaseWorkflowBoardStage =
-  | "approval"
-  | "claim_check"
   | "exported"
   | "intake"
   | "publish_pack"
+  | "review"
 
 export type ReleaseWorkflowQueueItem = {
   allowedActions: WorkflowAllowedAction[]
-  approvalLabel: string
-  claimCheckLabel: string
   evidenceCount: number
   id: string
   nextAction: string
@@ -64,6 +62,7 @@ export type ReleaseWorkflowQueueItem = {
   requestedByUserId: string | null
   readinessLabel: string
   readinessTone: ReleaseWorkflowListItem["readiness"]
+  reviewLabel: string
   sourceLinkCount: number
   stageLabel: string
   summary: string
@@ -73,7 +72,7 @@ export type ReleaseWorkflowQueueItem = {
 
 export type ReleaseWorkflowMetrics = {
   blockedRecords: number
-  pendingApprovalRecords: number
+  pendingReviewRecords: number
   readyToExportRecords: number
   recordsInQueue: number
 }
@@ -96,11 +95,10 @@ export type ReleaseWorkflowOwnershipCue = {
 }
 
 const workflowStageLabels = {
-  approval: "Approval",
-  claim_check: "Claim check",
   draft: "Draft",
   intake: "Intake",
   publish_pack: "Publish pack",
+  review: "Review",
 } satisfies Record<ReleaseWorkflowListItem["releaseRecord"]["stage"], string>
 
 const workflowReadinessLabels = {
@@ -109,18 +107,12 @@ const workflowReadinessLabels = {
   ready: "Ready",
 } satisfies Record<ReleaseWorkflowListItem["readiness"], string>
 
-const workflowClaimCheckLabels = {
-  blocked: "Blocked",
-  cleared: "Clear",
-  not_started: "Not started",
-} satisfies Record<ReleaseWorkflowDetail["claimCheckSummary"]["state"], string>
-
-const workflowApprovalLabels = {
+const workflowReviewLabels = {
   approved: "Signed off",
   not_requested: "Not requested",
   pending: "Pending",
   reopened: "Reopened",
-} satisfies Record<ReleaseWorkflowDetail["approvalSummary"]["state"], string>
+} satisfies Record<ReleaseWorkflowDetail["reviewSummary"]["state"], string>
 
 const workflowPublishPackLabels = {
   exported: "Exported",
@@ -133,19 +125,15 @@ const workflowActionLabels = {
   create_draft: "Create the next reviewable draft from release context.",
   create_publish_pack: "Freeze the approved publish pack for handoff.",
   reopen_draft: "Reopen this draft for another wording pass.",
-  request_approval: "Request approval on the current checked draft.",
-  run_claim_check: "Run claim check on the current draft revision.",
+  request_review: "Request review on the current draft revision.",
 } satisfies Record<WorkflowAllowedAction, string>
 
 const releaseWorkflowBoardColumnMeta = {
   intake: {
     title: "Intake",
   },
-  claim_check: {
-    title: "Claim check",
-  },
-  approval: {
-    title: "Approval",
+  review: {
+    title: "Review",
   },
   publish_pack: {
     title: "Publish pack",
@@ -158,8 +146,7 @@ const releaseWorkflowBoardColumnMeta = {
 const releaseWorkflowWorkspaceFocusValues = new Set<ReleaseWorkflowWorkspaceFocus>([
   "scope",
   "draft",
-  "claim_check",
-  "approval",
+  "review",
   "publish_pack",
 ])
 
@@ -203,20 +190,13 @@ function matchesReleaseWorkflowFocus(
     return item.currentDraft !== null
   }
 
-  if (focus === "claim_check") {
+  if (focus === "review") {
     return (
-      item.releaseRecord.stage === "claim_check" ||
+      item.releaseRecord.stage === "review" ||
       item.releaseRecord.stage === "draft" ||
-      item.claimCheckSummary.state === "blocked" ||
-      item.allowedActions.includes("run_claim_check")
-    )
-  }
-
-  if (focus === "approval") {
-    return (
-      item.releaseRecord.stage === "approval" ||
-      item.approvalSummary.state === "pending" ||
-      item.allowedActions.includes("request_approval") ||
+      item.reviewSummary.state === "pending" ||
+      item.readiness === "blocked" ||
+      item.allowedActions.includes("request_review") ||
       item.allowedActions.includes("approve_draft")
     )
   }
@@ -225,7 +205,7 @@ function matchesReleaseWorkflowFocus(
     item.releaseRecord.stage === "publish_pack" ||
     item.latestPublishPackSummary.state === "ready" ||
     item.latestPublishPackSummary.state === "exported" ||
-    item.approvalSummary.state === "approved" ||
+    item.reviewSummary.state === "approved" ||
     item.allowedActions.includes("create_publish_pack")
   )
 }
@@ -258,16 +238,10 @@ export function getReleaseWorkflowReadinessLabel(readiness: ReleaseWorkflowListI
   return workflowReadinessLabels[readiness]
 }
 
-export function getReleaseWorkflowClaimCheckLabel(
-  state: ReleaseWorkflowDetail["claimCheckSummary"]["state"],
+export function getReleaseWorkflowReviewLabel(
+  state: ReleaseWorkflowDetail["reviewSummary"]["state"],
 ) {
-  return workflowClaimCheckLabels[state]
-}
-
-export function getReleaseWorkflowApprovalLabel(
-  state: ReleaseWorkflowDetail["approvalSummary"]["state"],
-) {
-  return workflowApprovalLabels[state]
+  return workflowReviewLabels[state]
 }
 
 export function getReleaseWorkflowPublishPackLabel(
@@ -339,16 +313,12 @@ export function getReleaseWorkflowDisplayTitle(releaseRecord: Pick<ReleaseWorkfl
 }
 
 export function getReleaseWorkflowNextAction(item: ReleaseWorkflowListItem) {
-  if (item.claimCheckSummary.blockerNotes.length > 0) {
-    return item.claimCheckSummary.blockerNotes[0] as string
-  }
-
-  if (item.approvalSummary.state === "pending") {
-    if (item.approvalSummary.ownerName) {
-      return `Waiting on ${item.approvalSummary.ownerName} to review the current draft.`
+  if (item.reviewSummary.state === "pending") {
+    if (item.reviewSummary.ownerName) {
+      return `Waiting on ${item.reviewSummary.ownerName} to review the current draft.`
     }
 
-    return "Assign a reviewer before moving approval forward."
+    return "Assign a reviewer before moving review forward."
   }
 
   const nextAction = item.allowedActions[0]
@@ -364,16 +334,16 @@ export function getReleaseWorkflowNextAction(item: ReleaseWorkflowListItem) {
   return "Review the latest workflow state before moving this release forward."
 }
 
-function isPendingApprovalRecord(item: ReleaseWorkflowListItem) {
-  return item.approvalSummary.state === "pending"
+function isPendingReviewRecord(item: ReleaseWorkflowListItem) {
+  return item.reviewSummary.state === "pending"
 }
 
-function matchesApprovalOwnershipFilter(
+function matchesReviewOwnershipFilter(
   item: ReleaseWorkflowListItem,
   currentUserId: string,
-  filter: ReleaseWorkflowApprovalOwnershipFilter,
+  filter: ReleaseWorkflowReviewOwnershipFilter,
 ) {
-  if (!isPendingApprovalRecord(item)) {
+  if (!isPendingReviewRecord(item)) {
     return false
   }
 
@@ -382,36 +352,32 @@ function matchesApprovalOwnershipFilter(
   }
 
   if (filter === "assigned_to_me") {
-    return item.approvalSummary.ownerUserId === currentUserId
+    return item.reviewSummary.ownerUserId === currentUserId
   }
 
   if (filter === "requested_by_me") {
-    return item.approvalSummary.requestedByUserId === currentUserId
+    return item.reviewSummary.requestedByUserId === currentUserId
   }
 
-  return item.approvalSummary.ownerUserId === null
+  return item.reviewSummary.ownerUserId === null
 }
 
-export function filterReleaseWorkflowApprovalQueue(
+export function filterReleaseWorkflowReviewQueue(
   workflow: ReleaseWorkflowListItem[],
   currentUserId: string,
-  filter: ReleaseWorkflowApprovalOwnershipFilter,
+  filter: ReleaseWorkflowReviewOwnershipFilter,
 ) {
-  return workflow.filter((item) => matchesApprovalOwnershipFilter(item, currentUserId, filter))
+  return workflow.filter((item) => matchesReviewOwnershipFilter(item, currentUserId, filter))
 }
 
 export function filterReleaseWorkflowQueueByMode(
   workflow: ReleaseWorkflowListItem[],
   currentUserId: string,
   mode: ReleaseWorkflowMode,
-  approvalFilter: ReleaseWorkflowApprovalOwnershipFilter,
+  reviewFilter: ReleaseWorkflowReviewOwnershipFilter,
 ) {
-  if (mode === "approval") {
-    return filterReleaseWorkflowApprovalQueue(workflow, currentUserId, approvalFilter)
-  }
-
-  if (mode === "claim_check") {
-    return workflow.filter((item) => item.currentDraft !== null)
+  if (mode === "review") {
+    return filterReleaseWorkflowReviewQueue(workflow, currentUserId, reviewFilter)
   }
 
   if (mode === "publish_pack") {
@@ -419,34 +385,34 @@ export function filterReleaseWorkflowQueueByMode(
       (item) =>
         item.latestPublishPackSummary.state === "exported" ||
         item.latestPublishPackSummary.state === "ready" ||
-        item.approvalSummary.state === "approved",
+        item.reviewSummary.state === "approved",
     )
   }
 
   return workflow
 }
 
-export function buildReleaseWorkflowApprovalFilterCounts(
+export function buildReleaseWorkflowReviewFilterCounts(
   workflow: ReleaseWorkflowListItem[],
   currentUserId: string,
 ): ReleaseWorkflowApprovalFilterCounts {
   return workflow.reduce<ReleaseWorkflowApprovalFilterCounts>(
     (counts, item) => {
-      if (!isPendingApprovalRecord(item)) {
+      if (!isPendingReviewRecord(item)) {
         return counts
       }
 
       counts.all += 1
 
-      if (item.approvalSummary.ownerUserId === currentUserId) {
+      if (item.reviewSummary.ownerUserId === currentUserId) {
         counts.assigned_to_me += 1
       }
 
-      if (item.approvalSummary.requestedByUserId === currentUserId) {
+      if (item.reviewSummary.requestedByUserId === currentUserId) {
         counts.requested_by_me += 1
       }
 
-      if (item.approvalSummary.ownerUserId === null) {
+      if (item.reviewSummary.ownerUserId === null) {
         counts.unassigned += 1
       }
 
@@ -465,46 +431,46 @@ export function getReleaseWorkflowOwnershipCue(
   item: ReleaseWorkflowListItem,
   currentUserId: string,
 ): ReleaseWorkflowOwnershipCue {
-  if (item.approvalSummary.state !== "pending") {
+  if (item.reviewSummary.state !== "pending") {
     return {
-      description: "This release is not waiting in the approval handoff queue right now.",
-      label: "No active approval handoff",
+      description: "This release is not waiting in the review handoff queue right now.",
+      label: "No active review handoff",
       tone: "attention",
     }
   }
 
-  if (!item.approvalSummary.ownerUserId) {
+  if (!item.reviewSummary.ownerUserId) {
     return {
-      description: "Approval is pending without an assigned reviewer, so this record can drift unless someone claims it.",
+      description: "Review is pending without an assigned reviewer, so this record can drift unless someone claims it.",
       label: "Reviewer missing",
       tone: "unassigned",
     }
   }
 
-  if (item.approvalSummary.ownerUserId === currentUserId) {
+  if (item.reviewSummary.ownerUserId === currentUserId) {
     return {
-      description: "You currently own the approval decision for this draft revision.",
+      description: "You currently own the review decision for this draft revision.",
       label: "Assigned to you",
       tone: "assigned_to_me",
     }
   }
 
-  if (item.approvalSummary.requestedByUserId === currentUserId) {
+  if (item.reviewSummary.requestedByUserId === currentUserId) {
     return {
-      description: item.approvalSummary.ownerName
-        ? `You routed this approval request to ${item.approvalSummary.ownerName}.`
-        : "You requested approval, but the reviewer identity is still missing from the queue.",
+      description: item.reviewSummary.ownerName
+        ? `You routed this review request to ${item.reviewSummary.ownerName}.`
+        : "You requested review, but the reviewer identity is still missing from the queue.",
       label: "Requested by you",
       tone: "requested_by_me",
     }
   }
 
   return {
-    description: item.approvalSummary.ownerName
-      ? `This release is waiting on ${item.approvalSummary.ownerName} before it can move toward publish-pack export.`
+    description: item.reviewSummary.ownerName
+      ? `This release is waiting on ${item.reviewSummary.ownerName} before it can move toward publish-pack export.`
       : "This release is waiting on an assigned reviewer before it can move toward publish-pack export.",
-    label: item.approvalSummary.ownerName
-      ? `Waiting on ${item.approvalSummary.ownerName}`
+    label: item.reviewSummary.ownerName
+      ? `Waiting on ${item.reviewSummary.ownerName}`
       : "Waiting on assigned reviewer",
     tone: "attention",
   }
@@ -515,18 +481,17 @@ export function buildReleaseWorkflowQueueItem(
 ): ReleaseWorkflowQueueItem {
   return {
     allowedActions: item.allowedActions,
-    approvalLabel: getReleaseWorkflowApprovalLabel(item.approvalSummary.state),
-    claimCheckLabel: getReleaseWorkflowClaimCheckLabel(item.claimCheckSummary.state),
     evidenceCount: item.evidenceCount,
     id: item.releaseRecord.id,
     nextAction: getReleaseWorkflowNextAction(item),
-    ownerName: item.approvalSummary.ownerName,
-    ownerUserId: item.approvalSummary.ownerUserId,
+    ownerName: item.reviewSummary.ownerName,
+    ownerUserId: item.reviewSummary.ownerUserId,
     publishPackLabel: getReleaseWorkflowPublishPackLabel(item.latestPublishPackSummary.state),
-    requestedByName: item.approvalSummary.requestedByName,
-    requestedByUserId: item.approvalSummary.requestedByUserId,
+    requestedByName: item.reviewSummary.requestedByName,
+    requestedByUserId: item.reviewSummary.requestedByUserId,
     readinessLabel: getReleaseWorkflowReadinessLabel(item.readiness),
     readinessTone: item.readiness,
+    reviewLabel: getReleaseWorkflowReviewLabel(item.reviewSummary.state),
     sourceLinkCount: item.sourceLinkCount,
     stageLabel: getReleaseWorkflowStageLabel(item.releaseRecord.stage),
     summary: item.releaseRecord.summary ?? "No release summary is attached yet.",
@@ -540,7 +505,7 @@ export function buildReleaseWorkflowMetrics(
 ): ReleaseWorkflowMetrics {
   return {
     blockedRecords: workflow.filter((item) => item.readiness === "blocked").length,
-    pendingApprovalRecords: workflow.filter((item) => item.approvalSummary.state === "pending").length,
+    pendingReviewRecords: workflow.filter((item) => item.reviewSummary.state === "pending").length,
     readyToExportRecords: workflow.filter((item) =>
       item.latestPublishPackSummary.state === "ready" || item.latestPublishPackSummary.state === "exported"
     ).length,
@@ -558,17 +523,13 @@ export function getReleaseWorkflowBoardStage(
   if (
     item.releaseRecord.stage === "publish_pack" ||
     item.latestPublishPackSummary.state === "ready" ||
-    item.approvalSummary.state === "approved"
+    item.reviewSummary.state === "approved"
   ) {
     return "publish_pack"
   }
 
-  if (item.releaseRecord.stage === "approval") {
-    return "approval"
-  }
-
-  if (item.releaseRecord.stage === "claim_check" || item.releaseRecord.stage === "draft") {
-    return "claim_check"
+  if (item.releaseRecord.stage === "review" || item.releaseRecord.stage === "draft") {
+    return "review"
   }
 
   return "intake"
@@ -604,14 +565,6 @@ export function detailToReleaseWorkflowListItem(
 ): ReleaseWorkflowListItem {
   return {
     allowedActions: detail.allowedActions,
-    approvalSummary: detail.approvalSummary,
-    claimCheckSummary: {
-      blockerNotes: detail.claimCheckSummary.blockerNotes,
-      draftRevisionId: detail.claimCheckSummary.draftRevisionId,
-      flaggedClaims: detail.claimCheckSummary.flaggedClaims,
-      state: detail.claimCheckSummary.state,
-      totalClaims: detail.claimCheckSummary.totalClaims,
-    },
     currentDraft:
       detail.currentDraft === null
         ? null
@@ -634,6 +587,7 @@ export function detailToReleaseWorkflowListItem(
       updatedAt: detail.releaseRecord.updatedAt,
       workspaceId: detail.releaseRecord.workspaceId,
     },
+    reviewSummary: detail.reviewSummary,
     sourceLinkCount: detail.sourceLinks.length,
   }
 }
@@ -656,48 +610,33 @@ export function buildReleaseWorkflowEvidenceNotes(detail: ReleaseWorkflowDetail)
   return ["No evidence is attached to this release workflow yet."]
 }
 
-export function buildReleaseWorkflowClaimCheckNotes(detail: ReleaseWorkflowDetail) {
-  if (detail.claimCheckSummary.items.length > 0) {
-    return detail.claimCheckSummary.items.map((item) => {
-      const state = item.status.charAt(0).toUpperCase() + item.status.slice(1)
-      return `${state}: ${item.sentence}${item.note ? ` — ${item.note}` : ""}`
-    })
-  }
+export function buildReleaseWorkflowReviewNotes(detail: ReleaseWorkflowDetail) {
+  const reviewReviewStatus = detail.reviewStatuses.find((reviewStatus) => reviewStatus.stage === "review")
+  const pendingReviewerNote = detail.reviewSummary.ownerName
+    ? `Review has been requested and is waiting on ${detail.reviewSummary.ownerName}.`
+    : "Review has been requested but no reviewer is assigned yet."
 
-  if (detail.claimCheckSummary.blockerNotes.length > 0) {
-    return detail.claimCheckSummary.blockerNotes
-  }
+  if (reviewReviewStatus) {
+    const state = reviewReviewStatus.state.charAt(0).toUpperCase() + reviewReviewStatus.state.slice(1)
 
-  return ["Claim check has not produced any draft-level review notes yet."]
-}
-
-export function buildReleaseWorkflowApprovalNotes(detail: ReleaseWorkflowDetail) {
-  const approvalReviewStatus = detail.reviewStatuses.find((reviewStatus) => reviewStatus.stage === "approval")
-  const pendingReviewerNote = detail.approvalSummary.ownerName
-    ? `Approval has been requested and is waiting on ${detail.approvalSummary.ownerName}.`
-    : "Approval has been requested but no reviewer is assigned yet."
-
-  if (approvalReviewStatus) {
-    const state = approvalReviewStatus.state.charAt(0).toUpperCase() + approvalReviewStatus.state.slice(1)
-
-    if (approvalReviewStatus.state === "pending") {
+    if (reviewReviewStatus.state === "pending") {
       return [pendingReviewerNote]
     }
 
     return [
-      `Approval: ${state}${approvalReviewStatus.note ? ` — ${approvalReviewStatus.note}` : ""}`,
+      `Review: ${state}${reviewReviewStatus.note ? ` — ${reviewReviewStatus.note}` : ""}`,
     ]
   }
 
-  switch (detail.approvalSummary.state) {
+  switch (detail.reviewSummary.state) {
     case "approved":
       return ["The current draft revision is approved for publish-pack assembly."]
     case "pending":
       return [pendingReviewerNote]
     case "reopened":
-      return ["This draft was reopened after approval and needs another review pass."]
+      return ["This draft was reopened after review and needs another review pass."]
     default:
-      return ["Approval has not been requested for the current draft revision."]
+      return ["Review has not been requested for the current draft revision."]
   }
 }
 

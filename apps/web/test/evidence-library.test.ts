@@ -24,7 +24,7 @@ function createReleaseRecordSnapshot(
       connectionId: releaseRecordOverrides.connectionId ?? "connection_1",
       createdAt: releaseRecordOverrides.createdAt ?? "2026-03-20T00:00:00.000Z",
       id: releaseRecordOverrides.id ?? "release_1",
-      stage: releaseRecordOverrides.stage ?? "claim_check",
+      stage: releaseRecordOverrides.stage ?? "review",
       summary: releaseRecordOverrides.summary ?? "Release summary",
       title: releaseRecordOverrides.title ?? "SDK rollout v2.4",
       updatedAt: releaseRecordOverrides.updatedAt ?? "2026-03-20T00:00:00.000Z",
@@ -53,7 +53,7 @@ test("buildEvidenceLibraryData aggregates live evidence across linked release re
       ],
       releaseRecord: {
         id: "release_1",
-        stage: "claim_check",
+        stage: "review",
         title: "SDK rollout v2.4",
       },
       reviewStatuses: [
@@ -62,7 +62,7 @@ test("buildEvidenceLibraryData aggregates live evidence across linked release re
           note: "Keep staged rollout wording narrow.",
           ownerUserId: "user_1",
           releaseRecordId: "release_1",
-          stage: "claim_check",
+          stage: "review",
           state: "blocked",
           updatedAt: "2026-03-20T00:10:00.000Z",
         },
@@ -84,16 +84,16 @@ test("buildEvidenceLibraryData aggregates live evidence across linked release re
       ],
       releaseRecord: {
         id: "release_2",
-        stage: "approval",
+        stage: "review",
         title: "Audit log filters",
       },
       reviewStatuses: [
         {
           id: "review_2",
-          note: "Reconfirm this proof before approval closes.",
+          note: "Reconfirm this proof before review closes.",
           ownerUserId: "user_2",
           releaseRecordId: "release_2",
-          stage: "approval",
+          stage: "review",
           state: "pending",
           updatedAt: "2026-03-20T01:10:00.000Z",
         },

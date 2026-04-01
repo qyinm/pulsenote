@@ -119,11 +119,10 @@ const sourceTypeLabels = {
 } satisfies Record<ReleaseRecordSnapshot["evidenceBlocks"][number]["sourceType"], string>
 
 const reviewStageLabels = {
-  approval: "Approval",
-  claim_check: "Claim check",
   draft: "Draft",
   intake: "Intake",
   publish_pack: "Publish pack",
+  review: "Review",
 } satisfies Record<ReleaseRecordSnapshot["releaseRecord"]["stage"], string>
 
 function summarizeSourceTypes(snapshot: ReleaseRecordSnapshot) {

@@ -105,8 +105,8 @@ function buildWorkflowSearchResults(
       item.releaseRecord.title,
       item.releaseRecord.summary ?? "",
       getReleaseWorkflowNextAction(item),
-      item.approvalSummary.ownerName ?? "",
-      item.approvalSummary.requestedByName ?? "",
+      item.reviewSummary.ownerName ?? "",
+      item.reviewSummary.requestedByName ?? "",
       getReleaseWorkflowStageLabel(item.releaseRecord.stage),
       getReleaseWorkflowReadinessLabel(item.readiness),
     ]
@@ -129,25 +129,25 @@ function buildApprovalSearchResults(
   currentUserId: string,
 ): LiveSearchResult[] {
   return workflow
-    .filter((item) => item.approvalSummary.state === "pending")
+    .filter((item) => item.reviewSummary.state === "pending")
     .map((item) => {
       const cue = getReleaseWorkflowOwnershipCue(item, currentUserId)
-      const ownerLabel = item.approvalSummary.ownerName ?? "Reviewer missing"
+      const ownerLabel = item.reviewSummary.ownerName ?? "Reviewer missing"
 
       return {
-        id: `approval:${item.releaseRecord.id}`,
+        id: `review:${item.releaseRecord.id}`,
         meta: `${cue.label} · ${ownerLabel}`,
-        orderTimestamp: item.approvalSummary.updatedAt ?? item.releaseRecord.updatedAt,
+        orderTimestamp: item.reviewSummary.updatedAt ?? item.releaseRecord.updatedAt,
         route: buildReleaseWorkspaceHref({
-          focus: "approval",
+          focus: "review",
           selectedId: item.releaseRecord.id,
         }),
         searchText: [
           item.releaseRecord.title,
           cue.label,
           cue.description,
-          item.approvalSummary.ownerName ?? "",
-          item.approvalSummary.requestedByName ?? "",
+          item.reviewSummary.ownerName ?? "",
+          item.reviewSummary.requestedByName ?? "",
           item.currentDraft ? `draft v${item.currentDraft.version}` : "",
         ]
           .join(" ")
@@ -206,7 +206,7 @@ function buildEvidenceSearchResults(
     meta: `${entry.sourceTypeLabel} · ${entry.providerLabel} · ${entry.linkedReleaseCount} linked releases`,
     orderTimestamp: entry.updatedAt,
     route: buildReleaseWorkspaceHref({
-      focus: "claim_check",
+      focus: "review",
       selectedId: entry.latestLinkedReleaseId,
     }),
     searchText: [
@@ -308,7 +308,7 @@ function buildSuggestedQueries(results: LiveSearchResult[]) {
   }
 
   if (hasApproval) {
-    suggestions.push("approval")
+    suggestions.push("review")
   }
 
   if (hasEvidence) {

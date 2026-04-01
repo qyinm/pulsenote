@@ -12,8 +12,8 @@ import {
   getServerLiveSearchData,
 } from "../lib/search.js"
 
-type WorkflowApprovalSummary = ReleaseWorkflowListItem["approvalSummary"]
-type WorkflowClaimCheckSummary = ReleaseWorkflowListItem["claimCheckSummary"]
+type WorkflowApprovalSummary = ReleaseWorkflowListItem["reviewSummary"]
+type WorkflowClaimCheckSummary = ReleaseWorkflowListItem["reviewSummary"]
 type WorkflowCurrentDraft = NonNullable<ReleaseWorkflowListItem["currentDraft"]>
 type WorkflowPublishPackSummary = ReleaseWorkflowListItem["latestPublishPackSummary"]
 type WorkflowReleaseRecord = ReleaseWorkflowListItem["releaseRecord"]
@@ -21,22 +21,22 @@ type WorkflowReleaseRecord = ReleaseWorkflowListItem["releaseRecord"]
 function createWorkflowItem(
   overrides: Omit<
     Partial<ReleaseWorkflowListItem>,
-    | "approvalSummary"
-    | "claimCheckSummary"
+    | "reviewSummary"
+    | "reviewSummary"
     | "currentDraft"
     | "latestPublishPackSummary"
     | "releaseRecord"
   > & {
-    approvalSummary?: Partial<WorkflowApprovalSummary>
-    claimCheckSummary?: Partial<WorkflowClaimCheckSummary>
+    reviewSummary?: Partial<WorkflowApprovalSummary>
+    reviewSummary?: Partial<WorkflowClaimCheckSummary>
     currentDraft?: Partial<WorkflowCurrentDraft> | null
     latestPublishPackSummary?: Partial<WorkflowPublishPackSummary>
     releaseRecord?: Partial<WorkflowReleaseRecord>
   } = {},
 ): ReleaseWorkflowListItem {
   const {
-    approvalSummary = {} as Partial<WorkflowApprovalSummary>,
-    claimCheckSummary = {} as Partial<WorkflowClaimCheckSummary>,
+    reviewSummary = {} as Partial<WorkflowApprovalSummary>,
+    reviewSummary = {} as Partial<WorkflowClaimCheckSummary>,
     currentDraft = null,
     latestPublishPackSummary = {} as Partial<WorkflowPublishPackSummary>,
     releaseRecord = {} as Partial<WorkflowReleaseRecord>,
@@ -44,41 +44,41 @@ function createWorkflowItem(
   } = overrides
 
   return {
-    allowedActions: itemOverrides.allowedActions ?? ["request_approval"],
-    approvalSummary: {
+    allowedActions: itemOverrides.allowedActions ?? ["request_review"],
+    reviewSummary: {
       draftRevisionId:
-        approvalSummary.draftRevisionId === undefined
+        reviewSummary.draftRevisionId === undefined
           ? "draft_1"
-          : approvalSummary.draftRevisionId,
-      note: approvalSummary.note === undefined ? null : approvalSummary.note,
+          : reviewSummary.draftRevisionId,
+      note: reviewSummary.note === undefined ? null : reviewSummary.note,
       ownerName:
-        approvalSummary.ownerName === undefined
+        reviewSummary.ownerName === undefined
           ? "Mina Park"
-          : approvalSummary.ownerName,
+          : reviewSummary.ownerName,
       ownerUserId:
-        approvalSummary.ownerUserId === undefined
+        reviewSummary.ownerUserId === undefined
           ? "user_1"
-          : approvalSummary.ownerUserId,
+          : reviewSummary.ownerUserId,
       requestedByName:
-        approvalSummary.requestedByName === undefined
+        reviewSummary.requestedByName === undefined
           ? "Grace Lee"
-          : approvalSummary.requestedByName,
+          : reviewSummary.requestedByName,
       requestedByUserId:
-        approvalSummary.requestedByUserId === undefined
+        reviewSummary.requestedByUserId === undefined
           ? "user_2"
-          : approvalSummary.requestedByUserId,
-      state: approvalSummary.state ?? "pending",
+          : reviewSummary.requestedByUserId,
+      state: reviewSummary.state ?? "pending",
       updatedAt:
-        approvalSummary.updatedAt === undefined
+        reviewSummary.updatedAt === undefined
           ? "2026-03-20T01:00:00.000Z"
-          : approvalSummary.updatedAt,
+          : reviewSummary.updatedAt,
     },
-    claimCheckSummary: {
-      blockerNotes: claimCheckSummary.blockerNotes ?? ["Proof is still blocked."],
-      draftRevisionId: claimCheckSummary.draftRevisionId ?? "draft_1",
-      flaggedClaims: claimCheckSummary.flaggedClaims ?? 1,
-      state: claimCheckSummary.state ?? "blocked",
-      totalClaims: claimCheckSummary.totalClaims ?? 2,
+    reviewSummary: {
+      blockerNotes: reviewSummary.blockerNotes ?? ["Proof is still blocked."],
+      draftRevisionId: reviewSummary.draftRevisionId ?? "draft_1",
+      flaggedClaims: reviewSummary.flaggedClaims ?? 1,
+      state: reviewSummary.state ?? "blocked",
+      totalClaims: reviewSummary.totalClaims ?? 2,
     },
     currentDraft:
       currentDraft === null
@@ -106,7 +106,7 @@ function createWorkflowItem(
       compareRange: releaseRecord.compareRange ?? "main...feature/search",
       createdAt: releaseRecord.createdAt ?? "2026-03-20T00:00:00.000Z",
       id: releaseRecord.id ?? "release_1",
-      stage: releaseRecord.stage ?? "approval",
+      stage: releaseRecord.stage ?? "review",
       summary: releaseRecord.summary ?? "Retry wording still needs support.",
       title: releaseRecord.title ?? "SDK rollout v2.4",
       updatedAt: releaseRecord.updatedAt ?? "2026-03-20T01:00:00.000Z",
@@ -126,7 +126,7 @@ function createHistoryEntry(
     draftRevisionId: overrides.draftRevisionId ?? "draft_1",
     draftVersion: overrides.draftVersion ?? 3,
     eventLabel: overrides.eventLabel ?? "Approval requested",
-    eventType: overrides.eventType ?? "approval_requested",
+    eventType: overrides.eventType ?? "review_requested",
     evidenceCount: overrides.evidenceCount ?? 3,
     id: overrides.id ?? "history_1",
     note: overrides.note ?? "Route this to support review.",
@@ -135,7 +135,7 @@ function createHistoryEntry(
     releaseRecordId: overrides.releaseRecordId ?? "release_1",
     releaseTitle: overrides.releaseTitle ?? "SDK rollout v2.4",
     sourceLinkCount: overrides.sourceLinkCount ?? 2,
-    stage: overrides.stage ?? "approval",
+    stage: overrides.stage ?? "review",
   }
 }
 
@@ -156,7 +156,7 @@ function createReleaseRecordSnapshot(
       connectionId: releaseRecordOverrides.connectionId ?? "connection_1",
       createdAt: releaseRecordOverrides.createdAt ?? "2026-03-20T00:00:00.000Z",
       id: releaseRecordOverrides.id ?? "release_1",
-      stage: releaseRecordOverrides.stage ?? "approval",
+      stage: releaseRecordOverrides.stage ?? "review",
       summary: releaseRecordOverrides.summary ?? "Release summary",
       title: releaseRecordOverrides.title ?? "SDK rollout v2.4",
       updatedAt: releaseRecordOverrides.updatedAt ?? "2026-03-20T00:00:00.000Z",
@@ -174,7 +174,7 @@ function createWorkspacePolicySettings(
     createdAt: overrides.createdAt ?? "2026-03-20T00:00:00.000Z",
     includeEvidenceLinksInExport: overrides.includeEvidenceLinksInExport ?? true,
     includeSourceLinksInExport: overrides.includeSourceLinksInExport ?? true,
-    requireClaimCheckBeforeApproval: overrides.requireClaimCheckBeforeApproval ?? true,
+    requireReviewerAssignment: overrides.requireReviewerAssignment ?? true,
     requireReviewerAssignment: overrides.requireReviewerAssignment ?? true,
     showBlockedClaimsInInbox: overrides.showBlockedClaimsInInbox ?? true,
     showPendingApprovalsInInbox: overrides.showPendingApprovalsInInbox ?? true,
@@ -188,7 +188,7 @@ test("buildLiveSearchData indexes workflow, evidence, history, and review signal
   const workflow = [
     createWorkflowItem(),
     createWorkflowItem({
-      approvalSummary: {
+      reviewSummary: {
         ownerName: null,
         ownerUserId: null,
         requestedByName: "Grace Lee",
@@ -196,7 +196,7 @@ test("buildLiveSearchData indexes workflow, evidence, history, and review signal
         state: "pending",
         updatedAt: "2026-03-20T01:20:00.000Z",
       },
-      claimCheckSummary: {
+      reviewSummary: {
         blockerNotes: [],
         flaggedClaims: 0,
         state: "cleared",
@@ -209,7 +209,7 @@ test("buildLiveSearchData indexes workflow, evidence, history, and review signal
       readiness: "attention",
       releaseRecord: {
         id: "release_2",
-        stage: "approval",
+        stage: "review",
         summary: "Reviewer assignment is still missing.",
         title: "Billing migration notes",
         updatedAt: "2026-03-20T01:20:00.000Z",
@@ -228,7 +228,7 @@ test("buildLiveSearchData indexes workflow, evidence, history, and review signal
       outcome: "revision",
       releaseRecordId: "release_2",
       releaseTitle: "Billing migration notes",
-      stage: "approval",
+      stage: "review",
     }),
   ]
 
@@ -259,12 +259,12 @@ test("buildLiveSearchData indexes workflow, evidence, history, and review signal
   assert.ok(data.results.some((result) => result.type === "Review signal"))
   assert.equal(
     data.results.find((result) => result.type === "Evidence source")?.route,
-    "/dashboard/releases/release_1?focus=claim_check",
+    "/dashboard/releases/release_1?focus=review",
   )
   assert.equal(data.metrics.evidenceSources, 1)
   assert.ok(data.metrics.blockedResults >= 2)
   assert.ok(data.metrics.reviewSignals >= 2)
-  assert.ok(data.suggestedQueries.includes("approval"))
+  assert.ok(data.suggestedQueries.includes("review"))
   assert.ok(data.suggestedQueries.includes("evidence"))
 })
 
@@ -272,7 +272,7 @@ test("buildLiveSearchData omits the blocked shortcut when blocked state is not s
   const data = buildLiveSearchData(
     [
       createWorkflowItem({
-        approvalSummary: {
+        reviewSummary: {
           ownerName: null,
           ownerUserId: null,
           requestedByName: "Grace Lee",
@@ -280,7 +280,7 @@ test("buildLiveSearchData omits the blocked shortcut when blocked state is not s
           state: "pending",
           updatedAt: "2026-03-20T01:20:00.000Z",
         },
-        claimCheckSummary: {
+        reviewSummary: {
           blockerNotes: [],
           draftRevisionId: "draft_2",
           flaggedClaims: 0,
@@ -294,10 +294,10 @@ test("buildLiveSearchData omits the blocked shortcut when blocked state is not s
         },
         readiness: "attention",
         releaseRecord: {
-          compareRange: "main...feature/approval",
+          compareRange: "main...feature/review",
           createdAt: "2026-03-20T00:00:00.000Z",
           id: "release_2",
-          stage: "approval",
+          stage: "review",
           summary: "Reviewer assignment is still missing.",
           title: "Billing migration notes",
           updatedAt: "2026-03-20T01:20:00.000Z",

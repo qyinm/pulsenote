@@ -14,37 +14,37 @@ import {
 function createReleaseWorkflowListItem(
   overrides: Omit<
     Partial<ReleaseWorkflowListItem>,
-    | "approvalSummary"
-    | "claimCheckSummary"
+    | "reviewSummary"
+    | "reviewSummary"
     | "currentDraft"
     | "latestPublishPackSummary"
     | "releaseRecord"
   > & {
-    approvalSummary?: Partial<ReleaseWorkflowListItem["approvalSummary"]>
-    claimCheckSummary?: Partial<ReleaseWorkflowListItem["claimCheckSummary"]>
+    reviewSummary?: Partial<ReleaseWorkflowListItem["reviewSummary"]>
+    reviewSummary?: Partial<ReleaseWorkflowListItem["reviewSummary"]>
     currentDraft?: Partial<NonNullable<ReleaseWorkflowListItem["currentDraft"]>> | null
     latestPublishPackSummary?: Partial<ReleaseWorkflowListItem["latestPublishPackSummary"]>
     releaseRecord?: Partial<ReleaseWorkflowListItem["releaseRecord"]>
   } = {},
 ): ReleaseWorkflowListItem {
   return {
-    allowedActions: overrides.allowedActions ?? ["request_approval"],
-    approvalSummary: {
-      draftRevisionId: overrides.approvalSummary?.draftRevisionId ?? "draft_1",
-      note: overrides.approvalSummary?.note ?? null,
-      ownerName: overrides.approvalSummary?.ownerName ?? null,
-      ownerUserId: overrides.approvalSummary?.ownerUserId ?? null,
-      requestedByName: overrides.approvalSummary?.requestedByName ?? null,
-      requestedByUserId: overrides.approvalSummary?.requestedByUserId ?? null,
-      state: overrides.approvalSummary?.state ?? "not_requested",
-      updatedAt: overrides.approvalSummary?.updatedAt ?? "2026-03-20T01:00:00.000Z",
+    allowedActions: overrides.allowedActions ?? ["request_review"],
+    reviewSummary: {
+      draftRevisionId: overrides.reviewSummary?.draftRevisionId ?? "draft_1",
+      note: overrides.reviewSummary?.note ?? null,
+      ownerName: overrides.reviewSummary?.ownerName ?? null,
+      ownerUserId: overrides.reviewSummary?.ownerUserId ?? null,
+      requestedByName: overrides.reviewSummary?.requestedByName ?? null,
+      requestedByUserId: overrides.reviewSummary?.requestedByUserId ?? null,
+      state: overrides.reviewSummary?.state ?? "not_requested",
+      updatedAt: overrides.reviewSummary?.updatedAt ?? "2026-03-20T01:00:00.000Z",
     },
-    claimCheckSummary: {
-      blockerNotes: overrides.claimCheckSummary?.blockerNotes ?? [],
-      draftRevisionId: overrides.claimCheckSummary?.draftRevisionId ?? "draft_1",
-      flaggedClaims: overrides.claimCheckSummary?.flaggedClaims ?? 0,
-      state: overrides.claimCheckSummary?.state ?? "not_started",
-      totalClaims: overrides.claimCheckSummary?.totalClaims ?? 0,
+    reviewSummary: {
+      blockerNotes: overrides.reviewSummary?.blockerNotes ?? [],
+      draftRevisionId: overrides.reviewSummary?.draftRevisionId ?? "draft_1",
+      flaggedClaims: overrides.reviewSummary?.flaggedClaims ?? 0,
+      state: overrides.reviewSummary?.state ?? "not_started",
+      totalClaims: overrides.reviewSummary?.totalClaims ?? 0,
     },
     currentDraft:
       overrides.currentDraft === null
@@ -72,7 +72,7 @@ function createReleaseWorkflowListItem(
       compareRange: overrides.releaseRecord?.compareRange ?? "main...release",
       createdAt: overrides.releaseRecord?.createdAt ?? "2026-03-20T00:00:00.000Z",
       id: overrides.releaseRecord?.id ?? "release_1",
-      stage: overrides.releaseRecord?.stage ?? "approval",
+      stage: overrides.releaseRecord?.stage ?? "review",
       summary: overrides.releaseRecord?.summary ?? "Release summary",
       title: overrides.releaseRecord?.title ?? "SDK rollout v2.4",
       updatedAt: overrides.releaseRecord?.updatedAt ?? "2026-03-20T00:30:00.000Z",
@@ -92,7 +92,7 @@ function createReleaseWorkflowHistoryEntry(
     draftRevisionId: overrides.draftRevisionId ?? "draft_1",
     draftVersion: overrides.draftVersion ?? 1,
     eventLabel: overrides.eventLabel ?? "Approval requested",
-    eventType: overrides.eventType ?? "approval_requested",
+    eventType: overrides.eventType ?? "review_requested",
     evidenceCount: overrides.evidenceCount ?? 3,
     id: overrides.id ?? "history_1",
     note: overrides.note ?? "Review the pricing sentence before publish.",
@@ -101,7 +101,7 @@ function createReleaseWorkflowHistoryEntry(
     releaseRecordId: overrides.releaseRecordId ?? "release_1",
     releaseTitle: overrides.releaseTitle ?? "SDK rollout v2.4",
     sourceLinkCount: overrides.sourceLinkCount ?? 2,
-    stage: overrides.stage ?? "approval",
+    stage: overrides.stage ?? "review",
   }
 }
 
@@ -112,7 +112,7 @@ function createWorkspacePolicySettings(
     createdAt: overrides.createdAt ?? "2026-03-20T00:00:00.000Z",
     includeEvidenceLinksInExport: overrides.includeEvidenceLinksInExport ?? true,
     includeSourceLinksInExport: overrides.includeSourceLinksInExport ?? true,
-    requireClaimCheckBeforeApproval: overrides.requireClaimCheckBeforeApproval ?? true,
+    requireReviewerAssignment: overrides.requireReviewerAssignment ?? true,
     requireReviewerAssignment: overrides.requireReviewerAssignment ?? true,
     showBlockedClaimsInInbox: overrides.showBlockedClaimsInInbox ?? true,
     showPendingApprovalsInInbox: overrides.showPendingApprovalsInInbox ?? true,
@@ -122,10 +122,10 @@ function createWorkspacePolicySettings(
   }
 }
 
-test("buildReviewInboxItems surfaces approval, blocked claim, and reopened notifications", () => {
+test("buildReviewInboxItems surfaces review, blocked claim, and reopened notifications", () => {
   const workflow = [
     createReleaseWorkflowListItem({
-      approvalSummary: {
+      reviewSummary: {
         ownerName: "Reviewer User",
         ownerUserId: "user_2",
         requestedByName: "Owner User",
@@ -133,16 +133,16 @@ test("buildReviewInboxItems surfaces approval, blocked claim, and reopened notif
         state: "pending",
       },
       releaseRecord: {
-        id: "release_approval",
+        id: "release_review",
         title: "Approval release",
       },
     }),
     createReleaseWorkflowListItem({
-      allowedActions: ["run_claim_check"],
-      approvalSummary: {
+      allowedActions: ["request_review"],
+      reviewSummary: {
         state: "not_requested",
       },
-      claimCheckSummary: {
+      reviewSummary: {
         blockerNotes: ["Availability claim is still unsupported."],
         flaggedClaims: 2,
         state: "blocked",
@@ -150,19 +150,19 @@ test("buildReviewInboxItems surfaces approval, blocked claim, and reopened notif
       },
       releaseRecord: {
         id: "release_claim",
-        stage: "claim_check",
+        stage: "review",
         title: "Blocked claim release",
       },
     }),
     createReleaseWorkflowListItem({
-      approvalSummary: {
+      reviewSummary: {
         ownerName: "Reviewer User",
         ownerUserId: "user_2",
         state: "reopened",
       },
       releaseRecord: {
         id: "release_reopen",
-        stage: "approval",
+        stage: "review",
         title: "Reopened release",
       },
     }),
@@ -176,23 +176,23 @@ test("buildReviewInboxItems surfaces approval, blocked claim, and reopened notif
       note: "The rollout caveat needs another pass.",
       releaseRecordId: "release_reopen",
       releaseTitle: "Reopened release",
-      stage: "approval",
+      stage: "review",
     }),
     createReleaseWorkflowHistoryEntry({
       createdAt: "2026-03-20T02:00:00.000Z",
-      eventType: "claim_check_completed",
+      eventType: "review_completed",
       id: "history_claim",
       note: "Availability claim is still unsupported.",
       releaseRecordId: "release_claim",
       releaseTitle: "Blocked claim release",
-      stage: "claim_check",
+      stage: "review",
     }),
     createReleaseWorkflowHistoryEntry({
       createdAt: "2026-03-20T01:00:00.000Z",
-      eventType: "approval_requested",
-      id: "history_approval",
+      eventType: "review_requested",
+      id: "history_review",
       note: "Review the pricing sentence before publish.",
-      releaseRecordId: "release_approval",
+      releaseRecordId: "release_review",
       releaseTitle: "Approval release",
     }),
   ]
@@ -221,8 +221,8 @@ test("buildReviewInboxItems surfaces approval, blocked claim, and reopened notif
         title: "Blocked claim release",
       },
       {
-        id: "approval:release_approval",
-        source: "approval",
+        id: "review:release_review",
+        source: "review",
         status: "Pending",
         title: "Approval release",
       },
@@ -235,7 +235,7 @@ test("buildReviewInboxItems surfaces approval, blocked claim, and reopened notif
 test("buildReviewInboxItems excludes reopened history when the workflow is no longer reopened", () => {
   const workflow = [
     createReleaseWorkflowListItem({
-      approvalSummary: {
+      reviewSummary: {
         ownerName: "Reviewer User",
         ownerUserId: "user_2",
         state: "approved",
@@ -256,7 +256,7 @@ test("buildReviewInboxItems excludes reopened history when the workflow is no lo
       note: "The rollout caveat needed another pass.",
       releaseRecordId: "release_reopen",
       releaseTitle: "Formerly reopened release",
-      stage: "approval",
+      stage: "review",
     }),
   ]
 
@@ -268,12 +268,12 @@ test("buildReviewInboxItems excludes reopened history when the workflow is no lo
 test("buildReviewInboxItems respects workspace inbox visibility policy", () => {
   const workflow = [
     createReleaseWorkflowListItem({
-      approvalSummary: {
+      reviewSummary: {
         ownerName: "Reviewer User",
         ownerUserId: "user_2",
         state: "pending",
       },
-      claimCheckSummary: {
+      reviewSummary: {
         blockerNotes: ["Availability claim is still unsupported."],
         flaggedClaims: 2,
         state: "blocked",
@@ -293,7 +293,7 @@ test("buildReviewInboxItems respects workspace inbox visibility policy", () => {
       id: "history_reopen",
       releaseRecordId: "release_policy",
       releaseTitle: "Policy gated release",
-      stage: "approval",
+      stage: "review",
     }),
   ]
 
@@ -309,14 +309,14 @@ test("buildReviewInboxItems respects workspace inbox visibility policy", () => {
   )
 
   assert.equal(items.length, 1)
-  assert.equal(items[0]?.source, "approval")
+  assert.equal(items[0]?.source, "review")
 })
 
 test("getServerReviewInboxData forwards auth headers and returns badge count", async () => {
   const requests: Array<{ init?: RequestInit; kind: "history" | "workflow" }> = []
   const workflow = [
     createReleaseWorkflowListItem({
-      approvalSummary: {
+      reviewSummary: {
         ownerName: "Reviewer User",
         ownerUserId: "user_2",
         state: "pending",
@@ -325,7 +325,7 @@ test("getServerReviewInboxData forwards auth headers and returns badge count", a
   ]
   const history = [
     createReleaseWorkflowHistoryEntry({
-      eventType: "approval_requested",
+      eventType: "review_requested",
     }),
   ]
 
@@ -355,7 +355,7 @@ test("getServerReviewInboxData forwards auth headers and returns badge count", a
   )
 
   assert.equal(data.count, 1)
-  assert.equal(data.items[0]?.source, "approval")
+  assert.equal(data.items[0]?.source, "review")
   assert.equal(
     ((requests[0]?.init?.headers as Record<string, string> | undefined) ?? {}).cookie,
     "better-auth.session=abc123",

@@ -12,7 +12,7 @@ import {
   type ReleaseWorkflowWorkspaceFocus,
 } from "@/lib/release-workflow"
 
-type ReleaseWorkflowMode = "approval" | "claim_check" | "overview" | "publish_pack"
+type ReleaseWorkflowMode = "overview" | "publish_pack"
 
 type ReleaseWorkflowPageProps = {
   emptyDescription: string

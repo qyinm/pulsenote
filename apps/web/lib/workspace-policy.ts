@@ -9,7 +9,6 @@ export function createDefaultWorkspacePolicySettings(
     createdAt: timestamp,
     includeEvidenceLinksInExport: true,
     includeSourceLinksInExport: true,
-    requireClaimCheckBeforeApproval: true,
     requireReviewerAssignment: true,
     showBlockedClaimsInInbox: true,
     showPendingApprovalsInInbox: true,

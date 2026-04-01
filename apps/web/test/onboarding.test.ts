@@ -20,7 +20,7 @@ test("WorkspaceOnboardingShell renders release-scoped onboarding copy", () => {
   )
 
   assert.match(markup, /Create your first PulseNote workspace/i)
-  assert.match(markup, /keep release context, claim checks, approvals, and publish pack/i)
+  assert.match(markup, /keep release context, claim checks, reviews, and publish pack/i)
 })
 
 test("DashboardAccessState sends no-workspace users into onboarding", () => {
