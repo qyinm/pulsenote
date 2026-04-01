@@ -268,7 +268,7 @@ test("buildLiveSettingsData summarizes live workspace settings coverage", () => 
   )
   assert.ok(
     data.notifications.items.some(
-      (item) => item.label === "Pending reviews in inbox" && item.value === "Disabled",
+      (item) => item.label === "Pending approvals in inbox" && item.value === "Disabled",
     ),
   )
   assert.ok(
