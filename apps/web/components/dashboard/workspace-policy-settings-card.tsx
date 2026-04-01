@@ -18,7 +18,6 @@ type EditableWorkspacePolicySettings = Pick<
   WorkspacePolicySettings,
   | "includeEvidenceLinksInExport"
   | "includeSourceLinksInExport"
-  | "requireClaimCheckBeforeApproval"
   | "requireReviewerAssignment"
   | "showBlockedClaimsInInbox"
   | "showPendingApprovalsInInbox"
@@ -33,12 +32,7 @@ type PolicyToggleDefinition = {
 
 const reviewPolicyToggles: PolicyToggleDefinition[] = [
   {
-    description: "Keep approval gated by an explicit claim check pass before any reviewer handoff begins.",
-    key: "requireClaimCheckBeforeApproval",
-    label: "Require claim check before approval",
-  },
-  {
-    description: "Keep one named reviewer attached to every approval handoff instead of leaving sign-off responsibility implicit.",
+    description: "Keep one named reviewer attached to every review handoff instead of leaving sign-off responsibility implicit.",
     key: "requireReviewerAssignment",
     label: "Require reviewer assignment",
   },
@@ -87,7 +81,6 @@ function getEditableSettings(settings: WorkspacePolicySettings): EditableWorkspa
   return {
     includeEvidenceLinksInExport: settings.includeEvidenceLinksInExport,
     includeSourceLinksInExport: settings.includeSourceLinksInExport,
-    requireClaimCheckBeforeApproval: settings.requireClaimCheckBeforeApproval,
     requireReviewerAssignment: settings.requireReviewerAssignment,
     showBlockedClaimsInInbox: settings.showBlockedClaimsInInbox,
     showPendingApprovalsInInbox: settings.showPendingApprovalsInInbox,

@@ -87,19 +87,19 @@ export function buildLiveSettingsData(
   const activeIntegrations = workspace.integrations.filter(
     (integration) => integration.status === "active",
   ).length
-  const blockedClaimChecks = workflow.filter(
-    (item) => item.claimCheckSummary.state === "blocked",
+  const blockedReviews = workflow.filter(
+    (item) => item.readiness === "blocked",
   ).length
-  const pendingApprovals = workflow.filter(
-    (item) => item.approvalSummary.state === "pending",
+  const pendingReviews = workflow.filter(
+    (item) => item.reviewSummary.state === "pending",
   ).length
-  const unassignedApprovals = workflow.filter(
+  const unassignedReviews = workflow.filter(
     (item) =>
-      item.approvalSummary.state === "pending" &&
-      item.approvalSummary.ownerUserId === null,
+      item.reviewSummary.state === "pending" &&
+      item.reviewSummary.ownerUserId === null,
   ).length
   const reopenedDrafts = workflow.filter(
-    (item) => item.approvalSummary.state === "reopened",
+    (item) => item.reviewSummary.state === "reopened",
   ).length
   const readyToExport = workflow.filter(
     (item) => item.latestPublishPackSummary.state === "ready",
@@ -109,7 +109,7 @@ export function buildLiveSettingsData(
   ).length
   const releasesWithEvidence = workflow.filter((item) => item.evidenceCount > 0).length
   const releasesMissingEvidence = workflow.length - releasesWithEvidence
-  const approvalAlerts = inboxItems.filter((item) => item.source === "approval").length
+  const reviewAlerts = inboxItems.filter((item) => item.source === "review").length
   const claimAlerts = inboxItems.filter((item) => item.source === "claim").length
   const reopenedAlerts = inboxItems.filter((item) => item.status === "Reopened").length
 
@@ -142,7 +142,7 @@ export function buildLiveSettingsData(
       description: "In-product signals stay visible so blocked states and handoffs do not disappear between pages.",
       items: [
         { label: "In-product signals", value: String(inboxItems.length) },
-        { label: "Approval alerts", value: String(approvalAlerts) },
+        { label: "Review alerts", value: String(reviewAlerts) },
         { label: "Claim alerts", value: String(claimAlerts) },
         { label: "Reopened draft alerts", value: String(reopenedAlerts) },
         {
@@ -164,15 +164,11 @@ export function buildLiveSettingsData(
     reviewPolicy: {
       description: "These live workflow counts show where review is still gating public wording and publish readiness.",
       items: [
-        { label: "Blocked claim checks", value: String(blockedClaimChecks) },
-        { label: "Pending approvals", value: String(pendingApprovals) },
-        { label: "Unassigned handoffs", value: String(unassignedApprovals) },
+        { label: "Blocked reviews", value: String(blockedReviews) },
+        { label: "Pending reviews", value: String(pendingReviews) },
+        { label: "Unassigned handoffs", value: String(unassignedReviews) },
         { label: "Reopened drafts", value: String(reopenedDrafts) },
         { label: "Logged decisions", value: String(history.length) },
-        {
-          label: "Claim check before approval",
-          value: policy.requireClaimCheckBeforeApproval ? "Required" : "Optional",
-        },
         {
           label: "Reviewer assignment",
           value: policy.requireReviewerAssignment ? "Required" : "Optional",

@@ -4,8 +4,6 @@ import type { DatabaseClient } from "../db/client.js"
 import {
   claimCandidateEvidenceBlocks,
   claimCandidates,
-  draftClaimCheckResultEvidenceBlocks,
-  draftClaimCheckResults,
   draftRevisions,
   evidenceBlocks,
   publishPackExports,
@@ -19,7 +17,6 @@ import {
 } from "../db/schema.js"
 import type {
   ClaimCandidate,
-  DraftClaimCheckResult,
   DraftRevision,
   PublishPackExport,
   ReleaseRecord,
@@ -30,11 +27,9 @@ import type {
 } from "../domain/models.js"
 import type { ReleaseRecordSnapshot } from "../foundation/store.js"
 import type {
-  CreateDraftClaimCheckResultInput,
   CreateDraftRevisionInput,
   CreatePublishPackExportInput,
   CreateWorkflowEventInput,
-  LinkDraftClaimCheckResultEvidenceBlockInput,
   ReleaseWorkflowStore,
   UpdateReleaseReviewStatusInput,
 } from "./store.js"
@@ -63,20 +58,6 @@ function groupClaimCandidateEvidenceLinks(
   }
 
   return evidenceBlockIdsByClaimCandidateId
-}
-
-function groupDraftClaimCheckEvidenceLinks(
-  links: { draftClaimCheckResultId: string; evidenceBlockId: string }[],
-) {
-  const evidenceBlockIdsByResultId = new Map<string, string[]>()
-
-  for (const link of links) {
-    const evidenceBlockIds = evidenceBlockIdsByResultId.get(link.draftClaimCheckResultId) ?? []
-    evidenceBlockIds.push(link.evidenceBlockId)
-    evidenceBlockIdsByResultId.set(link.draftClaimCheckResultId, evidenceBlockIds)
-  }
-
-  return evidenceBlockIdsByResultId
 }
 
 async function buildReleaseSnapshots(
@@ -162,27 +143,6 @@ export function createPostgresReleaseWorkflowStore(
   const db = "db" in dbOrOptions ? dbOrOptions.db : dbOrOptions
 
   return {
-    async createDraftClaimCheckResult(input) {
-      const [draftClaimCheckResult] = await db
-        .insert(draftClaimCheckResults)
-        .values({
-          createdAt: nowIso(),
-          draftRevisionId: input.draftRevisionId,
-          id: createId(),
-          note: input.note,
-          releaseRecordId: input.releaseRecordId,
-          sentence: input.sentence,
-          status: input.status,
-          updatedAt: nowIso(),
-        })
-        .returning()
-
-      return {
-        ...draftClaimCheckResult,
-        evidenceBlockIds: [],
-      } satisfies DraftClaimCheckResult
-    },
-
     async createDraftRevision(input) {
       const [draftRevision] = await db
         .insert(draftRevisions)
@@ -244,24 +204,6 @@ export function createPostgresReleaseWorkflowStore(
       return workflowEvent satisfies WorkflowEvent
     },
 
-    async deleteDraftClaimCheckResultsByDraftRevisionId(draftRevisionId: string) {
-      const resultRows = await db.query.draftClaimCheckResults.findMany({
-        columns: {
-          id: true,
-        },
-        where: eq(draftClaimCheckResults.draftRevisionId, draftRevisionId),
-      })
-      const resultIds = resultRows.map((resultRow) => resultRow.id)
-
-      if (resultIds.length > 0) {
-        await db
-          .delete(draftClaimCheckResultEvidenceBlocks)
-          .where(inArray(draftClaimCheckResultEvidenceBlocks.draftClaimCheckResultId, resultIds))
-      }
-
-      await db.delete(draftClaimCheckResults).where(eq(draftClaimCheckResults.draftRevisionId, draftRevisionId))
-    },
-
     async findWorkspaceMembership(workspaceId, userId) {
       return (
         (await db.query.workspaceMemberships.findFirst({
@@ -320,37 +262,6 @@ export function createPostgresReleaseWorkflowStore(
       })
 
       return (settings ?? null) satisfies WorkspacePolicySettings | null
-    },
-
-    async linkDraftClaimCheckResultEvidenceBlock(input) {
-      await db.insert(draftClaimCheckResultEvidenceBlocks).values({
-        draftClaimCheckResultId: input.draftClaimCheckResultId,
-        evidenceBlockId: input.evidenceBlockId,
-      })
-    },
-
-    async listDraftClaimCheckResultsByDraftRevisionIds(draftRevisionIds: string[]) {
-      if (draftRevisionIds.length === 0) {
-        return []
-      }
-
-      const draftClaimCheckResultRows = await db.query.draftClaimCheckResults.findMany({
-        orderBy: [desc(draftClaimCheckResults.updatedAt), desc(draftClaimCheckResults.createdAt)],
-        where: inArray(draftClaimCheckResults.draftRevisionId, draftRevisionIds),
-      })
-      const resultIds = draftClaimCheckResultRows.map((result) => result.id)
-      const links =
-        resultIds.length > 0
-          ? await db.query.draftClaimCheckResultEvidenceBlocks.findMany({
-              where: inArray(draftClaimCheckResultEvidenceBlocks.draftClaimCheckResultId, resultIds),
-            })
-          : []
-      const evidenceBlockIdsByResultId = groupDraftClaimCheckEvidenceLinks(links)
-
-      return draftClaimCheckResultRows.map((result) => ({
-        ...result,
-        evidenceBlockIds: evidenceBlockIdsByResultId.get(result.id) ?? [],
-      }))
     },
 
     async listDraftRevisionsByReleaseRecordIds(releaseRecordIds: string[]) {

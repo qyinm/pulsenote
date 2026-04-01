@@ -6,7 +6,6 @@ import type {
 import { createApiClient } from "./api/client"
 import { getForwardedAuthHeaders } from "./auth/headers"
 import {
-  getReleaseWorkflowApprovalLabel,
   getReleaseWorkflowNextAction,
   getReleaseWorkflowPublishPackLabel,
   getReleaseWorkflowStageLabel,
@@ -92,16 +91,15 @@ function getExportFrameTone(item: ReleaseWorkflowListItem): LiveExportFrameTone 
 
   if (
     item.readiness === "blocked" ||
-    item.claimCheckSummary.state === "blocked" ||
-    (item.approvalSummary.state === "pending" && item.approvalSummary.ownerUserId === null)
+    (item.reviewSummary.state === "pending" && item.reviewSummary.ownerUserId === null)
   ) {
     return "blocked"
   }
 
   if (
     item.readiness === "attention" ||
-    item.approvalSummary.state === "pending" ||
-    item.approvalSummary.state === "reopened"
+    item.reviewSummary.state === "pending" ||
+    item.reviewSummary.state === "reopened"
   ) {
     return "attention"
   }
@@ -136,7 +134,7 @@ function buildFrameContents(
     ? `Freeze draft v${item.currentDraft.version} as the wording source for handoff.`
     : "No draft is available yet, so no wording can be frozen for export."
   const evidenceLabel = `${item.evidenceCount} evidence block${item.evidenceCount === 1 ? "" : "s"} and ${item.sourceLinkCount} linked source${item.sourceLinkCount === 1 ? "" : "s"} stay attached to this handoff.`
-  const approvalLabel = `Approval state remains explicit: ${getReleaseWorkflowApprovalLabel(item.approvalSummary.state)}.`
+  const reviewLabel = `Review state remains explicit: ${item.reviewSummary.state.replaceAll("_", " ")}.`
   const exportDefaults = [
     policy.includeEvidenceLinksInExport
       ? "Evidence links are included in the frozen export by default."
@@ -149,7 +147,7 @@ function buildFrameContents(
   return [
     draftLabel,
     evidenceLabel,
-    approvalLabel,
+    reviewLabel,
     `Publish-pack status: ${getReleaseWorkflowPublishPackLabel(item.latestPublishPackSummary.state)}.`,
     ...exportDefaults,
   ]
@@ -157,10 +155,6 @@ function buildFrameContents(
 
 function buildFrameGuardrails(item: ReleaseWorkflowListItem) {
   const guardrails: string[] = []
-
-  if (item.claimCheckSummary.blockerNotes.length > 0) {
-    guardrails.push(...item.claimCheckSummary.blockerNotes.slice(0, 2))
-  }
 
   if (item.evidenceCount === 0) {
     guardrails.push("Attach at least one evidence block before a publish pack is frozen.")
@@ -170,19 +164,19 @@ function buildFrameGuardrails(item: ReleaseWorkflowListItem) {
     guardrails.push("Add a linked source so reviewers can inspect the proof behind the frozen wording.")
   }
 
-  if (item.approvalSummary.state === "pending") {
+  if (item.reviewSummary.state === "pending") {
     guardrails.push(
-      item.approvalSummary.ownerName
-        ? `Wait for ${item.approvalSummary.ownerName} to close the approval handoff before export.`
-        : "Assign a reviewer before the approval handoff can move toward export.",
+      item.reviewSummary.ownerName
+        ? `Wait for ${item.reviewSummary.ownerName} to close the review handoff before export.`
+        : "Assign a reviewer before the review handoff can move toward export.",
     )
   }
 
-  if (item.approvalSummary.state === "not_requested") {
-    guardrails.push("Request approval on the current draft before trying to export a publish pack.")
+  if (item.reviewSummary.state === "not_requested") {
+    guardrails.push("Request review on the current draft before trying to export a publish pack.")
   }
 
-  if (item.approvalSummary.state === "reopened") {
+  if (item.reviewSummary.state === "reopened") {
     guardrails.push("This draft was reopened, so the next export must wait for another review pass.")
   }
 
@@ -263,9 +257,9 @@ export function buildLiveExportFramesData(
         id: item.releaseRecord.id,
         lastActivityAt: latestHistory?.createdAt ?? item.releaseRecord.updatedAt,
         lastActivityLabel: buildLastActivityLabel(item, sortedHistory),
-        ownerLabel: item.approvalSummary.ownerName ?? "Reviewer missing",
+        ownerLabel: item.reviewSummary.ownerName ?? "Reviewer missing",
         recentActivity: buildRecentActivity(sortedHistory),
-        requestedByLabel: item.approvalSummary.requestedByName ?? "No requester recorded",
+        requestedByLabel: item.reviewSummary.requestedByName ?? "No requester recorded",
         sourceLinkCount: item.sourceLinkCount,
         stageLabel: getReleaseWorkflowStageLabel(item.releaseRecord.stage),
         state: getExportFrameState(item),

@@ -1,5 +1,4 @@
 import type {
-  DraftClaimCheckResult,
   DraftEvidenceRef,
   DraftFieldSnapshot,
   DraftRevision,
@@ -17,8 +16,7 @@ import type { ReleaseRecordSnapshot } from "../foundation/store.js"
 
 export const workflowAllowedActions = [
   "create_draft",
-  "run_claim_check",
-  "request_approval",
+  "request_review",
   "approve_draft",
   "reopen_draft",
   "create_publish_pack",
@@ -29,11 +27,8 @@ export type WorkflowAllowedAction = (typeof workflowAllowedActions)[number]
 export const workflowReadinesses = ["blocked", "attention", "ready"] as const
 export type WorkflowReadiness = (typeof workflowReadinesses)[number]
 
-export const claimCheckStates = ["not_started", "blocked", "cleared"] as const
-export type ClaimCheckState = (typeof claimCheckStates)[number]
-
-export const approvalStates = ["not_requested", "pending", "approved", "reopened"] as const
-export type ApprovalState = (typeof approvalStates)[number]
+export const reviewStates = ["not_requested", "pending", "approved", "reopened"] as const
+export type ReviewWorkflowState = (typeof reviewStates)[number]
 
 export const publishPackStates = ["not_ready", "ready", "exported"] as const
 export type PublishPackState = (typeof publishPackStates)[number]
@@ -45,23 +40,14 @@ export type ReleaseWorkflowBaseRecord = {
   reviewStatusesByStage: Partial<Record<ReviewStatus["stage"], ReviewStatus>>
 }
 
-export type ClaimCheckSummary = {
-  blockerNotes: string[]
-  draftRevisionId: string | null
-  flaggedClaims: number
-  items: DraftClaimCheckResult[]
-  state: ClaimCheckState
-  totalClaims: number
-}
-
-export type ApprovalSummary = {
+export type ReviewSummary = {
   draftRevisionId: string | null
   note: string | null
   ownerName: string | null
   ownerUserId: string | null
   requestedByName: string | null
   requestedByUserId: string | null
-  state: ApprovalState
+  state: ReviewWorkflowState
   updatedAt: string | null
 }
 
@@ -106,8 +92,6 @@ export type WorkflowCurrentDraft = Pick<
 
 export type ReleaseWorkflowListItem = {
   allowedActions: WorkflowAllowedAction[]
-  approvalSummary: ApprovalSummary
-  claimCheckSummary: Omit<ClaimCheckSummary, "items">
   currentDraft: Pick<WorkflowCurrentDraft, "createdAt" | "id" | "version"> | null
   evidenceCount: number
   latestPublishPackSummary: PublishPackSummary
@@ -124,13 +108,12 @@ export type ReleaseWorkflowListItem = {
     | "updatedAt"
     | "workspaceId"
   >
+  reviewSummary: ReviewSummary
   sourceLinkCount: number
 }
 
 export type ReleaseWorkflowDetail = {
   allowedActions: WorkflowAllowedAction[]
-  approvalSummary: ApprovalSummary
-  claimCheckSummary: ClaimCheckSummary
   currentDraft: WorkflowCurrentDraft | null
   evidenceBlocks: ReleaseRecordSnapshot["evidenceBlocks"]
   latestPublishPackArtifact: PublishPackArtifact | null
@@ -138,6 +121,7 @@ export type ReleaseWorkflowDetail = {
   readiness: WorkflowReadiness
   releaseRecord: ReleaseRecord
   reviewStatuses: ReleaseRecordSnapshot["reviewStatuses"]
+  reviewSummary: ReviewSummary
   sourceLinks: ReleaseRecordSnapshot["sourceLinks"]
 }
 
@@ -196,6 +180,6 @@ export type DraftScopedCommandInput = {
   workspaceId: string
 }
 
-export type RequestApprovalInput = DraftScopedCommandInput & {
+export type RequestReviewInput = DraftScopedCommandInput & {
   reviewerUserId?: string
 }

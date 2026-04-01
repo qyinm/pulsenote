@@ -73,7 +73,7 @@ function formatTimestamp(value: string) {
 
 function formatStageLabel(stage: ReleaseWorkflowHistoryEntry["stage"]) {
   switch (stage) {
-    case "claim_check":
+    case "review":
       return "Claim check"
     case "publish_pack":
       return "Publish pack"
@@ -299,7 +299,7 @@ export function ReviewLogWorkspace({
         ) : (
           <EmptyState
             title="No review history yet"
-            description="Run draft, claim check, approval, and publish-pack actions to build a visible audit trail."
+            description="Run draft, claim check, review, and publish-pack actions to build a visible audit trail."
           />
         )}
 
@@ -321,7 +321,7 @@ export function ReviewLogWorkspace({
               },
               {
                 title: "Recent revisions",
-                meta: "Draft creation and reopen events before approval resumes",
+                meta: "Draft creation and reopen events before review resumes",
                 icon: Clock3Icon,
               },
             ].map((viewItem) => (

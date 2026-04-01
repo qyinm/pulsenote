@@ -73,8 +73,8 @@ function createReleaseRecordSnapshotPayload() {
 
 function createReleaseWorkflowDetailPayload() {
   return {
-    allowedActions: ["run_claim_check"],
-    approvalSummary: {
+    allowedActions: ["request_review"],
+    reviewSummary: {
       draftRevisionId: "draft_1",
       note: null,
       ownerName: null,
@@ -83,26 +83,6 @@ function createReleaseWorkflowDetailPayload() {
       requestedByUserId: null,
       state: "not_requested",
       updatedAt: null,
-    },
-    claimCheckSummary: {
-      blockerNotes: [],
-      draftRevisionId: "draft_1",
-      flaggedClaims: 0,
-      items: [
-        {
-          createdAt: "2026-03-20T00:00:00.000Z",
-          draftRevisionId: "draft_1",
-          evidenceBlockIds: ["evidence_1"],
-          id: "claim_check_1",
-          note: null,
-          releaseRecordId: "release_1",
-          sentence: "Retry logic now covers the rollout cohort already enabled.",
-          status: "approved",
-          updatedAt: "2026-03-20T00:00:00.000Z",
-        },
-      ],
-      state: "cleared",
-      totalClaims: 1,
     },
     currentDraft: {
       changelogBody: "SDK rollout v2.4\n\n## Included changes\n\n- Retry logic now covers the rollout cohort already enabled.",
@@ -140,12 +120,12 @@ function createReleaseWorkflowDetailPayload() {
     latestPublishPackArtifact: {
       changelogBody: "## SDK rollout v2.4",
       context: {
-        approvalNote: null,
-        approvalOwnerName: "Reviewer User",
-        approvalOwnerUserId: "user_2",
-        approvalRequestedByName: "Owner User",
-        approvalRequestedByUserId: "user_1",
-        approvalState: "approved",
+        reviewNote: null,
+        reviewOwnerName: "Reviewer User",
+        reviewOwnerUserId: "user_2",
+        reviewRequestedByName: "Owner User",
+        reviewRequestedByUserId: "user_1",
+        reviewState: "approved",
         exportedByName: "Owner User",
         exportedByUserId: "user_1",
       },
@@ -209,7 +189,6 @@ function createWorkspacePolicySettingsPayload() {
     createdAt: "2026-03-20T00:00:00.000Z",
     includeEvidenceLinksInExport: true,
     includeSourceLinksInExport: true,
-    requireClaimCheckBeforeApproval: true,
     requireReviewerAssignment: true,
     showBlockedClaimsInInbox: true,
     showPendingApprovalsInInbox: true,
@@ -236,7 +215,7 @@ function createReleaseWorkflowHistoryEntryPayload() {
     releaseRecordId: "release_1",
     releaseTitle: "SDK rollout v2.4",
     sourceLinkCount: 2,
-    stage: "approval",
+    stage: "review",
   }
 }
 
@@ -379,7 +358,6 @@ test("api client sends workspace policy settings reads and writes with encoded p
   await client.updateWorkspacePolicySettings("workspace 1", {
     includeEvidenceLinksInExport: false,
     includeSourceLinksInExport: true,
-    requireClaimCheckBeforeApproval: true,
     requireReviewerAssignment: true,
     showBlockedClaimsInInbox: true,
     showPendingApprovalsInInbox: false,
@@ -402,7 +380,6 @@ test("api client sends workspace policy settings reads and writes with encoded p
         body: JSON.stringify({
           includeEvidenceLinksInExport: false,
           includeSourceLinksInExport: true,
-          requireClaimCheckBeforeApproval: true,
           requireReviewerAssignment: true,
           showBlockedClaimsInInbox: true,
           showPendingApprovalsInInbox: false,
@@ -421,14 +398,7 @@ test("api client sends workflow read requests to founder release workflow routes
   const historyPayload = [createReleaseWorkflowHistoryEntryPayload()]
   const listPayload = {
     allowedActions: detailPayload.allowedActions,
-    approvalSummary: detailPayload.approvalSummary,
-    claimCheckSummary: {
-      blockerNotes: detailPayload.claimCheckSummary.blockerNotes,
-      draftRevisionId: detailPayload.claimCheckSummary.draftRevisionId,
-      flaggedClaims: detailPayload.claimCheckSummary.flaggedClaims,
-      state: detailPayload.claimCheckSummary.state,
-      totalClaims: detailPayload.claimCheckSummary.totalClaims,
-    },
+    reviewSummary: detailPayload.reviewSummary,
     currentDraft: detailPayload.currentDraft
       ? {
           createdAt: detailPayload.currentDraft.createdAt,
@@ -506,11 +476,11 @@ test("api client sends workflow command requests with encoded payloads", async (
       contentFormat: fieldSnapshot.contentFormat as "markdown" | "plain_text" | "tiptap_json",
     })),
   })
-  await client.runReleaseWorkflowClaimCheck("workspace_1", "release_1", {
+  await client.requestReleaseWorkflowReview("workspace_1", "release_1", {
     expectedDraftRevisionId: "draft_1",
     note: "Check wording",
   })
-  await client.requestReleaseWorkflowApproval("workspace_1", "release_1", {
+  await client.requestReleaseWorkflowReview("workspace_1", "release_1", {
     expectedDraftRevisionId: "draft_1",
     reviewerUserId: "user_2",
   })
@@ -559,7 +529,7 @@ test("api client sends workflow command requests with encoded payloads", async (
       {
         body: JSON.stringify({ expectedDraftRevisionId: "draft_1", reviewerUserId: "user_2" }),
         method: "POST",
-        url: "https://api.pulsenotes.xyz/v1/workspaces/workspace_1/release-workflow/release_1/request-approval",
+        url: "https://api.pulsenotes.xyz/v1/workspaces/workspace_1/release-workflow/release_1/request-review",
       },
       {
         body: JSON.stringify({ expectedDraftRevisionId: "draft_1" }),

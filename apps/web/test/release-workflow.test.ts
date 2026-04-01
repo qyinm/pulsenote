@@ -12,8 +12,8 @@ import { ApiError } from "../lib/api/client.js"
 import { buildReleaseDraftEditorFields } from "../lib/draft-templates.js"
 import {
   buildReleaseWorkspaceHref,
-  buildReleaseWorkflowApprovalFilterCounts,
-  buildReleaseWorkflowApprovalNotes,
+  buildReleaseWorkflowReviewFilterCounts,
+  buildReleaseWorkflowReviewNotes,
   buildReleaseWorkflowBoardColumns,
   formatReleaseWorkflowCompareRange,
   buildReleaseWorkflowMetrics,
@@ -22,7 +22,7 @@ import {
   buildReleaseWorkflowQueueItem,
   createReleaseWorkflowDetailCache,
   filterReleaseWorkflowQueueByMode,
-  filterReleaseWorkflowApprovalQueue,
+  filterReleaseWorkflowReviewQueue,
   getReleaseWorkflowActionLabel,
   getReleaseWorkflowDisplayTitle,
   getReleaseWorkflowBoardStage,
@@ -34,8 +34,7 @@ import {
 
 type ReleaseWorkflowListItemOverrides = {
   allowedActions?: ReleaseWorkflowListItem["allowedActions"]
-  approvalSummary?: Partial<ReleaseWorkflowListItem["approvalSummary"]>
-  claimCheckSummary?: Partial<ReleaseWorkflowListItem["claimCheckSummary"]>
+  reviewSummary?: Partial<ReleaseWorkflowListItem["reviewSummary"]>
   currentDraft?: Partial<NonNullable<ReleaseWorkflowListItem["currentDraft"]>> | null
   evidenceCount?: number
   latestPublishPackSummary?: Partial<ReleaseWorkflowListItem["latestPublishPackSummary"]>
@@ -49,22 +48,15 @@ function createReleaseWorkflowListItem(
 ): ReleaseWorkflowListItem {
   return {
     allowedActions: overrides.allowedActions ?? ["create_draft"],
-    approvalSummary: {
-      draftRevisionId: overrides.approvalSummary?.draftRevisionId ?? null,
-      note: overrides.approvalSummary?.note ?? null,
-      ownerName: overrides.approvalSummary?.ownerName ?? null,
-      ownerUserId: overrides.approvalSummary?.ownerUserId ?? null,
-      requestedByName: overrides.approvalSummary?.requestedByName ?? null,
-      requestedByUserId: overrides.approvalSummary?.requestedByUserId ?? null,
-      state: overrides.approvalSummary?.state ?? "not_requested",
-      updatedAt: overrides.approvalSummary?.updatedAt ?? null,
-    },
-    claimCheckSummary: {
-      blockerNotes: overrides.claimCheckSummary?.blockerNotes ?? [],
-      draftRevisionId: overrides.claimCheckSummary?.draftRevisionId ?? null,
-      flaggedClaims: overrides.claimCheckSummary?.flaggedClaims ?? 0,
-      state: overrides.claimCheckSummary?.state ?? "not_started",
-      totalClaims: overrides.claimCheckSummary?.totalClaims ?? 0,
+    reviewSummary: {
+      draftRevisionId: overrides.reviewSummary?.draftRevisionId ?? null,
+      note: overrides.reviewSummary?.note ?? null,
+      ownerName: overrides.reviewSummary?.ownerName ?? null,
+      ownerUserId: overrides.reviewSummary?.ownerUserId ?? null,
+      requestedByName: overrides.reviewSummary?.requestedByName ?? null,
+      requestedByUserId: overrides.reviewSummary?.requestedByUserId ?? null,
+      state: overrides.reviewSummary?.state ?? "not_requested",
+      updatedAt: overrides.reviewSummary?.updatedAt ?? null,
     },
     currentDraft:
       overrides.currentDraft === null
@@ -105,8 +97,7 @@ function createReleaseWorkflowListItem(
 
 type ReleaseWorkflowDetailOverrides = {
   allowedActions?: ReleaseWorkflowDetail["allowedActions"]
-  approvalSummary?: Partial<ReleaseWorkflowDetail["approvalSummary"]>
-  claimCheckSummary?: Partial<ReleaseWorkflowDetail["claimCheckSummary"]>
+  reviewSummary?: Partial<ReleaseWorkflowDetail["reviewSummary"]>
   currentDraft?: Partial<NonNullable<ReleaseWorkflowDetail["currentDraft"]>> | null
   evidenceBlocks?: ReleaseWorkflowDetail["evidenceBlocks"]
   latestPublishPackArtifact?: ReleaseWorkflowDetail["latestPublishPackArtifact"]
@@ -121,24 +112,16 @@ function createReleaseWorkflowDetail(
   overrides: ReleaseWorkflowDetailOverrides = {},
 ): ReleaseWorkflowDetail {
   return {
-    allowedActions: overrides.allowedActions ?? ["run_claim_check"],
-    approvalSummary: {
-      draftRevisionId: overrides.approvalSummary?.draftRevisionId ?? "draft_1",
-      note: overrides.approvalSummary?.note ?? null,
-      ownerName: overrides.approvalSummary?.ownerName ?? null,
-      ownerUserId: overrides.approvalSummary?.ownerUserId ?? null,
-      requestedByName: overrides.approvalSummary?.requestedByName ?? null,
-      requestedByUserId: overrides.approvalSummary?.requestedByUserId ?? null,
-      state: overrides.approvalSummary?.state ?? "not_requested",
-      updatedAt: overrides.approvalSummary?.updatedAt ?? null,
-    },
-    claimCheckSummary: {
-      blockerNotes: overrides.claimCheckSummary?.blockerNotes ?? [],
-      draftRevisionId: overrides.claimCheckSummary?.draftRevisionId ?? "draft_1",
-      flaggedClaims: overrides.claimCheckSummary?.flaggedClaims ?? 0,
-      items: overrides.claimCheckSummary?.items ?? [],
-      state: overrides.claimCheckSummary?.state ?? "not_started",
-      totalClaims: overrides.claimCheckSummary?.totalClaims ?? 0,
+    allowedActions: overrides.allowedActions ?? ["request_review"],
+    reviewSummary: {
+      draftRevisionId: overrides.reviewSummary?.draftRevisionId ?? "draft_1",
+      note: overrides.reviewSummary?.note ?? null,
+      ownerName: overrides.reviewSummary?.ownerName ?? null,
+      ownerUserId: overrides.reviewSummary?.ownerUserId ?? null,
+      requestedByName: overrides.reviewSummary?.requestedByName ?? null,
+      requestedByUserId: overrides.reviewSummary?.requestedByUserId ?? null,
+      state: overrides.reviewSummary?.state ?? "not_requested",
+      updatedAt: overrides.reviewSummary?.updatedAt ?? null,
     },
     currentDraft:
       overrides.currentDraft === null
@@ -270,7 +253,6 @@ function createWorkspacePolicySettings(
     createdAt: overrides.createdAt ?? "2026-03-20T00:00:00.000Z",
     includeEvidenceLinksInExport: overrides.includeEvidenceLinksInExport ?? true,
     includeSourceLinksInExport: overrides.includeSourceLinksInExport ?? true,
-    requireClaimCheckBeforeApproval: overrides.requireClaimCheckBeforeApproval ?? true,
     requireReviewerAssignment: overrides.requireReviewerAssignment ?? true,
     showBlockedClaimsInInbox: overrides.showBlockedClaimsInInbox ?? true,
     showPendingApprovalsInInbox: overrides.showPendingApprovalsInInbox ?? true,
@@ -434,12 +416,12 @@ test("getServerReleaseWorkflowData prefers the requested selected release when i
 test("buildReleaseWorkspaceHref keeps selected release and focus in one releases route", () => {
   assert.equal(
     buildReleaseWorkspaceHref({
-      focus: "claim_check",
+      focus: "review",
       selectedId: "release_1",
     }),
-    "/dashboard/releases/release_1?focus=claim_check",
+    "/dashboard/releases/release_1?focus=review",
   )
-  assert.equal(buildReleaseWorkspaceHref({ focus: "approval" }), "/dashboard/releases?focus=approval")
+  assert.equal(buildReleaseWorkspaceHref({ focus: "review" }), "/dashboard/releases?focus=review")
   assert.equal(isReleaseWorkflowWorkspaceFocus("publish_pack"), true)
   assert.equal(isReleaseWorkflowWorkspaceFocus("not-a-section"), false)
 })
@@ -452,9 +434,9 @@ test("getServerReleaseWorkflowData falls back to a focus-matching release when n
       title: "Initial scope",
     },
   })
-  const approvalRelease = createReleaseWorkflowListItem({
+  const reviewRelease = createReleaseWorkflowListItem({
     allowedActions: ["approve_draft"],
-    approvalSummary: {
+    reviewSummary: {
       ownerName: "Reviewer User",
       ownerUserId: "user_2",
       requestedByName: "Owner User",
@@ -467,12 +449,12 @@ test("getServerReleaseWorkflowData falls back to a focus-matching release when n
     },
     releaseRecord: {
       id: "release_2",
-      stage: "approval",
+      stage: "review",
       title: "Needs sign-off",
     },
   })
   const detail = createReleaseWorkflowDetail({
-    approvalSummary: {
+    reviewSummary: {
       ownerName: "Reviewer User",
       ownerUserId: "user_2",
       requestedByName: "Owner User",
@@ -485,7 +467,7 @@ test("getServerReleaseWorkflowData falls back to a focus-matching release when n
     },
     releaseRecord: {
       id: "release_2",
-      stage: "approval",
+      stage: "review",
       title: "Needs sign-off",
     },
   })
@@ -508,11 +490,11 @@ test("getServerReleaseWorkflowData falls back to a focus-matching release when n
         return []
       },
       async listReleaseWorkflow() {
-        return [intakeRelease, approvalRelease]
+        return [intakeRelease, reviewRelease]
       },
     },
     null,
-    "approval",
+    "review",
   )
 
   assert.equal(data.selectedId, "release_2")
@@ -615,7 +597,7 @@ test("getServerReleaseWorkflowData falls back to strict default policy when sett
     },
   )
 
-  assert.equal(data.policy.requireClaimCheckBeforeApproval, true)
+  assert.equal(data.policy.requireReviewerAssignment, true)
   assert.equal(data.policy.requireReviewerAssignment, true)
 })
 
@@ -653,10 +635,10 @@ test("getServerReleaseWorkflowData rethrows unexpected member roster errors", as
   )
 })
 
-test("buildReleaseWorkflowApprovalNotes keeps assigned reviewer context for pending approval", () => {
-  const notes = buildReleaseWorkflowApprovalNotes(
+test("buildReleaseWorkflowReviewNotes keeps assigned reviewer context for pending review", () => {
+  const notes = buildReleaseWorkflowReviewNotes(
     createReleaseWorkflowDetail({
-      approvalSummary: {
+      reviewSummary: {
         ownerName: "Reviewer User",
         ownerUserId: "user_2",
         state: "pending",
@@ -667,7 +649,7 @@ test("buildReleaseWorkflowApprovalNotes keeps assigned reviewer context for pend
           note: null,
           ownerUserId: "user_2",
           releaseRecordId: "release_1",
-          stage: "approval",
+          stage: "review",
           state: "pending",
           updatedAt: "2026-03-20T00:00:00.000Z",
         },
@@ -700,7 +682,7 @@ test("filterReleaseWorkflowQueueByMode keeps claim-check records scoped to draft
   const queue = filterReleaseWorkflowQueueByMode(
     [draftedRelease, intakeOnlyRelease],
     "user_1",
-    "claim_check",
+    "overview",
     "all",
   )
 
@@ -727,7 +709,7 @@ test("filterReleaseWorkflowQueueByMode keeps publish-pack records scoped to appr
     },
   })
   const approvedRelease = createReleaseWorkflowListItem({
-    approvalSummary: {
+    reviewSummary: {
       state: "approved",
     },
     releaseRecord: {
@@ -772,20 +754,20 @@ test("getReleaseWorkflowBoardStage collapses workflow status into kanban columns
         releaseRecord: { stage: "draft" },
       }),
     ),
-    "claim_check",
+    "review",
   )
   assert.equal(
     getReleaseWorkflowBoardStage(
       createReleaseWorkflowListItem({
-        releaseRecord: { stage: "approval" },
+        releaseRecord: { stage: "review" },
       }),
     ),
-    "approval",
+    "review",
   )
   assert.equal(
     getReleaseWorkflowBoardStage(
       createReleaseWorkflowListItem({
-        approvalSummary: { state: "approved" },
+        reviewSummary: { state: "approved" },
         releaseRecord: { stage: "publish_pack" },
       }),
     ),
@@ -811,11 +793,11 @@ test("buildReleaseWorkflowBoardColumns groups release records into workflow boar
       releaseRecord: { id: "release_draft", stage: "draft", title: "Draft scope" },
     }),
     createReleaseWorkflowListItem({
-      approvalSummary: { state: "pending" },
-      releaseRecord: { id: "release_approval", stage: "approval", title: "Approval scope" },
+      reviewSummary: { state: "pending" },
+      releaseRecord: { id: "release_review", stage: "review", title: "Approval scope" },
     }),
     createReleaseWorkflowListItem({
-      approvalSummary: { state: "approved" },
+      reviewSummary: { state: "approved" },
       latestPublishPackSummary: { state: "ready" },
       releaseRecord: { id: "release_publish", stage: "publish_pack", title: "Publish scope" },
     }),
@@ -832,8 +814,8 @@ test("buildReleaseWorkflowBoardColumns groups release records into workflow boar
     })),
     [
       { ids: ["release_intake"], stage: "intake" },
-      { ids: ["release_draft"], stage: "claim_check" },
-      { ids: ["release_approval"], stage: "approval" },
+      { ids: ["release_draft"], stage: "review" },
+      { ids: ["release_review"], stage: "review" },
       { ids: ["release_publish"], stage: "publish_pack" },
       { ids: ["release_exported"], stage: "exported" },
     ],
@@ -845,8 +827,8 @@ test("buildReleaseWorkflowBoardColumns groups release records into workflow boar
     })),
     [
       { stage: "intake", stageLabels: ["Intake"] },
-      { stage: "claim_check", stageLabels: ["Claim check"] },
-      { stage: "approval", stageLabels: ["Approval"] },
+      { stage: "review", stageLabels: ["Claim check"] },
+      { stage: "review", stageLabels: ["Approval"] },
       { stage: "publish_pack", stageLabels: ["Publish pack"] },
       { stage: "exported", stageLabels: ["Exported"] },
     ],
@@ -913,10 +895,10 @@ test("buildReleaseWorkflowPublishPackNotes and artifact notes keep frozen handof
   ])
 })
 
-test("approval queue filters keep ownership handoff explicit", () => {
+test("review queue filters keep ownership handoff explicit", () => {
   const workflow = [
     createReleaseWorkflowListItem({
-      approvalSummary: {
+      reviewSummary: {
         ownerName: "Owner User",
         ownerUserId: "user_1",
         requestedByName: "Requester User",
@@ -928,7 +910,7 @@ test("approval queue filters keep ownership handoff explicit", () => {
       },
     }),
     createReleaseWorkflowListItem({
-      approvalSummary: {
+      reviewSummary: {
         ownerName: "Reviewer User",
         ownerUserId: "user_2",
         requestedByName: "Owner User",
@@ -940,7 +922,7 @@ test("approval queue filters keep ownership handoff explicit", () => {
       },
     }),
     createReleaseWorkflowListItem({
-      approvalSummary: {
+      reviewSummary: {
         ownerName: null,
         ownerUserId: null,
         requestedByName: "Owner User",
@@ -952,7 +934,7 @@ test("approval queue filters keep ownership handoff explicit", () => {
       },
     }),
     createReleaseWorkflowListItem({
-      approvalSummary: {
+      reviewSummary: {
         state: "approved",
       },
       releaseRecord: {
@@ -962,32 +944,32 @@ test("approval queue filters keep ownership handoff explicit", () => {
   ]
 
   assert.deepEqual(
-    filterReleaseWorkflowApprovalQueue(workflow, "user_1", "all").map((item) => item.releaseRecord.id),
+    filterReleaseWorkflowReviewQueue(workflow, "user_1", "all").map((item) => item.releaseRecord.id),
     ["release_assigned_to_me", "release_requested_by_me", "release_unassigned"],
   )
   assert.deepEqual(
-    filterReleaseWorkflowApprovalQueue(workflow, "user_1", "assigned_to_me").map(
+    filterReleaseWorkflowReviewQueue(workflow, "user_1", "assigned_to_me").map(
       (item) => item.releaseRecord.id,
     ),
     ["release_assigned_to_me"],
   )
   assert.deepEqual(
-    filterReleaseWorkflowApprovalQueue(workflow, "user_1", "requested_by_me").map(
+    filterReleaseWorkflowReviewQueue(workflow, "user_1", "requested_by_me").map(
       (item) => item.releaseRecord.id,
     ),
     ["release_requested_by_me", "release_unassigned"],
   )
   assert.deepEqual(
-    filterReleaseWorkflowApprovalQueue(workflow, "user_1", "unassigned").map(
+    filterReleaseWorkflowReviewQueue(workflow, "user_1", "unassigned").map(
       (item) => item.releaseRecord.id,
     ),
     ["release_unassigned"],
   )
 })
 
-test("approval filter metrics and ownership cues use the current reviewer identity", () => {
+test("review filter metrics and ownership cues use the current reviewer identity", () => {
   const assignedToMe = createReleaseWorkflowListItem({
-    approvalSummary: {
+    reviewSummary: {
       ownerName: "Owner User",
       ownerUserId: "user_1",
       requestedByName: "Requester User",
@@ -996,7 +978,7 @@ test("approval filter metrics and ownership cues use the current reviewer identi
     },
   })
   const requestedByMe = createReleaseWorkflowListItem({
-    approvalSummary: {
+    reviewSummary: {
       ownerName: "Reviewer User",
       ownerUserId: "user_2",
       requestedByName: "Owner User",
@@ -1005,7 +987,7 @@ test("approval filter metrics and ownership cues use the current reviewer identi
     },
   })
   const unassigned = createReleaseWorkflowListItem({
-    approvalSummary: {
+    reviewSummary: {
       ownerName: null,
       ownerUserId: null,
       requestedByName: "Owner User",
@@ -1014,19 +996,19 @@ test("approval filter metrics and ownership cues use the current reviewer identi
     },
   })
 
-  assert.deepEqual(buildReleaseWorkflowApprovalFilterCounts([assignedToMe, requestedByMe, unassigned], "user_1"), {
+  assert.deepEqual(buildReleaseWorkflowReviewFilterCounts([assignedToMe, requestedByMe, unassigned], "user_1"), {
     all: 3,
     assigned_to_me: 1,
     requested_by_me: 2,
     unassigned: 1,
   })
   assert.deepEqual(getReleaseWorkflowOwnershipCue(assignedToMe, "user_1"), {
-    description: "You currently own the approval decision for this draft revision.",
+    description: "You currently own the review decision for this draft revision.",
     label: "Assigned to you",
     tone: "assigned_to_me",
   })
   assert.deepEqual(getReleaseWorkflowOwnershipCue(requestedByMe, "user_1"), {
-    description: "You routed this approval request to Reviewer User.",
+    description: "You routed this review request to Reviewer User.",
     label: "Requested by you",
     tone: "requested_by_me",
   })
@@ -1040,7 +1022,7 @@ test("approval filter metrics and ownership cues use the current reviewer identi
   assert.deepEqual(
     getReleaseWorkflowOwnershipCue(
       createReleaseWorkflowListItem({
-        approvalSummary: {
+        reviewSummary: {
           ownerName: null,
           ownerUserId: "user_3",
           requestedByName: "Owner User",
@@ -1062,26 +1044,24 @@ test("approval filter metrics and ownership cues use the current reviewer identi
 test("buildReleaseWorkflowQueueItem surfaces workflow labels and next actions", () => {
   const queueItem = buildReleaseWorkflowQueueItem(
     createReleaseWorkflowListItem({
-      allowedActions: ["request_approval"],
-      approvalSummary: { state: "not_requested" },
-      claimCheckSummary: { blockerNotes: [], state: "cleared" },
+      allowedActions: ["request_review"],
+      reviewSummary: { state: "not_requested" },
       currentDraft: { version: 3 },
       latestPublishPackSummary: { state: "not_ready" },
       readiness: "ready",
       releaseRecord: {
-        stage: "claim_check",
+        stage: "review",
         summary: "Claim check is clear and ready for sign-off.",
       },
     }),
   )
 
   assert.deepEqual(queueItem, {
-    allowedActions: ["request_approval"],
-    approvalLabel: "Not requested",
-    claimCheckLabel: "Clear",
+    allowedActions: ["request_review"],
+    reviewLabel: "Not requested",
     evidenceCount: 3,
     id: "release_1",
-    nextAction: "Request approval on the current checked draft.",
+    nextAction: "Request review on the current checked draft.",
     ownerName: null,
     ownerUserId: null,
     publishPackLabel: "Not ready",
@@ -1181,19 +1161,19 @@ test("buildReleaseDraftEditorFields keeps legacy customer drafts on one visible 
 test("buildReleaseWorkflowMetrics summarizes blocked, pending, and export-ready workflow records", () => {
   const metrics = buildReleaseWorkflowMetrics([
     createReleaseWorkflowListItem({
-      approvalSummary: { ownerName: "Reviewer User", state: "pending" },
+      reviewSummary: { ownerName: "Reviewer User", state: "pending" },
       latestPublishPackSummary: { state: "not_ready" },
       readiness: "blocked",
       releaseRecord: { id: "release_1" },
     }),
     createReleaseWorkflowListItem({
-      approvalSummary: { state: "approved" },
+      reviewSummary: { state: "approved" },
       latestPublishPackSummary: { state: "ready" },
       readiness: "ready",
       releaseRecord: { id: "release_2" },
     }),
     createReleaseWorkflowListItem({
-      approvalSummary: { state: "approved" },
+      reviewSummary: { state: "approved" },
       latestPublishPackSummary: { state: "exported" },
       readiness: "ready",
       releaseRecord: { id: "release_3" },
@@ -1202,7 +1182,7 @@ test("buildReleaseWorkflowMetrics summarizes blocked, pending, and export-ready 
 
   assert.deepEqual(metrics, {
     blockedRecords: 1,
-    pendingApprovalRecords: 1,
+    pendingReviewRecords: 1,
     readyToExportRecords: 2,
     recordsInQueue: 3,
   })

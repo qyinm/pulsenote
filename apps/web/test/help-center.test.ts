@@ -12,8 +12,7 @@ import {
   getServerHelpCenterData,
 } from "../lib/help-center.js"
 
-type WorkflowApprovalSummary = ReleaseWorkflowListItem["approvalSummary"]
-type WorkflowClaimCheckSummary = ReleaseWorkflowListItem["claimCheckSummary"]
+type WorkflowReviewSummary = ReleaseWorkflowListItem["reviewSummary"]
 type WorkflowCurrentDraft = NonNullable<ReleaseWorkflowListItem["currentDraft"]>
 type WorkflowPublishPackSummary = ReleaseWorkflowListItem["latestPublishPackSummary"]
 type WorkflowReleaseRecord = ReleaseWorkflowListItem["releaseRecord"]
@@ -63,22 +62,19 @@ function createWorkspaceSnapshot(): WorkspaceSnapshot {
 function createWorkflowItem(
   overrides: Omit<
     Partial<ReleaseWorkflowListItem>,
-    | "approvalSummary"
-    | "claimCheckSummary"
+    | "reviewSummary"
     | "currentDraft"
     | "latestPublishPackSummary"
     | "releaseRecord"
   > & {
-    approvalSummary?: Partial<WorkflowApprovalSummary>
-    claimCheckSummary?: Partial<WorkflowClaimCheckSummary>
+    reviewSummary?: Partial<WorkflowReviewSummary>
     currentDraft?: Partial<WorkflowCurrentDraft> | null
     latestPublishPackSummary?: Partial<WorkflowPublishPackSummary>
     releaseRecord?: Partial<WorkflowReleaseRecord>
   } = {},
 ): ReleaseWorkflowListItem {
   const {
-    approvalSummary = {} as Partial<WorkflowApprovalSummary>,
-    claimCheckSummary = {} as Partial<WorkflowClaimCheckSummary>,
+    reviewSummary = {} as Partial<WorkflowReviewSummary>,
     currentDraft = {},
     latestPublishPackSummary = {} as Partial<WorkflowPublishPackSummary>,
     releaseRecord = {} as Partial<WorkflowReleaseRecord>,
@@ -86,41 +82,34 @@ function createWorkflowItem(
   } = overrides
 
   return {
-    allowedActions: itemOverrides.allowedActions ?? ["request_approval"],
-    approvalSummary: {
+    allowedActions: itemOverrides.allowedActions ?? ["request_review"],
+    reviewSummary: {
       draftRevisionId:
-        approvalSummary.draftRevisionId === undefined
+        reviewSummary.draftRevisionId === undefined
           ? "draft_1"
-          : approvalSummary.draftRevisionId,
-      note: approvalSummary.note === undefined ? null : approvalSummary.note,
+          : reviewSummary.draftRevisionId,
+      note: reviewSummary.note === undefined ? null : reviewSummary.note,
       ownerName:
-        approvalSummary.ownerName === undefined
+        reviewSummary.ownerName === undefined
           ? "Mina Park"
-          : approvalSummary.ownerName,
+          : reviewSummary.ownerName,
       ownerUserId:
-        approvalSummary.ownerUserId === undefined
+        reviewSummary.ownerUserId === undefined
           ? "user_1"
-          : approvalSummary.ownerUserId,
+          : reviewSummary.ownerUserId,
       requestedByName:
-        approvalSummary.requestedByName === undefined
+        reviewSummary.requestedByName === undefined
           ? "Grace Lee"
-          : approvalSummary.requestedByName,
+          : reviewSummary.requestedByName,
       requestedByUserId:
-        approvalSummary.requestedByUserId === undefined
+        reviewSummary.requestedByUserId === undefined
           ? "user_2"
-          : approvalSummary.requestedByUserId,
-      state: approvalSummary.state ?? "pending",
+          : reviewSummary.requestedByUserId,
+      state: reviewSummary.state ?? "pending",
       updatedAt:
-        approvalSummary.updatedAt === undefined
+        reviewSummary.updatedAt === undefined
           ? "2026-03-20T01:00:00.000Z"
-          : approvalSummary.updatedAt,
-    },
-    claimCheckSummary: {
-      blockerNotes: claimCheckSummary.blockerNotes ?? ["Proof is still blocked."],
-      draftRevisionId: claimCheckSummary.draftRevisionId ?? "draft_1",
-      flaggedClaims: claimCheckSummary.flaggedClaims ?? 1,
-      state: claimCheckSummary.state ?? "blocked",
-      totalClaims: claimCheckSummary.totalClaims ?? 2,
+          : reviewSummary.updatedAt,
     },
     currentDraft:
       currentDraft === null
@@ -148,7 +137,7 @@ function createWorkflowItem(
       compareRange: releaseRecord.compareRange ?? "main...feature/help",
       createdAt: releaseRecord.createdAt ?? "2026-03-20T00:00:00.000Z",
       id: releaseRecord.id ?? "release_1",
-      stage: releaseRecord.stage ?? "approval",
+      stage: releaseRecord.stage ?? "review",
       summary: releaseRecord.summary ?? "Retry wording still needs support.",
       title: releaseRecord.title ?? "SDK rollout v2.4",
       updatedAt: releaseRecord.updatedAt ?? "2026-03-20T01:00:00.000Z",
@@ -168,7 +157,7 @@ function createHistoryEntry(
     draftRevisionId: overrides.draftRevisionId ?? "draft_1",
     draftVersion: overrides.draftVersion ?? 3,
     eventLabel: overrides.eventLabel ?? "Approval requested",
-    eventType: overrides.eventType ?? "approval_requested",
+    eventType: overrides.eventType ?? "review_requested",
     evidenceCount: overrides.evidenceCount ?? 3,
     id: overrides.id ?? "history_1",
     note: overrides.note ?? "Route this to support review.",
@@ -177,7 +166,7 @@ function createHistoryEntry(
     releaseRecordId: overrides.releaseRecordId ?? "release_1",
     releaseTitle: overrides.releaseTitle ?? "SDK rollout v2.4",
     sourceLinkCount: overrides.sourceLinkCount ?? 2,
-    stage: overrides.stage ?? "approval",
+    stage: overrides.stage ?? "review",
   }
 }
 
@@ -188,7 +177,6 @@ function createWorkspacePolicySettings(
     createdAt: overrides.createdAt ?? "2026-03-20T00:00:00.000Z",
     includeEvidenceLinksInExport: overrides.includeEvidenceLinksInExport ?? true,
     includeSourceLinksInExport: overrides.includeSourceLinksInExport ?? true,
-    requireClaimCheckBeforeApproval: overrides.requireClaimCheckBeforeApproval ?? true,
     requireReviewerAssignment: overrides.requireReviewerAssignment ?? true,
     showBlockedClaimsInInbox: overrides.showBlockedClaimsInInbox ?? true,
     showPendingApprovalsInInbox: overrides.showPendingApprovalsInInbox ?? true,
@@ -203,30 +191,20 @@ test("buildLiveHelpData reflects live workflow blockers and guidance", () => {
     createWorkspaceSnapshot(),
     [
       createWorkflowItem({
-        approvalSummary: {
+        reviewSummary: {
           ownerName: null,
           ownerUserId: null,
           state: "pending",
-        },
-        claimCheckSummary: {
-          blockerNotes: ["Attach rollout proof before approval."],
-          state: "blocked",
         },
         latestPublishPackSummary: {
           state: "not_ready",
         },
       }),
       createWorkflowItem({
-        approvalSummary: {
+        reviewSummary: {
           ownerName: "Noah Lim",
           ownerUserId: "user_3",
           state: "approved",
-        },
-        claimCheckSummary: {
-          blockerNotes: [],
-          flaggedClaims: 0,
-          state: "cleared",
-          totalClaims: 0,
         },
         latestPublishPackSummary: {
           draftRevisionId: "draft_2",
@@ -252,10 +230,9 @@ test("buildLiveHelpData reflects live workflow blockers and guidance", () => {
   assert.equal(data.metrics.activeStages, 2)
   assert.ok(data.metrics.knownLimits >= 3)
   assert.ok(data.metrics.openSignals >= 1)
-  assert.equal(data.modules[1]?.status, "1 blocked")
-  assert.equal(data.modules[2]?.status, "1 unassigned")
-  assert.equal(data.modules[3]?.status, "1 ready")
-  assert.match(data.checklist.join(" "), /Assign the pending approval request/)
+  assert.equal(data.modules[1]?.status, "1 unassigned")
+  assert.equal(data.modules[2]?.status, "1 ready")
+  assert.match(data.checklist.join(" "), /Assign the pending review request/)
   assert.match(data.issues.map((issue) => issue.title).join(" "), /Approval handoff is missing an owner/)
 })
 
@@ -264,14 +241,8 @@ test("buildLiveHelpData does not mark unstarted claim checks as clear", () => {
     createWorkspaceSnapshot(),
     [
       createWorkflowItem({
-        approvalSummary: {
+        reviewSummary: {
           state: "not_requested",
-        },
-        claimCheckSummary: {
-          blockerNotes: [],
-          flaggedClaims: 0,
-          state: "not_started",
-          totalClaims: 0,
         },
         latestPublishPackSummary: {
           state: "not_ready",
@@ -290,7 +261,7 @@ test("buildLiveHelpData does not mark unstarted claim checks as clear", () => {
   )
 
   assert.equal(data.modules[1]?.status, "1 not started")
-  assert.match(data.checklist.join(" "), /Run claim check/)
+  assert.match(data.checklist.join(" "), /Request review/)
 })
 
 test("getServerHelpCenterData forwards auth headers and returns live help data", async () => {

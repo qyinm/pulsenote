@@ -71,7 +71,7 @@ test("getEmailAuthContent returns release-specific sign-in copy", async () => {
     alternateHref: "/auth/sign-up",
     alternateLabel: "Create an account",
     description:
-      "Open the release workspace with an authenticated reviewer session before checking evidence, wording, and approvals.",
+      "Open the release workspace with an authenticated reviewer session before checking evidence, wording, and reviews.",
     primaryLabel: "Sign in",
     title: "Sign in to PulseNote",
   })

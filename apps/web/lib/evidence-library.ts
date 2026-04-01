@@ -66,11 +66,10 @@ const sourceTypeLabels = {
 } satisfies Record<ReleaseRecordSnapshot["evidenceBlocks"][number]["sourceType"], string>
 
 const releaseStageLabels = {
-  approval: "Approval",
-  claim_check: "Claim check",
   draft: "Draft",
   intake: "Intake",
   publish_pack: "Publish pack",
+  review: "Review",
 } satisfies Record<ReleaseRecordSnapshot["releaseRecord"]["stage"], string>
 
 const evidenceTimestampFormatter = new Intl.DateTimeFormat("en-US", {

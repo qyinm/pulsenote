@@ -30,13 +30,13 @@ const inboxViews: Array<{ value: ReviewInboxView; label: string }> = [
 ]
 
 const sourceIcons: Record<ReviewInboxSource, LucideIcon> = {
-  approval: StampIcon,
+  review: StampIcon,
   claim: ShieldAlertIcon,
   workflow: TimerResetIcon,
 }
 
 const actionIcons: Record<string, LucideIcon> = {
-  "/dashboard/approval": StampIcon,
+  "/dashboard/review": StampIcon,
   "/dashboard/claim-check": ShieldAlertIcon,
   "/dashboard/releases": FolderKanbanIcon,
   "/dashboard/review-log": ArchiveIcon,
@@ -44,7 +44,7 @@ const actionIcons: Record<string, LucideIcon> = {
 
 const inboxSourceFilters: Record<ReviewInboxView, ReviewInboxSource[] | null> = {
   all: null,
-  approvals: ["approval"],
+  approvals: ["review"],
   claims: ["claim"],
   signals: ["workflow"],
 }
@@ -110,7 +110,7 @@ function emptyCopy(view: ReviewInboxView) {
     return {
       description:
         "Approval work will appear here when a release is waiting for a human sign-off step.",
-      title: "No pending approvals",
+      title: "No pending reviews",
     }
   }
 
@@ -124,7 +124,7 @@ function emptyCopy(view: ReviewInboxView) {
 
   return {
     description:
-      "Blocked claim checks, pending approvals, and reopened drafts will appear here as the queue changes.",
+      "Blocked claim checks, pending reviews, and reopened drafts will appear here as the queue changes.",
     title: "Inbox is clear",
   }
 }
@@ -158,7 +158,7 @@ export function ReviewInboxWorkspace({ initialItems }: { initialItems: ReviewInb
               <Badge variant="outline">{currentItems.length}</Badge>
             </div>
             <p className="text-sm leading-6 text-muted-foreground">
-              Keep blocked claim checks, approvals, and reopened drafts visible in one
+              Keep blocked claim checks, reviews, and reopened drafts visible in one
               operational list.
             </p>
           </div>

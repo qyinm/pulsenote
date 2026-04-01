@@ -7,22 +7,19 @@ type RuntimeEnv = {
 type FetchLike = typeof fetch
 
 const integrationProviderSchema = z.enum(["github", "linear"])
-const releaseStageSchema = z.enum(["intake", "draft", "claim_check", "approval", "publish_pack"])
+const releaseStageSchema = z.enum(["intake", "draft", "review", "publish_pack"])
 const reviewStateSchema = z.enum(["pending", "blocked", "approved"])
-const claimStatusSchema = z.enum(["pending", "flagged", "approved", "rejected"])
 const evidenceStateSchema = z.enum(["fresh", "stale", "missing", "unsupported"])
 const evidenceSourceTypeSchema = z.enum(["pull_request", "commit", "release", "ticket", "document"])
 const workflowAllowedActionSchema = z.enum([
   "create_draft",
-  "run_claim_check",
-  "request_approval",
+  "request_review",
   "approve_draft",
   "reopen_draft",
   "create_publish_pack",
 ])
 const workflowReadinessSchema = z.enum(["blocked", "attention", "ready"])
-const claimCheckStateSchema = z.enum(["not_started", "blocked", "cleared"])
-const approvalStateSchema = z.enum(["not_requested", "pending", "approved", "reopened"])
+const reviewWorkflowStateSchema = z.enum(["not_requested", "pending", "approved", "reopened"])
 const publishPackStateSchema = z.enum(["not_ready", "ready", "exported"])
 const workspaceMembershipRoleSchema = z.enum(["owner", "member"])
 const integrationStatusSchema = z.enum(["active", "disconnected"])
@@ -61,7 +58,7 @@ const releaseRecordSnapshotSchema = z.object({
       id: z.string(),
       releaseRecordId: z.string(),
       sentence: z.string(),
-      status: claimStatusSchema,
+      status: z.enum(["pending", "flagged", "approved", "rejected"]),
       updatedAt: z.string(),
     }),
   ),
@@ -145,35 +142,14 @@ const workflowCurrentDraftSchema = z.object({
   version: z.number().int(),
 })
 
-const claimCheckResultSchema = z.object({
-  createdAt: z.string(),
-  draftRevisionId: z.string(),
-  evidenceBlockIds: z.array(z.string()),
-  id: z.string(),
-  note: z.string().nullable(),
-  releaseRecordId: z.string(),
-  sentence: z.string(),
-  status: claimStatusSchema,
-  updatedAt: z.string(),
-})
-
-const workflowClaimCheckSummarySchema = z.object({
-  blockerNotes: z.array(z.string()),
-  draftRevisionId: z.string().nullable(),
-  flaggedClaims: z.number().int(),
-  items: z.array(claimCheckResultSchema),
-  state: claimCheckStateSchema,
-  totalClaims: z.number().int(),
-})
-
-const workflowApprovalSummarySchema = z.object({
+const workflowReviewSummarySchema = z.object({
   draftRevisionId: z.string().nullable(),
   note: z.string().nullable(),
   ownerName: z.string().nullable(),
   ownerUserId: z.string().nullable(),
   requestedByName: z.string().nullable(),
   requestedByUserId: z.string().nullable(),
-  state: approvalStateSchema,
+  state: reviewWorkflowStateSchema,
   updatedAt: z.string().nullable(),
 })
 
@@ -198,7 +174,7 @@ const workflowPublishPackArtifactSchema = z.object({
     approvalOwnerUserId: z.string().nullable(),
     approvalRequestedByName: z.string().nullable(),
     approvalRequestedByUserId: z.string().nullable(),
-    approvalState: approvalStateSchema,
+    approvalState: reviewWorkflowStateSchema,
     exportedByName: z.string().nullable(),
     exportedByUserId: z.string().nullable(),
   }),
@@ -230,8 +206,6 @@ const workflowPublishPackArtifactSchema = z.object({
 
 const releaseWorkflowListItemSchema = z.object({
   allowedActions: z.array(workflowAllowedActionSchema),
-  approvalSummary: workflowApprovalSummarySchema,
-  claimCheckSummary: workflowClaimCheckSummarySchema.omit({ items: true }),
   currentDraft: workflowCurrentDraftSchema.pick({
     createdAt: true,
     id: true,
@@ -251,13 +225,12 @@ const releaseWorkflowListItemSchema = z.object({
     updatedAt: z.string(),
     workspaceId: z.string(),
   }),
+  reviewSummary: workflowReviewSummarySchema,
   sourceLinkCount: z.number().int(),
 })
 
 const releaseWorkflowDetailSchema = z.object({
   allowedActions: z.array(workflowAllowedActionSchema),
-  approvalSummary: workflowApprovalSummarySchema,
-  claimCheckSummary: workflowClaimCheckSummarySchema,
   currentDraft: workflowCurrentDraftSchema.nullable(),
   evidenceBlocks: releaseRecordSnapshotSchema.shape.evidenceBlocks,
   latestPublishPackArtifact: workflowPublishPackArtifactSchema.nullable(),
@@ -265,6 +238,7 @@ const releaseWorkflowDetailSchema = z.object({
   readiness: workflowReadinessSchema,
   releaseRecord: releaseRecordSnapshotSchema.shape.releaseRecord,
   reviewStatuses: releaseRecordSnapshotSchema.shape.reviewStatuses,
+  reviewSummary: workflowReviewSummarySchema,
   sourceLinks: releaseRecordSnapshotSchema.shape.sourceLinks,
 })
 
@@ -278,8 +252,7 @@ const releaseWorkflowHistoryEntrySchema = z.object({
   eventType: z.enum([
     "draft_created",
     "draft_updated",
-    "claim_check_completed",
-    "approval_requested",
+    "review_requested",
     "draft_approved",
     "draft_reopened",
     "publish_pack_created",
@@ -386,7 +359,6 @@ const workspacePolicySettingsSchema = z.object({
   createdAt: z.string(),
   includeEvidenceLinksInExport: z.boolean(),
   includeSourceLinksInExport: z.boolean(),
-  requireClaimCheckBeforeApproval: z.boolean(),
   requireReviewerAssignment: z.boolean(),
   showBlockedClaimsInInbox: z.boolean(),
   showPendingApprovalsInInbox: z.boolean(),
@@ -570,7 +542,7 @@ type ReleaseWorkflowDraftCommandPayload = {
   note?: string
 }
 
-type ReleaseWorkflowApprovalCommandPayload = ReleaseWorkflowDraftCommandPayload & {
+type ReleaseWorkflowReviewCommandPayload = ReleaseWorkflowDraftCommandPayload & {
   reviewerUserId?: string
 }
 
@@ -745,7 +717,6 @@ export function createApiClient(options: CreateApiClientOptions = {}) {
         WorkspacePolicySettings,
         | "includeEvidenceLinksInExport"
         | "includeSourceLinksInExport"
-        | "requireClaimCheckBeforeApproval"
         | "requireReviewerAssignment"
         | "showBlockedClaimsInInbox"
         | "showPendingApprovalsInInbox"
@@ -901,30 +872,14 @@ export function createApiClient(options: CreateApiClientOptions = {}) {
         },
       )
     },
-    requestReleaseWorkflowApproval(
+    requestReleaseWorkflowReview(
       workspaceId: string,
       releaseRecordId: string,
-      payload: ReleaseWorkflowApprovalCommandPayload,
+      payload: ReleaseWorkflowReviewCommandPayload,
       init?: RequestInit,
     ) {
       return request(
-        `/v1/workspaces/${encodeURIComponent(workspaceId)}/release-workflow/${encodeURIComponent(releaseRecordId)}/request-approval`,
-        releaseWorkflowDetailSchema,
-        {
-          ...init,
-          body: JSON.stringify(payload),
-          method: "POST",
-        },
-      )
-    },
-    runReleaseWorkflowClaimCheck(
-      workspaceId: string,
-      releaseRecordId: string,
-      payload: ReleaseWorkflowDraftCommandPayload,
-      init?: RequestInit,
-    ) {
-      return request(
-        `/v1/workspaces/${encodeURIComponent(workspaceId)}/release-workflow/${encodeURIComponent(releaseRecordId)}/claim-check`,
+        `/v1/workspaces/${encodeURIComponent(workspaceId)}/release-workflow/${encodeURIComponent(releaseRecordId)}/request-review`,
         releaseWorkflowDetailSchema,
         {
           ...init,

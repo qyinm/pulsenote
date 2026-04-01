@@ -26,7 +26,7 @@ function createHistoryEntry(
     releaseRecordId: overrides.releaseRecordId ?? "release_1",
     releaseTitle: overrides.releaseTitle ?? "SDK rollout v2.4",
     sourceLinkCount: overrides.sourceLinkCount ?? 2,
-    stage: overrides.stage ?? "approval",
+    stage: overrides.stage ?? "review",
   }
 }
 
@@ -67,7 +67,7 @@ test("buildReviewLogMetrics summarizes logged, blocked, reopened, and signed-off
       eventType: "draft_reopened",
       id: "event_2",
       outcome: "blocked",
-      stage: "approval",
+      stage: "review",
     }),
     createHistoryEntry({
       eventType: "publish_pack_created",

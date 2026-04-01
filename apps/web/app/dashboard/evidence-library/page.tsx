@@ -15,7 +15,7 @@ export default async function EvidenceLibraryPage({
 
   permanentRedirect(
     buildReleaseWorkspaceHref({
-      focus: "claim_check",
+      focus: "review",
       selectedId,
     }),
   )
