@@ -50,7 +50,7 @@ const emailAuthContent = {
     alternateHref: "/auth/sign-in",
     alternateLabel: "Sign in instead",
     description:
-      "Start a release workspace so the first draft, claim check, approval, and publish pack all stay tied to the same reviewer identity.",
+      "Start a release workspace so the first draft, review handoff, sign-off, and publish pack all stay tied to the same reviewer identity.",
     primaryLabel: "Create account",
     title: "Create your PulseNote account",
   },

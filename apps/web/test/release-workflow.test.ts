@@ -449,7 +449,7 @@ test("getServerReleaseWorkflowData falls back to a focus-matching release when n
     },
     releaseRecord: {
       id: "release_2",
-      stage: "draft",
+      stage: "review",
       title: "Needs sign-off",
     },
   })
@@ -1084,7 +1084,7 @@ test("review filter metrics and ownership cues use the current reviewer identity
   })
   assert.deepEqual(getReleaseWorkflowOwnershipCue(unassigned, "user_1"), {
     description:
-      "Review is pending without an assigned reviewer, so this record can drift unless someone claims it.",
+      "Review is pending without an assigned reviewer, so this record can drift until a reviewer is assigned.",
     label: "Reviewer missing",
     tone: "unassigned",
   })
