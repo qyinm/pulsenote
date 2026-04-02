@@ -10,24 +10,44 @@ PulseNote is a release communication system. It turns release evidence into revi
 
 ## Local Development
 
-Install the site dependencies from the repo root:
+Install workspace dependencies from the repo root:
 
 ```bash
 pnpm install
 ```
 
-Run the public site:
+Install `just` before using the root command surface:
 
 ```bash
-pnpm dev
+brew install just
+# or
+cargo install just --locked
 ```
 
-Validate the current surfaces:
+Use `just` as the canonical root entrypoint:
 
 ```bash
-pnpm lint
-pnpm build
+just --list
 ```
+
+Common workflows:
+
+```bash
+just dev           # start the web app
+just api-dev       # run the API separately
+just check
+just web-test
+just web-typecheck
+just api-test
+just api-typecheck
+just api-db-generate
+just api-db-migrate
+just site-dev
+```
+
+The default root workflow is product-first: it prioritizes `apps/web` and `apps/api`, while `apps/site` remains available through explicit app-scoped recipes.
+
+App-local `package.json` scripts remain the execution substrate. Root `package.json` scripts are transitional only and should not be treated as the primary workflow surface.
 
 ## Notes
 
