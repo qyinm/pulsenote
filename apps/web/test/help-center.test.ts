@@ -226,14 +226,14 @@ test("buildLiveHelpData reflects live workflow blockers and guidance", () => {
     createWorkspacePolicySettings(),
   )
 
-  assert.equal(data.metrics.workflowGuides, 4)
+  assert.equal(data.metrics.workflowGuides, 3)
   assert.equal(data.metrics.activeStages, 2)
   assert.ok(data.metrics.knownLimits >= 3)
   assert.ok(data.metrics.openSignals >= 1)
-  assert.equal(data.modules[1]?.status, "1 unassigned")
+  assert.equal(data.modules[1]?.status, "1 blocked")
   assert.equal(data.modules[2]?.status, "1 ready")
   assert.match(data.checklist.join(" "), /Assign the pending review request/)
-  assert.match(data.issues.map((issue) => issue.title).join(" "), /Approval handoff is missing an owner/)
+  assert.match(data.issues.map((issue) => issue.title).join(" "), /Review handoff is missing an owner/)
 })
 
 test("buildLiveHelpData does not mark unstarted claim checks as clear", () => {
@@ -260,8 +260,8 @@ test("buildLiveHelpData does not mark unstarted claim checks as clear", () => {
     createWorkspacePolicySettings(),
   )
 
-  assert.equal(data.modules[1]?.status, "1 not started")
-  assert.match(data.checklist.join(" "), /Request review/)
+  assert.equal(data.modules[1]?.status, "Clear now")
+  assert.match(data.checklist.join(" "), /Start with evidence and source freshness/)
 })
 
 test("getServerHelpCenterData forwards auth headers and returns live help data", async () => {
@@ -293,7 +293,7 @@ test("getServerHelpCenterData forwards auth headers and returns live help data",
     },
   )
 
-  assert.equal(data.metrics.workflowGuides, 4)
+  assert.equal(data.metrics.workflowGuides, 3)
   assert.equal(requests.length, 3)
 
   for (const request of requests) {

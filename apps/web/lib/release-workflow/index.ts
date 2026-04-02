@@ -389,6 +389,10 @@ export function filterReleaseWorkflowQueueByMode(
     )
   }
 
+  if (reviewFilter !== "all") {
+    return filterReleaseWorkflowReviewQueue(workflow, currentUserId, reviewFilter)
+  }
+
   return workflow
 }
 
@@ -441,7 +445,8 @@ export function getReleaseWorkflowOwnershipCue(
 
   if (!item.reviewSummary.ownerUserId) {
     return {
-      description: "Review is pending without an assigned reviewer, so this record can drift unless someone claims it.",
+      description:
+        "Review is pending without an assigned reviewer, so this record can drift until a reviewer is assigned.",
       label: "Reviewer missing",
       tone: "unassigned",
     }

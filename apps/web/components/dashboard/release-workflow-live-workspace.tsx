@@ -78,7 +78,7 @@ const reviewOwnershipFilters: Array<{
   label: string
   value: ReleaseWorkflowReviewOwnershipFilter
 }> = [
-  { label: "All pending", value: "all" },
+  { label: "All releases", value: "all" },
   { label: "Assigned to me", value: "assigned_to_me" },
   { label: "Requested by me", value: "requested_by_me" },
   { label: "Unassigned", value: "unassigned" },
@@ -346,49 +346,7 @@ function buildModeMetricCards(
 ) {
   const metrics = buildReleaseWorkflowMetrics(workflow)
   const reviewFilterCounts = buildReleaseWorkflowReviewFilterCounts(workflow, currentUserId)
-  const selectedReviewState = selectedWorkflow?.reviewSummary.state ?? "not_requested"
-  const selectedEvidenceCount = selectedWorkflow?.evidenceBlocks.length ?? 0
-
-  return [
-    {
-      badge: "Ownership",
-      description: "Keep the drafts you personally need to review visible before they stall the release window.",
-      detail: "Current reviewer",
-      icon: TimerResetIcon,
-      title: "Assigned to you",
-      value: String(reviewFilterCounts.assigned_to_me),
-    },
-    {
-      description: "Requests you routed should stay visible until another reviewer closes the loop.",
-      detail: "Requester queue",
-      icon: FolderKanbanIcon,
-      title: "Requested by you",
-      value: String(reviewFilterCounts.requested_by_me),
-    },
-    {
-      description: "Pending reviews without a reviewer are an explicit handoff gap, not background noise.",
-      detail: "Needs routing",
-      icon: ShieldAlertIcon,
-      title: "Unassigned reviews",
-      value: String(reviewFilterCounts.unassigned),
-    },
-    {
-      description: "The selected release keeps one explicit review state at a time.",
-      detail: "Selected release",
-      icon: BadgeCheckIcon,
-      title: "Current review state",
-      value:
-        selectedWorkflow?.reviewSummary.state === "approved"
-          ? "Signed off"
-          : selectedWorkflow?.reviewSummary.state === "pending"
-            ? "Pending"
-            : selectedWorkflow?.reviewSummary.state === "reopened"
-              ? "Reopened"
-              : "Not requested",
-    },
-  ]
-
-  if (mode === "publish_pack") {
+  if (mode === "overview") {
     return [
       {
         badge: "Ownership",
@@ -696,6 +654,7 @@ export function ReleaseWorkflowLiveWorkspace({
     mode,
     reviewOwnershipFilter,
   )
+  const reviewFilterCounts = buildReleaseWorkflowReviewFilterCounts(workflow, currentUserId)
   const queueSourceById = new Map(queueSource.map((item) => [item.releaseRecord.id, item]))
   const queueItems = queueSource.map(buildReleaseWorkflowQueueItem)
   const boardColumns = buildReleaseWorkflowBoardColumns(queueSource)
@@ -1112,6 +1071,30 @@ export function ReleaseWorkflowLiveWorkspace({
               </TabsTrigger>
             </TabsList>
           </Tabs>
+
+          {reviewOwnershipFilter !== "all" || reviewFilterCounts.all > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {reviewOwnershipFilters.map((filterOption) => {
+                const count =
+                  filterOption.value === "all"
+                    ? workflow.length
+                    : reviewFilterCounts[filterOption.value]
+
+                return (
+                  <Button
+                    key={filterOption.value}
+                    type="button"
+                    variant={reviewOwnershipFilter === filterOption.value ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setReviewOwnershipFilter(filterOption.value)}
+                  >
+                    {filterOption.label}
+                    <span className="ml-1 text-xs opacity-80">{count}</span>
+                  </Button>
+                )
+              })}
+            </div>
+          ) : null}
 
           {workspaceView === "board"
             ? renderOverviewBoard({

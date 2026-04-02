@@ -9,7 +9,6 @@ import {
   claimCandidates,
   claimStatusEnum,
   currentWorkspaceSelections,
-  draftClaimCheckResults,
   draftRevisions,
   evidenceBlocks,
   evidenceSourceTypeEnum,
@@ -107,7 +106,6 @@ test("sync and release records keep workspace and connection tenant boundaries a
   const syncRunConfig = getTableConfig(syncRuns)
   const releaseRecordConfig = getTableConfig(releaseRecords)
   const currentWorkspaceSelectionConfig = getTableConfig(currentWorkspaceSelections)
-  const draftClaimCheckResultConfig = getTableConfig(draftClaimCheckResults)
   const workflowEventConfig = getTableConfig(workflowEvents)
   const publishPackExportConfig = getTableConfig(publishPackExports)
 
@@ -128,13 +126,6 @@ test("sync and release records keep workspace and connection tenant boundaries a
       (constraint) =>
         constraint.getName() ===
         "current_workspace_selections_workspace_id_user_id_workspace_memberships_fk",
-    ),
-  )
-  assert.ok(
-    draftClaimCheckResultConfig.foreignKeys.some(
-      (constraint) =>
-        constraint.getName() ===
-        "draft_claim_check_results_draft_revision_id_release_record_id_draft_revisions_fk",
     ),
   )
   assert.ok(

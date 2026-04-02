@@ -13,7 +13,7 @@ export function WorkspaceOnboardingShell({ children }: WorkspaceOnboardingShellP
             Create your first PulseNote workspace
           </div>
           <p className="text-sm text-muted-foreground">
-            Start a workspace that will keep release context, claim checks, approvals, and publish
+            Start a workspace that will keep release context, claim checks, reviews, and publish
             pack decisions inside one reviewable trail.
           </p>
         </div>
