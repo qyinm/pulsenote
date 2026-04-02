@@ -389,6 +389,10 @@ export function filterReleaseWorkflowQueueByMode(
     )
   }
 
+  if (reviewFilter !== "all") {
+    return filterReleaseWorkflowReviewQueue(workflow, currentUserId, reviewFilter)
+  }
+
   return workflow
 }
 

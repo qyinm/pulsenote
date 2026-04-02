@@ -120,12 +120,12 @@ function createReleaseWorkflowDetailPayload() {
     latestPublishPackArtifact: {
       changelogBody: "## SDK rollout v2.4",
       context: {
-        reviewNote: null,
-        reviewOwnerName: "Reviewer User",
-        reviewOwnerUserId: "user_2",
-        reviewRequestedByName: "Owner User",
-        reviewRequestedByUserId: "user_1",
-        reviewState: "approved",
+        approvalNote: null,
+        approvalOwnerName: "Reviewer User",
+        approvalOwnerUserId: "user_2",
+        approvalRequestedByName: "Owner User",
+        approvalRequestedByUserId: "user_1",
+        approvalState: "approved",
         exportedByName: "Owner User",
         exportedByUserId: "user_1",
       },
@@ -524,7 +524,7 @@ test("api client sends workflow command requests with encoded payloads", async (
       {
         body: JSON.stringify({ expectedDraftRevisionId: "draft_1", note: "Check wording" }),
         method: "POST",
-        url: "https://api.pulsenotes.xyz/v1/workspaces/workspace_1/release-workflow/release_1/claim-check",
+        url: "https://api.pulsenotes.xyz/v1/workspaces/workspace_1/release-workflow/release_1/request-review",
       },
       {
         body: JSON.stringify({ expectedDraftRevisionId: "draft_1", reviewerUserId: "user_2" }),

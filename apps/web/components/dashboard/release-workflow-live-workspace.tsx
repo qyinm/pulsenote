@@ -696,6 +696,7 @@ export function ReleaseWorkflowLiveWorkspace({
     mode,
     reviewOwnershipFilter,
   )
+  const reviewFilterCounts = buildReleaseWorkflowReviewFilterCounts(workflow, currentUserId)
   const queueSourceById = new Map(queueSource.map((item) => [item.releaseRecord.id, item]))
   const queueItems = queueSource.map(buildReleaseWorkflowQueueItem)
   const boardColumns = buildReleaseWorkflowBoardColumns(queueSource)
@@ -1112,6 +1113,27 @@ export function ReleaseWorkflowLiveWorkspace({
               </TabsTrigger>
             </TabsList>
           </Tabs>
+
+          {reviewFilterCounts.all > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {reviewOwnershipFilters.map((filterOption) => {
+                const count = reviewFilterCounts[filterOption.value]
+
+                return (
+                  <Button
+                    key={filterOption.value}
+                    type="button"
+                    variant={reviewOwnershipFilter === filterOption.value ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setReviewOwnershipFilter(filterOption.value)}
+                  >
+                    {filterOption.label}
+                    <span className="ml-1 text-xs opacity-80">{count}</span>
+                  </Button>
+                )
+              })}
+            </div>
+          ) : null}
 
           {workspaceView === "board"
             ? renderOverviewBoard({

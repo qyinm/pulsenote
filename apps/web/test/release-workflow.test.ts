@@ -449,7 +449,7 @@ test("getServerReleaseWorkflowData falls back to a focus-matching release when n
     },
     releaseRecord: {
       id: "release_2",
-      stage: "review",
+      stage: "draft",
       title: "Needs sign-off",
     },
   })
@@ -657,10 +657,10 @@ test("buildReleaseWorkflowReviewNotes keeps assigned reviewer context for pendin
     }),
   )
 
-  assert.deepEqual(notes, ["Approval has been requested and is waiting on Reviewer User."])
+  assert.deepEqual(notes, ["Review has been requested and is waiting on Reviewer User."])
 })
 
-test("filterReleaseWorkflowQueueByMode keeps claim-check records scoped to drafted releases", () => {
+test("filterReleaseWorkflowQueueByMode keeps overview mode open to intake and draft releases", () => {
   const draftedRelease = createReleaseWorkflowListItem({
     currentDraft: {
       id: "draft_1",
@@ -686,7 +686,77 @@ test("filterReleaseWorkflowQueueByMode keeps claim-check records scoped to draft
     "all",
   )
 
-  assert.deepEqual(queue.map((item) => item.releaseRecord.id), ["release_draft"])
+  assert.deepEqual(queue.map((item) => item.releaseRecord.id), ["release_draft", "release_intake"])
+})
+
+test("filterReleaseWorkflowQueueByMode applies review ownership filters inside overview mode", () => {
+  const queue = [
+    createReleaseWorkflowListItem({
+      releaseRecord: {
+        id: "release_assigned",
+        stage: "review",
+      },
+      reviewSummary: {
+        ownerUserId: "reviewer_me",
+        requestedByUserId: "user_requester",
+        state: "pending",
+      },
+    }),
+    createReleaseWorkflowListItem({
+      releaseRecord: {
+        id: "release_requested",
+        stage: "review",
+      },
+      reviewSummary: {
+        ownerUserId: "reviewer_other",
+        requestedByUserId: "reviewer_me",
+        state: "pending",
+      },
+    }),
+    createReleaseWorkflowListItem({
+      releaseRecord: {
+        id: "release_unassigned",
+        stage: "review",
+      },
+      reviewSummary: {
+        ownerUserId: null,
+        requestedByUserId: "user_requester",
+        state: "pending",
+      },
+    }),
+    createReleaseWorkflowListItem({
+      releaseRecord: {
+        id: "release_intake",
+        stage: "intake",
+      },
+      reviewSummary: {
+        ownerUserId: null,
+        requestedByUserId: null,
+        state: "not_requested",
+      },
+    }),
+  ]
+
+  assert.deepEqual(
+    filterReleaseWorkflowQueueByMode(queue, "reviewer_me", "overview", "assigned_to_me").map(
+      (item) => item.releaseRecord.id,
+    ),
+    ["release_assigned"],
+  )
+
+  assert.deepEqual(
+    filterReleaseWorkflowQueueByMode(queue, "reviewer_me", "overview", "requested_by_me").map(
+      (item) => item.releaseRecord.id,
+    ),
+    ["release_requested"],
+  )
+
+  assert.deepEqual(
+    filterReleaseWorkflowQueueByMode(queue, "reviewer_me", "overview", "unassigned").map(
+      (item) => item.releaseRecord.id,
+    ),
+    ["release_unassigned"],
+  )
 })
 
 test("filterReleaseWorkflowQueueByMode keeps publish-pack records scoped to approved, ready, or exported releases", () => {
@@ -754,7 +824,7 @@ test("getReleaseWorkflowBoardStage collapses workflow status into kanban columns
         releaseRecord: { stage: "draft" },
       }),
     ),
-    "review",
+    "draft",
   )
   assert.equal(
     getReleaseWorkflowBoardStage(
@@ -814,7 +884,7 @@ test("buildReleaseWorkflowBoardColumns groups release records into workflow boar
     })),
     [
       { ids: ["release_intake"], stage: "intake" },
-      { ids: ["release_draft"], stage: "review" },
+      { ids: ["release_draft"], stage: "draft" },
       { ids: ["release_review"], stage: "review" },
       { ids: ["release_publish"], stage: "publish_pack" },
       { ids: ["release_exported"], stage: "exported" },
@@ -827,8 +897,8 @@ test("buildReleaseWorkflowBoardColumns groups release records into workflow boar
     })),
     [
       { stage: "intake", stageLabels: ["Intake"] },
-      { stage: "review", stageLabels: ["Claim check"] },
-      { stage: "review", stageLabels: ["Approval"] },
+      { stage: "draft", stageLabels: ["Draft"] },
+      { stage: "review", stageLabels: ["Review"] },
       { stage: "publish_pack", stageLabels: ["Publish pack"] },
       { stage: "exported", stageLabels: ["Exported"] },
     ],
@@ -1014,7 +1084,7 @@ test("review filter metrics and ownership cues use the current reviewer identity
   })
   assert.deepEqual(getReleaseWorkflowOwnershipCue(unassigned, "user_1"), {
     description:
-      "Approval is pending without an assigned reviewer, so this record can drift unless someone claims it.",
+      "Review is pending without an assigned reviewer, so this record can drift unless someone claims it.",
     label: "Reviewer missing",
     tone: "unassigned",
   })
@@ -1061,7 +1131,7 @@ test("buildReleaseWorkflowQueueItem surfaces workflow labels and next actions", 
     reviewLabel: "Not requested",
     evidenceCount: 3,
     id: "release_1",
-    nextAction: "Request review on the current checked draft.",
+    nextAction: "Request review on the current draft revision.",
     ownerName: null,
     ownerUserId: null,
     publishPackLabel: "Not ready",
@@ -1070,7 +1140,7 @@ test("buildReleaseWorkflowQueueItem surfaces workflow labels and next actions", 
     readinessLabel: "Ready",
     readinessTone: "ready",
     sourceLinkCount: 2,
-    stageLabel: "Claim check",
+    stageLabel: "Review",
     summary: "Claim check is clear and ready for sign-off.",
     title: "SDK rollout v2.4",
     versionLabel: "Draft v3",
