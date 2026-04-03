@@ -1363,6 +1363,7 @@ export function ReleaseWorkflowLiveWorkspace({
                           plainText: fieldSnapshot.plainText,
                         }
                         const isPrimaryDraftField = fieldSnapshot.fieldKey === primaryDraftFieldKey
+                        const usesStructuredContent = fieldValue.contentFormat === "tiptap_json"
 
                         return (
                           <div
@@ -1386,7 +1387,7 @@ export function ReleaseWorkflowLiveWorkspace({
                               </div>
                             </div>
                             {isDraftEditable ? (
-                              isPrimaryDraftField ? (
+                              isPrimaryDraftField || usesStructuredContent ? (
                                 <ReleaseDraftBlockEditor
                                   content={fieldValue.content}
                                   contentFormat={fieldValue.contentFormat}
@@ -1402,7 +1403,7 @@ export function ReleaseWorkflowLiveWorkspace({
                                     }))
                                   }
                                 />
-                              ) : fieldSnapshot.contentFormat === "plain_text" ? (
+                              ) : fieldValue.contentFormat === "plain_text" ? (
                                 <Input
                                   className="h-12 border-0 bg-transparent px-0 text-lg font-medium shadow-none focus-visible:ring-0"
                                   value={fieldValue.content}
@@ -1415,7 +1416,7 @@ export function ReleaseWorkflowLiveWorkspace({
                                           : baselineDraftFieldValues),
                                         [fieldSnapshot.fieldKey]: {
                                           content: event.target.value,
-                                          contentFormat: fieldSnapshot.contentFormat,
+                                          contentFormat: fieldValue.contentFormat,
                                           plainText: event.target.value,
                                         },
                                       },
@@ -1435,10 +1436,10 @@ export function ReleaseWorkflowLiveWorkspace({
                                           : baselineDraftFieldValues),
                                         [fieldSnapshot.fieldKey]: {
                                           content: event.target.value,
-                                          contentFormat: fieldSnapshot.contentFormat,
+                                          contentFormat: fieldValue.contentFormat,
                                           plainText: deriveReleaseDraftPlainText(
                                             event.target.value,
-                                            fieldSnapshot.contentFormat,
+                                            fieldValue.contentFormat,
                                           ),
                                         },
                                       },
