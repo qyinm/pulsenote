@@ -57,7 +57,6 @@ import { SimpleTable } from "@/components/dashboard/simple-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { buttonVariants } from "@/components/ui/button-variants"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -67,7 +66,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Textarea } from "@/components/ui/textarea"
 import { formatUtcTimestamp } from "@/lib/format"
 import {
   buildReleaseDraftEditorFields,
@@ -76,10 +74,7 @@ import {
 } from "@/lib/draft-templates"
 import { ReleaseDraftBlockEditor } from "@/components/dashboard/release-draft-block-editor"
 import { ReleaseDraftBlockRenderer } from "@/components/dashboard/release-draft-block-renderer"
-import {
-  buildReleaseDraftStructuredFieldValue,
-  deriveReleaseDraftPlainText,
-} from "@/lib/release-draft-blocks"
+import { buildReleaseDraftStructuredFieldValue } from "@/lib/release-draft-blocks"
 import { cn } from "@/lib/utils"
 
 const reviewOwnershipFilters: Array<{
@@ -230,34 +225,13 @@ function formatHistoryTimestamp(value: string) {
 
 function buildDraftFieldValues(
   draftFieldSnapshots: ReleaseWorkflowDraftFieldSnapshot[],
-  templateId: string | null | undefined,
+  _templateId: string | null | undefined,
 ) {
-  const primaryFieldKey = getReleaseDraftPrimaryBodyFieldKey(templateId)
-
   return Object.fromEntries(
-    draftFieldSnapshots.map((fieldSnapshot) => {
-      if (fieldSnapshot.fieldKey === primaryFieldKey) {
-        return [
-          fieldSnapshot.fieldKey,
-          buildReleaseDraftStructuredFieldValue(
-            fieldSnapshot.content,
-            fieldSnapshot.contentFormat,
-          ),
-        ]
-      }
-
-      return [
+    draftFieldSnapshots.map((fieldSnapshot) => [
         fieldSnapshot.fieldKey,
-        {
-          content: fieldSnapshot.content,
-          contentFormat: fieldSnapshot.contentFormat,
-          plainText:
-            fieldSnapshot.plainText.length > 0
-              ? fieldSnapshot.plainText
-              : deriveReleaseDraftPlainText(fieldSnapshot.content, fieldSnapshot.contentFormat),
-        } satisfies DraftFieldValueState,
-      ]
-    }),
+        buildReleaseDraftStructuredFieldValue(fieldSnapshot.content, fieldSnapshot.contentFormat),
+      ]),
   ) satisfies Record<string, DraftFieldValueState>
 }
 
@@ -1363,7 +1337,6 @@ export function ReleaseWorkflowLiveWorkspace({
                           plainText: fieldSnapshot.plainText,
                         }
                         const isPrimaryDraftField = fieldSnapshot.fieldKey === primaryDraftFieldKey
-                        const usesStructuredContent = fieldValue.contentFormat === "tiptap_json"
 
                         return (
                           <div
@@ -1387,66 +1360,22 @@ export function ReleaseWorkflowLiveWorkspace({
                               </div>
                             </div>
                             {isDraftEditable ? (
-                              isPrimaryDraftField || usesStructuredContent ? (
-                                <ReleaseDraftBlockEditor
-                                  content={fieldValue.content}
-                                  contentFormat={fieldValue.contentFormat}
-                                  onChange={(value) =>
-                                    setDraftFieldState((currentState) => ({
-                                      draftRevisionId: selectedDraftRevisionId,
-                                      values: {
-                                        ...(currentState.draftRevisionId === selectedDraftRevisionId
-                                          ? currentState.values
-                                          : baselineDraftFieldValues),
-                                        [fieldSnapshot.fieldKey]: value,
-                                      },
-                                    }))
-                                  }
-                                />
-                              ) : fieldValue.contentFormat === "plain_text" ? (
-                                <Input
-                                  className="h-12 border-0 bg-transparent px-0 text-lg font-medium shadow-none focus-visible:ring-0"
-                                  value={fieldValue.content}
-                                  onChange={(event) =>
-                                    setDraftFieldState((currentState) => ({
-                                      draftRevisionId: selectedDraftRevisionId,
-                                      values: {
-                                        ...(currentState.draftRevisionId === selectedDraftRevisionId
-                                          ? currentState.values
-                                          : baselineDraftFieldValues),
-                                        [fieldSnapshot.fieldKey]: {
-                                          content: event.target.value,
-                                          contentFormat: fieldValue.contentFormat,
-                                          plainText: event.target.value,
-                                        },
-                                      },
-                                    }))
-                                  }
-                                />
-                              ) : (
-                                <Textarea
-                                  className="min-h-[420px] resize-y border-0 bg-transparent px-0 py-0 text-base leading-7 shadow-none focus-visible:ring-0"
-                                  value={fieldValue.content}
-                                  onChange={(event) =>
-                                    setDraftFieldState((currentState) => ({
-                                      draftRevisionId: selectedDraftRevisionId,
-                                      values: {
-                                        ...(currentState.draftRevisionId === selectedDraftRevisionId
-                                          ? currentState.values
-                                          : baselineDraftFieldValues),
-                                        [fieldSnapshot.fieldKey]: {
-                                          content: event.target.value,
-                                          contentFormat: fieldValue.contentFormat,
-                                          plainText: deriveReleaseDraftPlainText(
-                                            event.target.value,
-                                            fieldValue.contentFormat,
-                                          ),
-                                        },
-                                      },
-                                    }))
-                                  }
-                                />
-                              )
+                              <ReleaseDraftBlockEditor
+                                content={fieldValue.content}
+                                contentFormat={fieldValue.contentFormat}
+                                fieldLabel={fieldSnapshot.label}
+                                onChange={(value) =>
+                                  setDraftFieldState((currentState) => ({
+                                    draftRevisionId: selectedDraftRevisionId,
+                                    values: {
+                                      ...(currentState.draftRevisionId === selectedDraftRevisionId
+                                        ? currentState.values
+                                        : baselineDraftFieldValues),
+                                      [fieldSnapshot.fieldKey]: value,
+                                    },
+                                  }))
+                                }
+                              />
                             ) : (
                               <ReleaseDraftBlockRenderer
                                 content={fieldValue.content}
