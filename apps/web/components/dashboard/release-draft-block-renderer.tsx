@@ -2,14 +2,15 @@ import type { ReactNode } from "react"
 
 import { cn } from "@/lib/utils"
 import {
+  getReleaseDraftBlockDocumentState,
   type ReleaseDraftBlock,
-  parseReleaseDraftBlocks,
 } from "@/lib/release-draft-blocks"
 
 type ReleaseDraftBlockRendererProps = {
   className?: string
   content: string
   contentFormat: "markdown" | "plain_text" | "tiptap_json"
+  showNotice?: boolean
 }
 
 function renderBlocks(blocks: ReleaseDraftBlock[]) {
@@ -66,8 +67,18 @@ export function ReleaseDraftBlockRenderer({
   className,
   content,
   contentFormat,
+  showNotice = true,
 }: ReleaseDraftBlockRendererProps) {
-  const blocks = parseReleaseDraftBlocks(content, contentFormat)
+  const documentState = getReleaseDraftBlockDocumentState(content, contentFormat)
 
-  return <div className={cn("grid gap-4", className)}>{renderBlocks(blocks)}</div>
+  return (
+    <div className={cn("grid gap-4", className)}>
+      {showNotice && documentState.notice ? (
+        <p className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 dark:text-amber-100">
+          {documentState.notice}
+        </p>
+      ) : null}
+      {renderBlocks(documentState.blocks)}
+    </div>
+  )
 }

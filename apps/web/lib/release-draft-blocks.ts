@@ -66,6 +66,12 @@ export type ReleaseDraftStructuredFieldValue = {
   plainText: string
 }
 
+export type ReleaseDraftBlockDocumentState = {
+  blocks: ReleaseDraftBlock[]
+  isEditable: boolean
+  notice: string | null
+}
+
 let nextBlockId = 0
 
 function createBlockId() {
@@ -118,13 +124,17 @@ function splitParagraphs(value: string) {
     .filter((part) => part.length > 0)
 }
 
+function buildParagraphBlocks(value: string) {
+  const paragraphs = splitParagraphs(value)
+
+  return paragraphs.length > 0
+    ? paragraphs.map((paragraph) => createBlock("paragraph", paragraph))
+    : [createBlock("paragraph")]
+}
+
 function parseLegacyBlocks(content: string, contentFormat: "markdown" | "plain_text") {
   if (contentFormat === "plain_text") {
-    const paragraphs = splitParagraphs(content)
-
-    return paragraphs.length > 0
-      ? paragraphs.map((paragraph) => createBlock("paragraph", paragraph))
-      : [createBlock("paragraph")]
+    return buildParagraphBlocks(content)
   }
 
   const blocks: ReleaseDraftBlock[] = []
@@ -172,37 +182,98 @@ function parseLegacyBlocks(content: string, contentFormat: "markdown" | "plain_t
   return blocks.length > 0 ? blocks : [createBlock("paragraph")]
 }
 
-function parseStructuredBlocks(content: string): ReleaseDraftBlock[] {
+function parseStructuredNode(node: Record<string, unknown>) {
+  if (node.type === "paragraph") {
+    return {
+      blocks: [createBlock("paragraph", extractNodeText(node))],
+      hasUnsupportedContent: false,
+    }
+  }
+
+  if (node.type === "heading") {
+    return {
+      blocks: [createBlock("heading", extractNodeText(node))],
+      hasUnsupportedContent: false,
+    }
+  }
+
+  if (node.type === "bulletList") {
+    return {
+      blocks: Array.isArray(node.content)
+        ? node.content.map((item: unknown) => createBlock("bullet", extractNodeText(item)))
+        : [],
+      hasUnsupportedContent: false,
+    }
+  }
+
+  if (node.type === "orderedList" || node.type === "taskList") {
+    return {
+      blocks: Array.isArray(node.content)
+        ? node.content.map((item: unknown) => createBlock("bullet", extractNodeText(item)))
+        : [],
+      hasUnsupportedContent: true,
+    }
+  }
+
+  const fallbackText = extractNodeText(node).trim()
+
+  return {
+    blocks: fallbackText.length > 0 ? [createBlock("paragraph", fallbackText)] : [],
+    hasUnsupportedContent: true,
+  }
+}
+
+function parseStructuredBlocks(content: string): ReleaseDraftBlockDocumentState {
   try {
     const parsed = JSON.parse(content) as ReleaseDraftDocNode
 
     if (!parsed || parsed.type !== "doc" || !Array.isArray(parsed.content)) {
-      return [createBlock("paragraph", content)]
+      return {
+        blocks: buildParagraphBlocks(content),
+        isEditable: false,
+        notice:
+          "PulseNote could not validate this structured draft. It is shown read-only so the original content stays intact.",
+      }
     }
 
     const blocks: ReleaseDraftBlock[] = []
+    let hasUnsupportedContent = false
 
     for (const node of parsed.content) {
-      if (node.type === "paragraph") {
-        blocks.push(createBlock("paragraph", extractNodeText(node)))
-        continue
-      }
-
-      if (node.type === "heading") {
-        blocks.push(createBlock("heading", extractNodeText(node)))
-        continue
-      }
-
-      if (node.type === "bulletList") {
-        for (const item of node.content ?? []) {
-          blocks.push(createBlock("bullet", extractNodeText(item)))
-        }
-      }
+      const parsedNode = parseStructuredNode(node as Record<string, unknown>)
+      blocks.push(...parsedNode.blocks)
+      hasUnsupportedContent = hasUnsupportedContent || parsedNode.hasUnsupportedContent
     }
 
-    return blocks.length > 0 ? blocks : [createBlock("paragraph")]
+    return {
+      blocks: blocks.length > 0 ? blocks : [createBlock("paragraph")],
+      isEditable: !hasUnsupportedContent,
+      notice: hasUnsupportedContent
+        ? "PulseNote can show this structured draft, but it stays read-only until unsupported block types are removed."
+        : null,
+    }
   } catch {
-    return [createBlock("paragraph", content)]
+    return {
+      blocks: buildParagraphBlocks(content),
+      isEditable: false,
+      notice:
+        "PulseNote could not parse this structured draft. It is shown read-only so the original content stays intact.",
+    }
+  }
+}
+
+export function getReleaseDraftBlockDocumentState(
+  content: string,
+  contentFormat: "markdown" | "plain_text" | "tiptap_json",
+): ReleaseDraftBlockDocumentState {
+  if (contentFormat === "tiptap_json") {
+    return parseStructuredBlocks(content)
+  }
+
+  return {
+    blocks: parseLegacyBlocks(content, contentFormat),
+    isEditable: true,
+    notice: null,
   }
 }
 
@@ -230,11 +301,7 @@ export function parseReleaseDraftBlocks(
   content: string,
   contentFormat: "markdown" | "plain_text" | "tiptap_json",
 ) {
-  if (contentFormat === "tiptap_json") {
-    return parseStructuredBlocks(content)
-  }
-
-  return parseLegacyBlocks(content, contentFormat)
+  return getReleaseDraftBlockDocumentState(content, contentFormat).blocks
 }
 
 export function extractReleaseDraftPlainText(blocks: ReleaseDraftBlock[]) {
@@ -334,9 +401,17 @@ export function buildReleaseDraftStructuredFieldValue(
   content: string,
   contentFormat: "markdown" | "plain_text" | "tiptap_json",
 ): ReleaseDraftStructuredFieldValue {
-  const blocks = parseReleaseDraftBlocks(content, contentFormat)
+  const documentState = getReleaseDraftBlockDocumentState(content, contentFormat)
 
-  return buildReleaseDraftStructuredFieldValueFromBlocks(blocks)
+  if (contentFormat === "tiptap_json" && !documentState.isEditable) {
+    return {
+      content,
+      contentFormat: "tiptap_json",
+      plainText: extractReleaseDraftPlainText(documentState.blocks),
+    }
+  }
+
+  return buildReleaseDraftStructuredFieldValueFromBlocks(documentState.blocks)
 }
 
 export function buildReleaseDraftStructuredFieldValueFromBlocks(
@@ -355,7 +430,7 @@ export function deriveReleaseDraftPlainText(
   content: string,
   contentFormat: "markdown" | "plain_text" | "tiptap_json",
 ) {
-  return extractReleaseDraftPlainText(parseReleaseDraftBlocks(content, contentFormat))
+  return extractReleaseDraftPlainText(getReleaseDraftBlockDocumentState(content, contentFormat).blocks)
 }
 
 export function getReleaseDraftDisplayLabel(type: ReleaseDraftBlockType) {

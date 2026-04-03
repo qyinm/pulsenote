@@ -4,7 +4,9 @@ import { renderToStaticMarkup } from "react-dom/server"
 
 import { ReleaseDraftBlockRenderer } from "../components/dashboard/release-draft-block-renderer.js"
 import {
+  buildReleaseDraftStructuredFieldValue,
   buildReleaseDraftStructuredFieldValueFromBlocks,
+  getReleaseDraftBlockDocumentState,
   getReleaseDraftBlockCommandQuery,
   getReleaseDraftBlockCommands,
   parseReleaseDraftBlocks,
@@ -77,4 +79,63 @@ test("release draft block renderer uses structured output for tiptap_json and sa
   assert.match(markdownMarkup, /Customers can onboard faster/)
   assert.match(plainTextMarkup, /Launch readiness/)
   assert.match(plainTextMarkup, /Customers can onboard faster/)
+})
+
+test("unsupported structured draft nodes stay visible and read-only", () => {
+  const orderedListDocument = JSON.stringify({
+    type: "doc",
+    content: [
+      {
+        type: "orderedList",
+        content: [
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [{ type: "text", text: "First item" }],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  })
+
+  const documentState = getReleaseDraftBlockDocumentState(orderedListDocument, "tiptap_json")
+  const renderedMarkup = renderToStaticMarkup(
+    ReleaseDraftBlockRenderer({
+      content: orderedListDocument,
+      contentFormat: "tiptap_json",
+    }),
+  )
+
+  assert.equal(documentState.isEditable, false)
+  assert.match(renderedMarkup, /read-only/i)
+  assert.match(renderedMarkup, /First item/)
+  assert.deepEqual(
+    parseReleaseDraftBlocks(orderedListDocument, "tiptap_json").map((block) => ({
+      text: block.text,
+      type: block.type,
+    })),
+    [{ text: "First item", type: "bullet" }],
+  )
+})
+
+test("malformed structured draft content stays preserved instead of being rewritten", () => {
+  const malformedStructuredContent = "{\"type\":\"doc\",\"content\":["
+  const structuredValue = buildReleaseDraftStructuredFieldValue(
+    malformedStructuredContent,
+    "tiptap_json",
+  )
+  const documentState = getReleaseDraftBlockDocumentState(
+    malformedStructuredContent,
+    "tiptap_json",
+  )
+
+  assert.equal(documentState.isEditable, false)
+  assert.match(documentState.notice ?? "", /read-only/i)
+  assert.equal(structuredValue.content, malformedStructuredContent)
+  assert.equal(structuredValue.contentFormat, "tiptap_json")
+  assert.equal(structuredValue.plainText, malformedStructuredContent)
 })

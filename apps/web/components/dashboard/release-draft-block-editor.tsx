@@ -5,12 +5,13 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
+import { ReleaseDraftBlockRenderer } from "@/components/dashboard/release-draft-block-renderer"
 import {
   buildReleaseDraftStructuredFieldValueFromBlocks,
+  getReleaseDraftBlockDocumentState,
   getReleaseDraftBlockCommandQuery,
   getReleaseDraftBlockCommands,
   getReleaseDraftDisplayLabel,
-  parseReleaseDraftBlocks,
   type ReleaseDraftBlock,
   type ReleaseDraftBlockType,
   type ReleaseDraftStructuredFieldValue,
@@ -54,10 +55,11 @@ export function ReleaseDraftBlockEditor({
   contentFormat,
   onChange,
 }: ReleaseDraftBlockEditorProps) {
-  const normalizedBlocks = useMemo(
-    () => parseReleaseDraftBlocks(content, contentFormat),
+  const documentState = useMemo(
+    () => getReleaseDraftBlockDocumentState(content, contentFormat),
     [content, contentFormat],
   )
+  const normalizedBlocks = documentState.blocks
   const [blocks, setBlocks] = useState(normalizedBlocks)
   const [focusedBlockId, setFocusedBlockId] = useState<string | null>(null)
   const [pendingFocusId, setPendingFocusId] = useState<string | null>(null)
@@ -139,6 +141,21 @@ export function ReleaseDraftBlockEditor({
       ),
     )
     setPendingFocusId(blockId)
+  }
+
+  if (!documentState.isEditable) {
+    return (
+      <div className="grid gap-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
+        <p className="text-sm text-amber-950 dark:text-amber-100">
+          {documentState.notice}
+        </p>
+        <ReleaseDraftBlockRenderer
+          content={content}
+          contentFormat={contentFormat}
+          showNotice={false}
+        />
+      </div>
+    )
   }
 
   return (
