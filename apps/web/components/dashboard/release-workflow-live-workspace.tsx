@@ -263,10 +263,11 @@ function buildDraftFieldValues(
 
 function buildDraftFieldState(
   draft: ReleaseWorkflowDetail["currentDraft"],
+  templateId: string | null | undefined,
 ) {
   return {
     draftRevisionId: draft?.id ?? null,
-    values: buildDraftFieldValues(buildDraftEditorFieldSnapshots(draft), draft?.templateId),
+    values: buildDraftFieldValues(buildDraftEditorFieldSnapshots(draft), templateId),
   } satisfies DraftFieldState
 }
 
@@ -722,7 +723,11 @@ export function ReleaseWorkflowLiveWorkspace({
   const [actionError, setActionError] = useState<string | null>(null)
   const [reviewReviewerUserId, setApprovalReviewerUserId] = useState("")
   const [draftFieldState, setDraftFieldState] = useState<DraftFieldState>(
-    buildDraftFieldState(initialSelectedWorkflow.currentDraft),
+    buildDraftFieldState(
+      initialSelectedWorkflow.currentDraft,
+      initialSelectedWorkflow.currentDraft?.templateId ??
+        initialSelectedWorkflow.releaseRecord.preferredDraftTemplateId,
+    ),
   )
   const [draftSaveError, setDraftSaveError] = useState<string | null>(null)
   const [isSavingDraft, setIsSavingDraft] = useState(false)
@@ -786,10 +791,12 @@ export function ReleaseWorkflowLiveWorkspace({
   const recentHistory = selectedHistory.slice(0, 5)
   const reviewRequiresReviewer = initialPolicy.requireReviewerAssignment
   const currentDraft = selectedWorkflow?.currentDraft ?? null
+  const resolvedDraftTemplateId =
+    currentDraft?.templateId ?? selectedWorkflow?.releaseRecord.preferredDraftTemplateId
   const draftEditorFieldSnapshots = buildDraftEditorFieldSnapshots(currentDraft)
   const baselineDraftFieldValues = buildDraftFieldValues(
     draftEditorFieldSnapshots,
-    currentDraft?.templateId,
+    resolvedDraftTemplateId,
   )
   const selectedDraftRevisionId = currentDraft?.id ?? null
   const isDraftEditable = selectedWorkflow?.releaseRecord.stage === "draft" && selectedWorkflow.currentDraft !== null
@@ -882,9 +889,9 @@ export function ReleaseWorkflowLiveWorkspace({
   }, [members, selectedWorkflow])
 
   useEffect(() => {
-    setDraftFieldState(buildDraftFieldState(currentDraft))
+    setDraftFieldState(buildDraftFieldState(currentDraft, resolvedDraftTemplateId))
     setDraftSaveError(null)
-  }, [currentDraft])
+  }, [currentDraft, resolvedDraftTemplateId])
 
   async function runWorkflowAction(action: WorkflowAllowedAction) {
     if (!activeSelectedId || !selectedWorkflow) {
@@ -997,10 +1004,8 @@ export function ReleaseWorkflowLiveWorkspace({
   }
 
   const metricCards = buildModeMetricCards(mode, workflow, selectedWorkflow, currentUserId)
-  const selectedDraftTemplate = getReleaseDraftTemplateOption(
-    currentDraft?.templateId ?? selectedWorkflow?.releaseRecord.preferredDraftTemplateId,
-  )
-  const primaryDraftFieldKey = getReleaseDraftPrimaryBodyFieldKey(currentDraft?.templateId)
+  const selectedDraftTemplate = getReleaseDraftTemplateOption(resolvedDraftTemplateId)
+  const primaryDraftFieldKey = getReleaseDraftPrimaryBodyFieldKey(resolvedDraftTemplateId)
   const handleSelectQueueItem = useCallback(
     (rowKey: string) => {
       if (mode === "overview" && !isOverviewDetailPage) {
