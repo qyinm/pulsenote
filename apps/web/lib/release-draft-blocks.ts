@@ -142,18 +142,19 @@ function buildDocumentFromParagraphBlocks(blocks: ReleaseDraftBlock[]): JSONCont
     }
 
     content.push({
-      content: bulletBuffer.map((block) => ({
-        content: [
-          {
-            content:
-              normalizeBlockText(block.text).length > 0
-                ? [{ text: normalizeBlockText(block.text), type: "text" as const }]
-                : [],
-            type: "paragraph" as const,
-          },
-        ],
-        type: "listItem" as const,
-      })),
+      content: bulletBuffer.map((block) => {
+        const text = normalizeBlockText(block.text)
+
+        return {
+          content: [
+            {
+              content: text.length > 0 ? [{ text, type: "text" as const }] : [],
+              type: "paragraph" as const,
+            },
+          ],
+          type: "listItem" as const,
+        }
+      }),
       type: "bulletList",
     })
 
