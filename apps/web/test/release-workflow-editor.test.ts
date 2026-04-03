@@ -71,7 +71,7 @@ test("release draft block renderer uses structured output for tiptap_json and sa
     }),
   )
 
-  assert.match(structuredMarkup, /<h3[^>]*>Launch readiness<\/h3>/)
+  assert.match(structuredMarkup, /<h2[^>]*>Launch readiness<\/h2>/)
   assert.match(structuredMarkup, /<ul[^>]*>/)
   assert.doesNotMatch(structuredMarkup, /type&quot;:&quot;doc&quot;/)
 

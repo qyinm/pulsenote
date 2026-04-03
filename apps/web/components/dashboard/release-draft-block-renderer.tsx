@@ -1,9 +1,14 @@
-import type { ReactNode } from "react"
+"use client"
+
+import { Fragment, useEffect } from "react"
+
+import { EditorContent, useEditor } from "@tiptap/react"
 
 import { cn } from "@/lib/utils"
 import {
   getReleaseDraftBlockDocumentState,
-  type ReleaseDraftBlock,
+  releaseDraftTiptapExtensions,
+  type ReleaseDraftBlockDocumentState,
 } from "@/lib/release-draft-blocks"
 
 type ReleaseDraftBlockRendererProps = {
@@ -13,54 +18,96 @@ type ReleaseDraftBlockRendererProps = {
   showNotice?: boolean
 }
 
-function renderBlocks(blocks: ReleaseDraftBlock[]) {
-  const output: ReactNode[] = []
-  let bulletBuffer: ReleaseDraftBlock[] = []
+function getRendererClassName() {
+  return cn(
+    "tiptap prose prose-slate max-w-none text-foreground dark:prose-invert",
+    "prose-p:my-0 prose-p:leading-7 prose-headings:mb-2 prose-headings:mt-6 prose-headings:font-semibold",
+    "prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-ul:my-0 prose-li:my-1",
+  )
+}
 
-  function flushBulletBuffer() {
-    if (bulletBuffer.length === 0) {
+function ReleaseDraftBlockRendererContent({
+  rendered,
+}: {
+  rendered: ReleaseDraftBlockDocumentState
+}) {
+  const editor = useEditor({
+    immediatelyRender: false,
+    editable: false,
+    extensions: releaseDraftTiptapExtensions,
+    content: rendered.renderDocument,
+    editorProps: {
+      attributes: {
+        class: getRendererClassName(),
+      },
+    },
+  })
+
+  useEffect(() => {
+    if (!editor) {
       return
     }
 
-    output.push(
-      <ul key={`bullet_group_${output.length}`} className="ml-5 list-disc space-y-2 text-base leading-7">
-        {bulletBuffer.map((block) => (
-          <li key={block.id} className="text-foreground">
-            {block.text}
-          </li>
-        ))}
-      </ul>,
-    )
-    bulletBuffer = []
-  }
+    editor.commands.setContent(rendered.renderDocument, { emitUpdate: false })
+    editor.setEditable(false)
+  }, [editor, rendered.renderDocument])
 
-  for (const block of blocks) {
-    if (block.type === "bullet") {
-      bulletBuffer.push(block)
-      continue
+  if (!editor) {
+    const sections: Array<
+      | { type: "bullet-list"; blocks: ReleaseDraftBlockDocumentState["blocks"] }
+      | { type: "block"; block: ReleaseDraftBlockDocumentState["blocks"][number] }
+    > = []
+    let bulletBuffer: ReleaseDraftBlockDocumentState["blocks"] = []
+
+    const flushBulletBuffer = () => {
+      if (bulletBuffer.length > 0) {
+        sections.push({ type: "bullet-list", blocks: bulletBuffer })
+        bulletBuffer = []
+      }
+    }
+
+    for (const block of rendered.blocks) {
+      if (block.type === "bullet") {
+        bulletBuffer.push(block)
+        continue
+      }
+
+      flushBulletBuffer()
+      sections.push({ type: "block", block })
     }
 
     flushBulletBuffer()
 
-    if (block.type === "heading") {
-      output.push(
-        <h3 key={block.id} className="text-lg font-semibold tracking-tight text-foreground">
-          {block.text}
-        </h3>,
-      )
-      continue
-    }
+    return (
+      <div className={getRendererClassName()}>
+        {sections.map((section, index) => {
+          if (section.type === "bullet-list") {
+            return (
+              <ul key={`bullets-${index}`}>
+                {section.blocks.map((block) => (
+                  <li key={block.id}>
+                    <p>{block.text}</p>
+                  </li>
+                ))}
+              </ul>
+            )
+          }
 
-    output.push(
-      <p key={block.id} className="whitespace-pre-wrap text-base leading-7 text-foreground [overflow-wrap:anywhere]">
-        {block.text}
-      </p>,
+          if (section.block.type === "heading") {
+            return <h2 key={section.block.id}>{section.block.text}</h2>
+          }
+
+          return (
+            <Fragment key={section.block.id}>
+              <p>{section.block.text}</p>
+            </Fragment>
+          )
+        })}
+      </div>
     )
   }
 
-  flushBulletBuffer()
-
-  return output.length > 0 ? output : [<p key="empty" className="text-base leading-7 text-muted-foreground">No draft content yet.</p>]
+  return <EditorContent editor={editor} />
 }
 
 export function ReleaseDraftBlockRenderer({
@@ -69,16 +116,16 @@ export function ReleaseDraftBlockRenderer({
   contentFormat,
   showNotice = true,
 }: ReleaseDraftBlockRendererProps) {
-  const documentState = getReleaseDraftBlockDocumentState(content, contentFormat)
+  const rendered = getReleaseDraftBlockDocumentState(content, contentFormat)
 
   return (
     <div className={cn("grid gap-4", className)}>
-      {showNotice && documentState.notice ? (
+      {showNotice && rendered.notice ? (
         <p className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 dark:text-amber-100">
-          {documentState.notice}
+          {rendered.notice}
         </p>
       ) : null}
-      {renderBlocks(documentState.blocks)}
+      <ReleaseDraftBlockRendererContent rendered={rendered} />
     </div>
   )
 }
