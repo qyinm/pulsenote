@@ -3,6 +3,7 @@ import test from "node:test"
 import { ZodError } from "zod"
 
 import { ApiError, createApiClient, getApiBaseUrl } from "../lib/api/client.js"
+import { buildReleaseDraftStructuredFieldValueFromBlocks } from "../lib/release-draft-blocks.js"
 
 function createSessionPayload() {
   return {
@@ -455,6 +456,25 @@ test("api client sends workflow read requests to founder release workflow routes
 
 test("api client sends workflow command requests with encoded payloads", async () => {
   const requests: Array<{ init?: RequestInit; input: RequestInfo | URL }> = []
+  const structuredField = buildReleaseDraftStructuredFieldValueFromBlocks([
+    { id: "block_1", text: "Launch readiness", type: "heading" },
+    { id: "block_2", text: "Customers can onboard faster.", type: "paragraph" },
+    { id: "block_3", text: "Deterministic publish packs", type: "bullet" },
+  ])
+  const structuredFieldSnapshots = createReleaseWorkflowDetailPayload().currentDraft.fieldSnapshots.map(
+    (fieldSnapshot) =>
+      fieldSnapshot.fieldKey === "publish_pack"
+        ? {
+            ...fieldSnapshot,
+            content: structuredField.content,
+            contentFormat: structuredField.contentFormat,
+            plainText: structuredField.plainText,
+          }
+        : {
+            ...fieldSnapshot,
+            contentFormat: fieldSnapshot.contentFormat as "markdown" | "plain_text" | "tiptap_json",
+          },
+  )
   const client = createApiClient({
     baseUrl: "https://api.pulsenotes.xyz",
     fetch: async (input, init) => {
@@ -471,10 +491,7 @@ test("api client sends workflow command requests with encoded payloads", async (
   })
   await client.updateReleaseWorkflowDraft("workspace_1", "release_1", "draft_1", {
     evidenceRefs: createReleaseWorkflowDetailPayload().currentDraft.evidenceRefs,
-    fieldSnapshots: createReleaseWorkflowDetailPayload().currentDraft.fieldSnapshots.map((fieldSnapshot) => ({
-      ...fieldSnapshot,
-      contentFormat: fieldSnapshot.contentFormat as "markdown" | "plain_text" | "tiptap_json",
-    })),
+    fieldSnapshots: structuredFieldSnapshots,
   })
   await client.requestReleaseWorkflowReview("workspace_1", "release_1", {
     expectedDraftRevisionId: "draft_1",
@@ -513,10 +530,7 @@ test("api client sends workflow command requests with encoded payloads", async (
       {
         body: JSON.stringify({
           evidenceRefs: createReleaseWorkflowDetailPayload().currentDraft.evidenceRefs,
-          fieldSnapshots: createReleaseWorkflowDetailPayload().currentDraft.fieldSnapshots.map((fieldSnapshot) => ({
-            ...fieldSnapshot,
-            contentFormat: fieldSnapshot.contentFormat as "markdown" | "plain_text" | "tiptap_json",
-          })),
+          fieldSnapshots: structuredFieldSnapshots,
         }),
         method: "PATCH",
         url: "https://api.pulsenotes.xyz/v1/workspaces/workspace_1/release-workflow/release_1/drafts/draft_1",

@@ -8,6 +8,7 @@ export type ReleaseDraftTemplateOption = {
   }>
   id: string
   label: string
+  primaryBodyFieldKey: string
 }
 
 export const releaseDraftTemplateOptions = [
@@ -18,6 +19,7 @@ export const releaseDraftTemplateOptions = [
     ],
     id: "release_note_packet",
     label: "Release notes packet",
+    primaryBodyFieldKey: "publish_pack",
   },
   {
     description: "Write one customer-facing update for the shipped release.",
@@ -26,6 +28,7 @@ export const releaseDraftTemplateOptions = [
     ],
     id: "customer_update",
     label: "Customer update",
+    primaryBodyFieldKey: "customer_update",
   },
   {
     description: "Draft one help-center style update for the shipped release.",
@@ -34,6 +37,7 @@ export const releaseDraftTemplateOptions = [
     ],
     id: "help_center_update",
     label: "Help center update",
+    primaryBodyFieldKey: "help_center_update",
   },
 ] as const satisfies ReleaseDraftTemplateOption[]
 
@@ -42,6 +46,10 @@ export function getReleaseDraftTemplateOption(templateId: string | null | undefi
     releaseDraftTemplateOptions.find((template) => template.id === templateId) ??
     releaseDraftTemplateOptions[0]
   )
+}
+
+export function getReleaseDraftPrimaryBodyFieldKey(templateId: string | null | undefined) {
+  return getReleaseDraftTemplateOption(templateId).primaryBodyFieldKey
 }
 
 function joinTemplateSections(sections: Array<string | null | undefined>) {

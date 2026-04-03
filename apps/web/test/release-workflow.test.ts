@@ -9,7 +9,12 @@ import type {
   WorkspaceMember,
 } from "../lib/api/client.js"
 import { ApiError } from "../lib/api/client.js"
-import { buildReleaseDraftEditorFields } from "../lib/draft-templates.js"
+import {
+  buildReleaseDraftEditorFields,
+  getReleaseDraftPrimaryBodyFieldKey,
+  releaseDraftTemplateOptions,
+} from "../lib/draft-templates.js"
+import { buildReleaseDraftStructuredFieldValueFromBlocks } from "../lib/release-draft-blocks.js"
 import {
   buildReleaseWorkspaceHref,
   buildReleaseWorkflowReviewFilterCounts,
@@ -1226,6 +1231,60 @@ test("buildReleaseDraftEditorFields keeps legacy customer drafts on one visible 
   assert.equal(fields.length, 1)
   assert.equal(fields[0]?.fieldKey, "customer_update")
   assert.equal(fields[0]?.label, "Customer update")
+})
+
+test("release draft templates expose one explicit primary body field", () => {
+  for (const template of releaseDraftTemplateOptions) {
+    assert.ok(
+      template.fields.some((field) => field.key === getReleaseDraftPrimaryBodyFieldKey(template.id)),
+    )
+    assert.equal(
+      template.fields.filter((field) => field.key === template.primaryBodyFieldKey).length,
+      1,
+    )
+  }
+})
+
+test("buildReleaseDraftEditorFields preserves a structured primary-body field without fallback rewriting", () => {
+  const structuredField = buildReleaseDraftStructuredFieldValueFromBlocks([
+    { id: "block_1", text: "Launch readiness", type: "heading" },
+    { id: "block_2", text: "Customers can onboard faster.", type: "paragraph" },
+    { id: "block_3", text: "Deterministic publish packs", type: "bullet" },
+  ])
+  const detail = createReleaseWorkflowDetail({
+    currentDraft: {
+      fieldSnapshots: [
+        {
+          content: structuredField.content,
+          contentFormat: structuredField.contentFormat,
+          fieldKey: "publish_pack",
+          label: "Publish pack",
+          plainText: structuredField.plainText,
+          sortOrder: 0,
+        },
+        {
+          content: "Internal note that should stay off the block editor path.",
+          contentFormat: "plain_text",
+          fieldKey: "internal_note",
+          label: "Internal note",
+          plainText: "Internal note that should stay off the block editor path.",
+          sortOrder: 1,
+        },
+      ],
+      releaseNotesBody: "Legacy body",
+      templateId: "release_note_packet",
+      templateLabel: "Release notes packet",
+      templateVersion: 1,
+    },
+  })
+
+  const fields = buildReleaseDraftEditorFields(detail.currentDraft!)
+
+  assert.equal(fields.length, 1)
+  assert.equal(fields[0]?.fieldKey, "publish_pack")
+  assert.equal(fields[0]?.contentFormat, "tiptap_json")
+  assert.equal(fields[0]?.content, structuredField.content)
+  assert.equal(fields[0]?.plainText, structuredField.plainText)
 })
 
 test("buildReleaseWorkflowMetrics summarizes blocked, pending, and export-ready workflow records", () => {
