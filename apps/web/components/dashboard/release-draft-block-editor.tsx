@@ -64,16 +64,25 @@ export function ReleaseDraftBlockEditor({
   const [focusedBlockId, setFocusedBlockId] = useState<string | null>(null)
   const [pendingFocusId, setPendingFocusId] = useState<string | null>(null)
   const inputRefs = useRef<Record<string, HTMLTextAreaElement | null>>({})
-  const lastStructuredContentRef = useRef(content)
+  const lastStructuredValueRef = useRef({
+    content,
+    contentFormat,
+  })
 
   useEffect(() => {
-    if (content === lastStructuredContentRef.current) {
+    if (
+      content === lastStructuredValueRef.current.content &&
+      contentFormat === lastStructuredValueRef.current.contentFormat
+    ) {
       return
     }
 
     setBlocks(normalizedBlocks)
-    lastStructuredContentRef.current = content
-  }, [content, normalizedBlocks])
+    lastStructuredValueRef.current = {
+      content,
+      contentFormat,
+    }
+  }, [content, contentFormat, normalizedBlocks])
 
   useEffect(() => {
     if (!pendingFocusId) {
@@ -93,7 +102,10 @@ export function ReleaseDraftBlockEditor({
     const nextValue = buildReleaseDraftStructuredFieldValueFromBlocks(nextBlocks)
 
     setBlocks(nextBlocks)
-    lastStructuredContentRef.current = nextValue.content
+    lastStructuredValueRef.current = {
+      content: nextValue.content,
+      contentFormat: nextValue.contentFormat,
+    }
     onChange(nextValue)
   }
 
