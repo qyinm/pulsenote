@@ -38,6 +38,17 @@ function getNextBlockType(type: ReleaseDraftBlockType): ReleaseDraftBlockType {
   return type === "bullet" ? "bullet" : "paragraph"
 }
 
+function getBlockAriaLabel(type: ReleaseDraftBlockType) {
+  switch (type) {
+    case "heading":
+      return "Release draft heading block"
+    case "bullet":
+      return "Release draft bullet block"
+    default:
+      return "Release draft body block"
+  }
+}
+
 export function ReleaseDraftBlockEditor({
   content,
   contentFormat,
@@ -136,6 +147,7 @@ export function ReleaseDraftBlockEditor({
         const commandQuery =
           focusedBlockId === block.id ? getReleaseDraftBlockCommandQuery(block.text) : null
         const matchingCommands = commandQuery !== null ? getReleaseDraftBlockCommands(commandQuery) : []
+        const commandListId = commandQuery !== null ? `release-draft-slash-commands-${block.id}` : undefined
 
         return (
           <div
@@ -155,6 +167,8 @@ export function ReleaseDraftBlockEditor({
               </Button>
             </div>
             <Textarea
+              aria-describedby={commandListId}
+              aria-label={getBlockAriaLabel(block.type)}
               ref={(node) => {
                 inputRefs.current[block.id] = node
               }}
@@ -193,7 +207,10 @@ export function ReleaseDraftBlockEditor({
               }}
             />
             {commandQuery !== null ? (
-              <div className="rounded-2xl border border-border/70 bg-background p-3 shadow-sm">
+              <div
+                id={commandListId}
+                className="rounded-2xl border border-border/70 bg-background p-3 shadow-sm"
+              >
                 <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
                   Slash commands
                 </p>
@@ -206,7 +223,15 @@ export function ReleaseDraftBlockEditor({
                         className="grid gap-1 rounded-xl border border-border/60 px-3 py-2 text-left transition hover:border-foreground/20 hover:bg-muted/40"
                         onMouseDown={(event) => {
                           event.preventDefault()
+                        }}
+                        onClick={() => {
                           applySlashCommand(block.id, command.type)
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault()
+                            applySlashCommand(block.id, command.type)
+                          }
                         }}
                       >
                         <span className="text-sm font-medium text-foreground">{command.label}</span>
