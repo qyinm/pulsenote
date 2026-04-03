@@ -100,6 +100,11 @@ type DraftFieldValueState = {
   plainText: string
 }
 
+type DraftFieldState = {
+  draftRevisionId: string | null
+  values: Record<string, DraftFieldValueState>
+}
+
 type ReleaseWorkflowLiveWorkspaceProps = {
   currentUserId: string
   initialMembers: WorkspaceMember[]
@@ -254,6 +259,15 @@ function buildDraftFieldValues(
       ]
     }),
   ) satisfies Record<string, DraftFieldValueState>
+}
+
+function buildDraftFieldState(
+  draft: ReleaseWorkflowDetail["currentDraft"],
+) {
+  return {
+    draftRevisionId: draft?.id ?? null,
+    values: buildDraftFieldValues(buildDraftEditorFieldSnapshots(draft), draft?.templateId),
+  } satisfies DraftFieldState
 }
 
 function buildDraftEditorFieldSnapshots(
@@ -707,11 +721,8 @@ export function ReleaseWorkflowLiveWorkspace({
     useState<ReleaseWorkflowReviewOwnershipFilter>("all")
   const [actionError, setActionError] = useState<string | null>(null)
   const [reviewReviewerUserId, setApprovalReviewerUserId] = useState("")
-  const [draftFieldValues, setDraftFieldValues] = useState<Record<string, DraftFieldValueState>>(
-    buildDraftFieldValues(
-      buildDraftEditorFieldSnapshots(initialSelectedWorkflow.currentDraft),
-      initialSelectedWorkflow.currentDraft?.templateId,
-    ),
+  const [draftFieldState, setDraftFieldState] = useState<DraftFieldState>(
+    buildDraftFieldState(initialSelectedWorkflow.currentDraft),
   )
   const [draftSaveError, setDraftSaveError] = useState<string | null>(null)
   const [isSavingDraft, setIsSavingDraft] = useState(false)
@@ -782,6 +793,10 @@ export function ReleaseWorkflowLiveWorkspace({
   )
   const selectedDraftRevisionId = currentDraft?.id ?? null
   const isDraftEditable = selectedWorkflow?.releaseRecord.stage === "draft" && selectedWorkflow.currentDraft !== null
+  const draftFieldValues =
+    draftFieldState.draftRevisionId === selectedDraftRevisionId
+      ? draftFieldState.values
+      : baselineDraftFieldValues
   const hasDraftFieldChanges = !areDraftFieldValuesEqual(draftFieldValues, baselineDraftFieldValues)
   const hasPendingDraftEdits = isSavingDraft || hasDraftFieldChanges
   const selectedQueueItem = queueItems.find((item) => item.id === activeSelectedId) ?? queueItems[0] ?? null
@@ -867,7 +882,7 @@ export function ReleaseWorkflowLiveWorkspace({
   }, [members, selectedWorkflow])
 
   useEffect(() => {
-    setDraftFieldValues(buildDraftFieldValues(buildDraftEditorFieldSnapshots(currentDraft), currentDraft?.templateId))
+    setDraftFieldState(buildDraftFieldState(currentDraft))
     setDraftSaveError(null)
   }, [currentDraft])
 
@@ -1371,9 +1386,14 @@ export function ReleaseWorkflowLiveWorkspace({
                                   content={fieldValue.content}
                                   contentFormat={fieldValue.contentFormat}
                                   onChange={(value) =>
-                                    setDraftFieldValues((currentValues) => ({
-                                      ...currentValues,
-                                      [fieldSnapshot.fieldKey]: value,
+                                    setDraftFieldState((currentState) => ({
+                                      draftRevisionId: selectedDraftRevisionId,
+                                      values: {
+                                        ...(currentState.draftRevisionId === selectedDraftRevisionId
+                                          ? currentState.values
+                                          : baselineDraftFieldValues),
+                                        [fieldSnapshot.fieldKey]: value,
+                                      },
                                     }))
                                   }
                                 />
@@ -1382,12 +1402,17 @@ export function ReleaseWorkflowLiveWorkspace({
                                   className="h-12 border-0 bg-transparent px-0 text-lg font-medium shadow-none focus-visible:ring-0"
                                   value={fieldValue.content}
                                   onChange={(event) =>
-                                    setDraftFieldValues((currentValues) => ({
-                                      ...currentValues,
-                                      [fieldSnapshot.fieldKey]: {
-                                        content: event.target.value,
-                                        contentFormat: fieldSnapshot.contentFormat,
-                                        plainText: event.target.value,
+                                    setDraftFieldState((currentState) => ({
+                                      draftRevisionId: selectedDraftRevisionId,
+                                      values: {
+                                        ...(currentState.draftRevisionId === selectedDraftRevisionId
+                                          ? currentState.values
+                                          : baselineDraftFieldValues),
+                                        [fieldSnapshot.fieldKey]: {
+                                          content: event.target.value,
+                                          contentFormat: fieldSnapshot.contentFormat,
+                                          plainText: event.target.value,
+                                        },
                                       },
                                     }))
                                   }
@@ -1397,15 +1422,20 @@ export function ReleaseWorkflowLiveWorkspace({
                                   className="min-h-[420px] resize-y border-0 bg-transparent px-0 py-0 text-base leading-7 shadow-none focus-visible:ring-0"
                                   value={fieldValue.content}
                                   onChange={(event) =>
-                                    setDraftFieldValues((currentValues) => ({
-                                      ...currentValues,
-                                      [fieldSnapshot.fieldKey]: {
-                                        content: event.target.value,
-                                        contentFormat: fieldSnapshot.contentFormat,
-                                        plainText: deriveReleaseDraftPlainText(
-                                          event.target.value,
-                                          fieldSnapshot.contentFormat,
-                                        ),
+                                    setDraftFieldState((currentState) => ({
+                                      draftRevisionId: selectedDraftRevisionId,
+                                      values: {
+                                        ...(currentState.draftRevisionId === selectedDraftRevisionId
+                                          ? currentState.values
+                                          : baselineDraftFieldValues),
+                                        [fieldSnapshot.fieldKey]: {
+                                          content: event.target.value,
+                                          contentFormat: fieldSnapshot.contentFormat,
+                                          plainText: deriveReleaseDraftPlainText(
+                                            event.target.value,
+                                            fieldSnapshot.contentFormat,
+                                          ),
+                                        },
                                       },
                                     }))
                                   }
