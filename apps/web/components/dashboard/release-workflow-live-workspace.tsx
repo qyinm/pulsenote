@@ -16,6 +16,7 @@ import {
 
 import type {
   ReleaseWorkflowDetail,
+  ReleaseWorkflowDraftFieldSnapshot,
   ReleaseWorkflowHistoryEntry,
   ReleaseWorkflowListItem,
   WorkspacePolicySettings,
@@ -70,8 +71,15 @@ import { Textarea } from "@/components/ui/textarea"
 import { formatUtcTimestamp } from "@/lib/format"
 import {
   buildReleaseDraftEditorFields,
+  getReleaseDraftPrimaryBodyFieldKey,
   getReleaseDraftTemplateOption,
 } from "@/lib/draft-templates"
+import { ReleaseDraftBlockEditor } from "@/components/dashboard/release-draft-block-editor"
+import { ReleaseDraftBlockRenderer } from "@/components/dashboard/release-draft-block-renderer"
+import {
+  buildReleaseDraftStructuredFieldValue,
+  deriveReleaseDraftPlainText,
+} from "@/lib/release-draft-blocks"
 import { cn } from "@/lib/utils"
 
 const reviewOwnershipFilters: Array<{
@@ -85,6 +93,12 @@ const reviewOwnershipFilters: Array<{
 ]
 
 type ReleaseWorkflowWorkspaceView = "board" | "list"
+
+type DraftFieldValueState = {
+  content: string
+  contentFormat: ReleaseWorkflowDraftFieldSnapshot["contentFormat"]
+  plainText: string
+}
 
 type ReleaseWorkflowLiveWorkspaceProps = {
   currentUserId: string
@@ -209,10 +223,37 @@ function formatHistoryTimestamp(value: string) {
   return formatUtcTimestamp(value)
 }
 
-function buildDraftFieldValues(draftFieldSnapshots: Array<{ content: string; fieldKey: string }>) {
+function buildDraftFieldValues(
+  draftFieldSnapshots: ReleaseWorkflowDraftFieldSnapshot[],
+  templateId: string | null | undefined,
+) {
+  const primaryFieldKey = getReleaseDraftPrimaryBodyFieldKey(templateId)
+
   return Object.fromEntries(
-    draftFieldSnapshots.map((fieldSnapshot) => [fieldSnapshot.fieldKey, fieldSnapshot.content]),
-  )
+    draftFieldSnapshots.map((fieldSnapshot) => {
+      if (fieldSnapshot.fieldKey === primaryFieldKey) {
+        return [
+          fieldSnapshot.fieldKey,
+          buildReleaseDraftStructuredFieldValue(
+            fieldSnapshot.content,
+            fieldSnapshot.contentFormat,
+          ),
+        ]
+      }
+
+      return [
+        fieldSnapshot.fieldKey,
+        {
+          content: fieldSnapshot.content,
+          contentFormat: fieldSnapshot.contentFormat,
+          plainText:
+            fieldSnapshot.plainText.length > 0
+              ? fieldSnapshot.plainText
+              : deriveReleaseDraftPlainText(fieldSnapshot.content, fieldSnapshot.contentFormat),
+        } satisfies DraftFieldValueState,
+      ]
+    }),
+  ) satisfies Record<string, DraftFieldValueState>
 }
 
 function buildDraftEditorFieldSnapshots(
@@ -223,6 +264,32 @@ function buildDraftEditorFieldSnapshots(
   }
 
   return buildReleaseDraftEditorFields(draft)
+}
+
+function areDraftFieldValuesEqual(
+  currentValues: Record<string, DraftFieldValueState>,
+  baselineValues: Record<string, DraftFieldValueState>,
+) {
+  const keys = new Set([...Object.keys(currentValues), ...Object.keys(baselineValues)])
+
+  for (const key of keys) {
+    const currentValue = currentValues[key]
+    const baselineValue = baselineValues[key]
+
+    if (!currentValue || !baselineValue) {
+      return false
+    }
+
+    if (
+      currentValue.content !== baselineValue.content ||
+      currentValue.contentFormat !== baselineValue.contentFormat ||
+      currentValue.plainText !== baselineValue.plainText
+    ) {
+      return false
+    }
+  }
+
+  return true
 }
 
 function buildPublishPackArtifactEvidenceItems(detail: ReleaseWorkflowDetail) {
@@ -640,8 +707,11 @@ export function ReleaseWorkflowLiveWorkspace({
     useState<ReleaseWorkflowReviewOwnershipFilter>("all")
   const [actionError, setActionError] = useState<string | null>(null)
   const [reviewReviewerUserId, setApprovalReviewerUserId] = useState("")
-  const [draftFieldValues, setDraftFieldValues] = useState<Record<string, string>>(
-    buildDraftFieldValues(buildDraftEditorFieldSnapshots(initialSelectedWorkflow.currentDraft)),
+  const [draftFieldValues, setDraftFieldValues] = useState<Record<string, DraftFieldValueState>>(
+    buildDraftFieldValues(
+      buildDraftEditorFieldSnapshots(initialSelectedWorkflow.currentDraft),
+      initialSelectedWorkflow.currentDraft?.templateId,
+    ),
   )
   const [draftSaveError, setDraftSaveError] = useState<string | null>(null)
   const [isSavingDraft, setIsSavingDraft] = useState(false)
@@ -706,12 +776,13 @@ export function ReleaseWorkflowLiveWorkspace({
   const reviewRequiresReviewer = initialPolicy.requireReviewerAssignment
   const currentDraft = selectedWorkflow?.currentDraft ?? null
   const draftEditorFieldSnapshots = buildDraftEditorFieldSnapshots(currentDraft)
+  const baselineDraftFieldValues = buildDraftFieldValues(
+    draftEditorFieldSnapshots,
+    currentDraft?.templateId,
+  )
   const selectedDraftRevisionId = currentDraft?.id ?? null
   const isDraftEditable = selectedWorkflow?.releaseRecord.stage === "draft" && selectedWorkflow.currentDraft !== null
-  const hasDraftFieldChanges =
-    draftEditorFieldSnapshots.some(
-      (fieldSnapshot) => (draftFieldValues[fieldSnapshot.fieldKey] ?? "") !== fieldSnapshot.content,
-    )
+  const hasDraftFieldChanges = !areDraftFieldValuesEqual(draftFieldValues, baselineDraftFieldValues)
   const hasPendingDraftEdits = isSavingDraft || hasDraftFieldChanges
   const selectedQueueItem = queueItems.find((item) => item.id === activeSelectedId) ?? queueItems[0] ?? null
   const selectedQueueSourceItem = selectedQueueItem
@@ -796,7 +867,7 @@ export function ReleaseWorkflowLiveWorkspace({
   }, [members, selectedWorkflow])
 
   useEffect(() => {
-    setDraftFieldValues(buildDraftFieldValues(buildDraftEditorFieldSnapshots(currentDraft)))
+    setDraftFieldValues(buildDraftFieldValues(buildDraftEditorFieldSnapshots(currentDraft), currentDraft?.templateId))
     setDraftSaveError(null)
   }, [currentDraft])
 
@@ -891,7 +962,10 @@ export function ReleaseWorkflowLiveWorkspace({
           evidenceRefs: selectedWorkflow.currentDraft.evidenceRefs,
           fieldSnapshots: draftEditorFieldSnapshots.map((fieldSnapshot) => ({
             ...fieldSnapshot,
-            content: draftFieldValues[fieldSnapshot.fieldKey] ?? "",
+            content: draftFieldValues[fieldSnapshot.fieldKey]?.content ?? fieldSnapshot.content,
+            contentFormat:
+              draftFieldValues[fieldSnapshot.fieldKey]?.contentFormat ?? fieldSnapshot.contentFormat,
+            plainText: draftFieldValues[fieldSnapshot.fieldKey]?.plainText ?? fieldSnapshot.plainText,
           })),
         },
       )
@@ -909,8 +983,9 @@ export function ReleaseWorkflowLiveWorkspace({
 
   const metricCards = buildModeMetricCards(mode, workflow, selectedWorkflow, currentUserId)
   const selectedDraftTemplate = getReleaseDraftTemplateOption(
-    selectedWorkflow?.releaseRecord.preferredDraftTemplateId,
+    currentDraft?.templateId ?? selectedWorkflow?.releaseRecord.preferredDraftTemplateId,
   )
+  const primaryDraftFieldKey = getReleaseDraftPrimaryBodyFieldKey(currentDraft?.templateId)
   const handleSelectQueueItem = useCallback(
     (rowKey: string) => {
       if (mode === "overview" && !isOverviewDetailPage) {
@@ -1261,55 +1336,90 @@ export function ReleaseWorkflowLiveWorkspace({
                     </div>
                     {actionError ? <p className="text-sm text-destructive">{actionError}</p> : null}
                     <div className="grid gap-4">
-                      {draftEditorFieldSnapshots.map((fieldSnapshot) => (
-                        <div
-                          key={fieldSnapshot.fieldKey}
-                          className="grid gap-3 rounded-3xl border border-border/70 bg-background p-6 shadow-xs"
-                        >
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div className="grid gap-1">
-                              <p className="text-sm font-medium text-foreground">Draft content</p>
-                              <p className="text-sm text-muted-foreground">
-                                {selectedDraftTemplate.description}
-                              </p>
+                      {draftEditorFieldSnapshots.map((fieldSnapshot) => {
+                        const fieldValue = draftFieldValues[fieldSnapshot.fieldKey] ?? {
+                          content: fieldSnapshot.content,
+                          contentFormat: fieldSnapshot.contentFormat,
+                          plainText: fieldSnapshot.plainText,
+                        }
+                        const isPrimaryDraftField = fieldSnapshot.fieldKey === primaryDraftFieldKey
+
+                        return (
+                          <div
+                            key={fieldSnapshot.fieldKey}
+                            className="grid gap-3 rounded-3xl border border-border/70 bg-background p-6 shadow-xs"
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="grid gap-1">
+                                <p className="text-sm font-medium text-foreground">Draft content</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {selectedDraftTemplate.description}
+                                </p>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                {isPrimaryDraftField ? (
+                                  <Badge variant="outline">Primary body field</Badge>
+                                ) : null}
+                                <Badge variant="secondary">
+                                  {fieldValue.contentFormat.replaceAll("_", " ")}
+                                </Badge>
+                              </div>
                             </div>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Badge variant="secondary">
-                                {fieldSnapshot.contentFormat.replaceAll("_", " ")}
-                              </Badge>
-                            </div>
-                          </div>
-                          {isDraftEditable ? (
-                            fieldSnapshot.contentFormat === "plain_text" ? (
-                              <Input
-                                className="h-12 border-0 bg-transparent px-0 text-lg font-medium shadow-none focus-visible:ring-0"
-                                value={draftFieldValues[fieldSnapshot.fieldKey] ?? ""}
-                                onChange={(event) =>
-                                  setDraftFieldValues((currentValues) => ({
-                                    ...currentValues,
-                                    [fieldSnapshot.fieldKey]: event.target.value,
-                                  }))
-                                }
-                              />
+                            {isDraftEditable ? (
+                              isPrimaryDraftField ? (
+                                <ReleaseDraftBlockEditor
+                                  content={fieldValue.content}
+                                  contentFormat={fieldValue.contentFormat}
+                                  onChange={(value) =>
+                                    setDraftFieldValues((currentValues) => ({
+                                      ...currentValues,
+                                      [fieldSnapshot.fieldKey]: value,
+                                    }))
+                                  }
+                                />
+                              ) : fieldSnapshot.contentFormat === "plain_text" ? (
+                                <Input
+                                  className="h-12 border-0 bg-transparent px-0 text-lg font-medium shadow-none focus-visible:ring-0"
+                                  value={fieldValue.content}
+                                  onChange={(event) =>
+                                    setDraftFieldValues((currentValues) => ({
+                                      ...currentValues,
+                                      [fieldSnapshot.fieldKey]: {
+                                        content: event.target.value,
+                                        contentFormat: fieldSnapshot.contentFormat,
+                                        plainText: event.target.value,
+                                      },
+                                    }))
+                                  }
+                                />
+                              ) : (
+                                <Textarea
+                                  className="min-h-[420px] resize-y border-0 bg-transparent px-0 py-0 text-base leading-7 shadow-none focus-visible:ring-0"
+                                  value={fieldValue.content}
+                                  onChange={(event) =>
+                                    setDraftFieldValues((currentValues) => ({
+                                      ...currentValues,
+                                      [fieldSnapshot.fieldKey]: {
+                                        content: event.target.value,
+                                        contentFormat: fieldSnapshot.contentFormat,
+                                        plainText: deriveReleaseDraftPlainText(
+                                          event.target.value,
+                                          fieldSnapshot.contentFormat,
+                                        ),
+                                      },
+                                    }))
+                                  }
+                                />
+                              )
                             ) : (
-                              <Textarea
-                                className="min-h-[420px] resize-y border-0 bg-transparent px-0 py-0 text-base leading-7 shadow-none focus-visible:ring-0"
-                                value={draftFieldValues[fieldSnapshot.fieldKey] ?? ""}
-                                onChange={(event) =>
-                                  setDraftFieldValues((currentValues) => ({
-                                    ...currentValues,
-                                    [fieldSnapshot.fieldKey]: event.target.value,
-                                  }))
-                                }
+                              <ReleaseDraftBlockRenderer
+                                content={fieldValue.content}
+                                contentFormat={fieldValue.contentFormat}
                               />
-                            )
-                          ) : (
-                            <p className="min-w-0 whitespace-pre-wrap text-base leading-7 text-foreground [overflow-wrap:anywhere]">
-                              {fieldSnapshot.content}
-                            </p>
-                          )}
-                        </div>
-                      ))}
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
                     {canRequestApproval ? (
                       <div className="grid gap-3 rounded-2xl border border-border/70 bg-muted/15 p-4">
