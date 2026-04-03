@@ -137,7 +137,7 @@ export function ReleaseDraftBlockEditor({
         class:
           "min-h-[240px] rounded-2xl border border-border/70 bg-background px-4 py-3 text-base leading-7 text-foreground outline-none transition-colors focus-within:border-ring",
       },
-      handleKeyDown: (_view, event) => {
+      handleKeyDown: (view, event) => {
         const currentSlashState = slashMenuStateRef.current
         const currentCommands = matchingCommandsRef.current
 
@@ -161,8 +161,14 @@ export function ReleaseDraftBlockEditor({
 
         if (event.key === "Enter") {
           event.preventDefault()
+          const editorFromView = (view as typeof view & { editor?: TiptapEditor }).editor
+
+          if (!editorFromView) {
+            return false
+          }
+
           applySlashCommand(
-            editor!,
+            editorFromView,
             currentSlashState,
             currentCommands[selectedCommandIndexRef.current]?.type ?? "paragraph",
           )
