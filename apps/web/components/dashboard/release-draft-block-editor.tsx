@@ -135,7 +135,7 @@ export function ReleaseDraftBlockEditor({
       attributes: {
         "aria-label": fieldLabel ? `${fieldLabel} editor` : "Release draft editor",
         class:
-          "min-h-[240px] rounded-2xl border border-border/70 bg-background px-4 py-3 text-base leading-7 text-foreground outline-none transition-colors focus-within:border-ring",
+          "min-h-[240px] rounded-2xl border border-border/70 bg-background px-4 py-3 text-base leading-7 text-foreground outline-none transition-colors focus-within:border-ring [&_h1]:mt-6 [&_h1]:text-2xl [&_h1]:font-semibold [&_h2]:mt-6 [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:mt-5 [&_h3]:text-lg [&_h3]:font-semibold [&_p]:min-h-[1.75rem] [&_p]:leading-7 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-6 [&_li]:my-1 [&_.is-editor-empty:first-child::before]:pointer-events-none [&_.is-editor-empty:first-child::before]:float-left [&_.is-editor-empty:first-child::before]:h-0 [&_.is-editor-empty:first-child::before]:text-muted-foreground [&_.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]",
       },
       handleKeyDown: (view, event) => {
         const currentSlashState = slashMenuStateRef.current
